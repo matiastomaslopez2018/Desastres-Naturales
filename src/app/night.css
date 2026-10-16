@@ -137,6 +137,10 @@
   .ev-big-num, .theme-night .ev-big-num { font-size: 56px; }
   .map-zoom { right: 14px; bottom: 96px; }
   .globe-area { top: 84px; bottom: 84px; }
+  /* Con la ficha abierta (hoja inferior), el globo pasa a la franja de arriba para que el
+     evento seleccionado quede a la vista; el vuelo lo centra en esa franja. */
+  .map-stage:has(.panel-right.has-sel) .globe-area { bottom: 62%; }
+  .panel-right.has-sel { max-height: 60%; }
   .map-zoom button { width: 34px; height: 34px; }
   .map-bottom { left: 12px; right: 12px; bottom: 12px; gap: 10px; }
   .play { width: 34px; height: 34px; margin-bottom: 14px; }
