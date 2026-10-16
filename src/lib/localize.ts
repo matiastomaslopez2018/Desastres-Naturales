@@ -16,7 +16,7 @@ countries.registerLocale(en);
 // Errores de tipeo y nombres que la librería ISO no reconoce tal como los escriben las fuentes.
 const ALIAS: Record<string, string> = {
   Columbia: 'CO', Guatamala: 'GT', USA: 'US', 'United States': 'US', 'The Bahamas': 'BS', Bahamas: 'BS',
-  'Democratic Republic of Congo': 'CD', 'Democratic Republic of the Congo': 'CD', 'Republic of Congo': 'CG', Congo: 'CG',
+  'Democratic Republic of Congo': 'CD', 'The Democratic Republic of Congo': 'CD', 'The Democratic Republic of the Congo': 'CD', 'Democratic Republic of the Congo': 'CD', 'Republic of Congo': 'CG', Congo: 'CG',
   'Ivory Coast': 'CI', "Cote d'Ivoire": 'CI', 'Czech Republic': 'CZ', Czechia: 'CZ', Russia: 'RU', Tanzania: 'TZ',
   'Viet Nam': 'VN', Vietnam: 'VN', Laos: 'LA', Syria: 'SY', Iran: 'IR', 'South Korea': 'KR', 'North Korea': 'KP',
   Bolivia: 'BO', Venezuela: 'VE', Moldova: 'MD', Kosovo: 'XK', 'East Timor': 'TL', 'Timor-Leste': 'TL', 'Cape Verde': 'CV',
@@ -73,9 +73,11 @@ const IN_WORD: Record<string, Record<Lang, string>> = {
   floods: { es: 'Inundaciones', en: 'Floods' },
   'forest fires': { es: 'Incendios forestales', en: 'Forest fires' },
   'forest fire': { es: 'Incendio forestal', en: 'Forest fire' },
+  wildfires: { es: 'Incendios forestales', en: 'Wildfires' },
+  wildfire: { es: 'Incendio forestal', en: 'Wildfire' },
   earthquake: { es: 'Sismo', en: 'Earthquake' },
 };
-const IN_RE = /^(drought|floods?|forest fires?|earthquake) in (.+)$/i;
+const IN_RE = /^(drought|floods?|forest fires?|wildfires?|earthquake) in (.+)$/i;
 
 /** Lista de países del título ("Drought in A, B, C"), en el idioma de la página. */
 function parsePlaces(e: DisasterEvent, lang: Lang): { word: string; places: string[] } | null {
