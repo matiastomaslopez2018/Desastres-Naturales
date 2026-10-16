@@ -46,6 +46,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   return [
     ...entries((l) => `/${l}`, { lastModified: updated, changeFrequency: 'hourly', priority: 1 }),
     ...entries((l) => `/${l}/ranking`, { lastModified: updated, changeFrequency: 'daily', priority: 0.8 }),
+    ...entries((l) => `/${l}/paises`, { lastModified: updated, changeFrequency: 'daily', priority: 0.7 }),
+    ...entries((l) => `/${l}/metodologia`, { changeFrequency: 'monthly', priority: 0.4 }),
     ...[...stats.keys()].sort().flatMap((iso3) =>
       entries((l) => `/${l}/pais/${iso3.toLowerCase()}`, {
         lastModified: new Date(lastByCountry.get(iso3) ?? +updated), changeFrequency: 'daily', priority: 0.6,

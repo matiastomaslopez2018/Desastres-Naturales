@@ -2,7 +2,6 @@
 
 import NextLink from 'next/link';
 import { Glyph } from './Glyph';
-import { Corners } from './Corners';
 import type { Pickable } from './Globe';
 import { countryName, countryPath } from '@/lib/countries';
 import { T } from '@/lib/i18n';
@@ -37,7 +36,8 @@ export function EventCard({ lang, e, detail, detailLoading, onClose, actions, ti
   let big = '', bigUnit = '', alertLabel = '', alertText = '';
   let kicker: string;
   let shape = SHAPE.volcano;
-  let kind: '' | 'solid' | 'dark' = '';
+  let glyphType = 'gvp';
+  let lvl = 0;
 
   if (e.type === 'gvp') {
     kicker = `${t.gvpKicker} · GVP`;
@@ -47,10 +47,11 @@ export function EventCard({ lang, e, detail, detailLoading, onClose, actions, ti
     add(f.coords, coords());
     links.push({ label: 'Smithsonian · Global Volcanism Program', url: `https://volcano.si.edu/volcano.cfm?vn=${e.num}` });
   } else {
-    kicker = `${t.T[e.type]} · ${e.src}`;
+    const status = e.type === 'eq' ? (e.status === 'reviewed' ? t.revShort : e.status === 'automatic' ? t.autoShort : '') : '';
+    kicker = [t.T1[e.type], e.src, status].filter(Boolean).join(' · ');
     shape = SHAPE[e.type];
-    const lvl = alertLevel(e);
-    kind = lvl >= 3 ? 'dark' : lvl === 2 ? 'solid' : '';
+    glyphType = e.type;
+    lvl = alertLevel(e);
 
     if (e.type === 'eq') {
       big = e.mag != null ? nf(e.mag, 1) : '—';
@@ -96,28 +97,25 @@ export function EventCard({ lang, e, detail, detailLoading, onClose, actions, ti
   }
 
   return (
-    <div className="card blueprint event-card">
-      <Corners />
-      <div className="row-between">
-        <span className="card-kicker kicker">
-          <Glyph shape={shape} kind={kind} /> {kicker}
-        </span>
-        {onClose && <button className="btn btn-ghost" onClick={onClose} style={{ fontSize: 12 }}>{t.close}</button>}
+    <article className="ev-card">
+      <div className="ev-kicker">
+        <Glyph shape={shape} type={glyphType} alert={lvl} /> <span>{kicker}</span>
+        {onClose && <button className="ev-close" onClick={onClose}>{t.close} ✕</button>}
       </div>
       {big && (
-        <div className="big-num">
-          <span>{big}</span>
-          <span className="muted-13">{bigUnit}</span>
+        <div className="ev-big">
+          <span className="ev-big-num">{big}</span>
+          <span className="ev-big-unit">{bigUnit}</span>
         </div>
       )}
-      <Title className="card-title event-title">{e.title}</Title>
+      <Title className="ev-title">{e.title}</Title>
       {alertText && (
-        <div className="alert-box">
-          <span className="alert-label">{alertLabel}</span>
-          <span className="alert-text">{alertText}</span>
+        <div className={`ev-alert${lvl >= 3 ? ' red' : ''}`}>
+          <span className="ev-alert-label">{alertLabel}</span>
+          <span className="ev-alert-text">{alertText}</span>
         </div>
       )}
-      <dl className="facts">
+      <dl className="ev-facts">
         {rows.map((r) => (
           <div key={r.label} style={{ display: 'contents' }}>
             <dt>{r.label}</dt>
@@ -125,16 +123,16 @@ export function EventCard({ lang, e, detail, detailLoading, onClose, actions, ti
           </div>
         ))}
       </dl>
-      {detailLoading && <span className="muted-12">{t.loadingDetail}</span>}
-      <div className="stack-6">
-        <span className="block-title">{t.sources}</span>
+      {detailLoading && <span className="ev-loading">{t.loadingDetail}</span>}
+      <div className="ev-sources">
+        <span className="ev-sources-title">{t.sources}</span>
         {links.filter((l) => l.url).map((l) => (
-          <a key={l.url + l.label} href={l.url} target="_blank" rel="noopener noreferrer" className="src-link">
+          <a key={l.url + l.label} href={l.url} target="_blank" rel="noopener noreferrer" className="ev-link">
             {l.label} <span aria-hidden="true">↗</span>
           </a>
         ))}
       </div>
       {actions}
-    </div>
+    </article>
   );
 }

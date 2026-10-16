@@ -6,7 +6,7 @@ import { easeCubicInOut } from 'd3-ease';
 import { feature, mesh } from 'topojson-client';
 import type { Topology, GeometryCollection } from 'topojson-specification';
 import world from 'world-atlas/countries-110m.json';
-import { COL, RING, SHAPE, drawShape, fillFor, sizeFor } from '@/lib/symbols';
+import { NIGHT, RING, SHAPE, alertLevel, drawShape, isHighlighted, sizeFor } from '@/lib/symbols';
 import type { DisasterEvent, GvpVolcano, SourceStatus } from '@/lib/types';
 
 export type Pickable = DisasterEvent | GvpVolcano;
@@ -25,6 +25,16 @@ type Props = {
 };
 
 const INITIAL_ROT: [number, number, number] = [70, 8, 0];
+const HALO_DPR = 2;
+const RAD = Math.PI / 180;
+
+/** [λ en radianes, sen φ, cos φ] por evento, calculado una vez. */
+const trigCache = new WeakMap<DisasterEvent, [number, number, number]>();
+const trig = (e: DisasterEvent) => {
+  let t = trigCache.get(e);
+  if (!t) { const p = e.lat * RAD; t = [e.lon * RAD, Math.sin(p), Math.cos(p)]; trigCache.set(e, t); }
+  return t;
+};
 const K_MIN = 1, K_MAX = 16;
 const clampK = (k: number) => Math.max(K_MIN, Math.min(K_MAX, k));
 
@@ -46,6 +56,11 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
   const raf = useRef(0);
   const anim = useRef(0);
   const projRef = useRef<GeoProjection>(geoOrthographic().clipAngle(90).precision(0.4));
+  // Mientras se arrastra, hace zoom o vuela: cuadros livianos (sin halos ni desenfoque de paneles).
+  const moving = useRef(false);
+  const idleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const halos = useRef(new Map<string, HTMLCanvasElement>());
+  const tracksFor = useRef<{ src: DisasterEvent[] | null; geom: GeoJSON.MultiLineString | null }>({ src: null, geom: null });
 
   const draw = () => {
     const c = canvasRef.current;
@@ -60,36 +75,35 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
     ctx.clearRect(0, 0, W, H);
     const R = (Math.min(W, H) / 2) * 0.86 * k;
     const cx = W / 2, cy = H / 2;
-    proj.scale(R).translate([cx, cy]).rotate(rot);
+    // En movimiento, contornos con menos remuestreo (más rápido, imperceptible mientras gira).
+    proj.scale(R).translate([cx, cy]).rotate(rot).precision(moving.current ? 2 : 0.4);
+    const TAU = Math.PI * 2;
 
-    ctx.beginPath(); path({ type: 'Sphere' }); ctx.fillStyle = COL.bg; ctx.fill();
-    ctx.beginPath(); path(GRAT); ctx.strokeStyle = COL.n200; ctx.lineWidth = 0.6; ctx.stroke();
-    ctx.beginPath(); path(LAND); ctx.fillStyle = COL.n200; ctx.fill();
-    if (layers.borders) { ctx.beginPath(); path(BORDERS); ctx.strokeStyle = COL.n400; ctx.lineWidth = 0.5; ctx.stroke(); }
+    // Atmósfera: halo azul alrededor de la esfera (solo si la esfera entra en pantalla).
+    if (R < Math.max(W, H)) {
+      const g = ctx.createRadialGradient(cx, cy, R * 0.92, cx, cy, R * 1.22);
+      g.addColorStop(0, NIGHT.glow); g.addColorStop(1, 'rgba(80,140,255,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R * 1.22, 0, TAU); ctx.fill();
+    }
+    ctx.beginPath(); path({ type: 'Sphere' }); ctx.fillStyle = NIGHT.sphere; ctx.fill();
+    ctx.beginPath(); path(GRAT); ctx.strokeStyle = NIGHT.grat; ctx.lineWidth = 0.6; ctx.stroke();
+    ctx.beginPath(); path(LAND); ctx.fillStyle = NIGHT.land; ctx.fill();
+    if (layers.borders) { ctx.beginPath(); path(BORDERS); ctx.strokeStyle = NIGHT.borders; ctx.lineWidth = 0.5; ctx.stroke(); }
     if (layers.ring) {
-      ctx.beginPath(); path(RING); ctx.strokeStyle = COL.tint; ctx.lineWidth = Math.max(8, 0.02 * R);
+      ctx.beginPath(); path(RING); ctx.strokeStyle = NIGHT.ring; ctx.lineWidth = Math.max(8, 0.02 * R);
       ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
     }
     if (layers.plates && plates.current) {
-      ctx.beginPath(); path(plates.current); ctx.setLineDash([4, 3]); ctx.strokeStyle = COL.a700; ctx.lineWidth = 0.8; ctx.stroke(); ctx.setLineDash([]);
+      ctx.beginPath(); path(plates.current); ctx.strokeStyle = NIGHT.plates; ctx.lineWidth = 0.8; ctx.stroke();
     }
-    ctx.beginPath(); path({ type: 'Sphere' }); ctx.strokeStyle = COL.text; ctx.globalAlpha = 0.55; ctx.lineWidth = 1; ctx.stroke(); ctx.globalAlpha = 1;
-
-    // Marcas "+" de registro en las esquinas del cuadrado del globo.
-    if (R * 2 < Math.min(W, H) + 1) {
-      ctx.strokeStyle = COL.text; ctx.globalAlpha = 0.55; ctx.lineWidth = 1;
-      for (const [x, y] of [[cx - R, cy - R], [cx + R, cy - R], [cx - R, cy + R], [cx + R, cy + R]]) {
-        ctx.beginPath(); ctx.moveTo(x - 6, y); ctx.lineTo(x + 6, y); ctx.moveTo(x, y - 6); ctx.lineTo(x, y + 6); ctx.stroke();
-      }
-      ctx.globalAlpha = 1;
-    }
+    ctx.beginPath(); path({ type: 'Sphere' }); ctx.strokeStyle = NIGHT.rim; ctx.lineWidth = 1; ctx.stroke();
 
     const center: [number, number] = [-rot[0], -rot[1]];
     const front = (lon: number, lat: number) => geoDistance([lon, lat], center) < 1.55;
     const pts: typeof screenPts.current = [];
 
     if (layers.gvp) {
-      ctx.strokeStyle = COL.n500; ctx.lineWidth = 0.8;
+      ctx.strokeStyle = NIGHT.gvp; ctx.lineWidth = 0.8;
       const r = 2.6 * Math.pow(k, 0.2);
       for (const v of gvp) {
         if (!front(v.lon, v.lat)) continue;
@@ -99,36 +113,100 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
       }
     }
 
-    ctx.strokeStyle = COL.a700; ctx.lineWidth = 1; ctx.globalAlpha = 0.6;
-    for (const e of events) if (e.track) { ctx.beginPath(); path({ type: 'LineString', coordinates: e.track }); ctx.stroke(); }
+    // Trayectorias de ciclones.
+    ctx.strokeStyle = NIGHT.type.storm; ctx.lineWidth = 1; ctx.globalAlpha = 0.45;
+    if (tracksFor.current.src !== events) {
+      const lines = events.filter((e) => e.track && e.track.length > 1).map((e) => e.track!);
+      tracksFor.current = { src: events, geom: lines.length ? { type: 'MultiLineString', coordinates: lines } : null };
+    }
+    if (tracksFor.current.geom) { ctx.beginPath(); path(tracksFor.current.geom); ctx.stroke(); }
     ctx.globalAlpha = 1;
 
+    // Eventos: color por tipo, tamaño por magnitud, brillo aditivo con halos precalculados
+    // (sprites). En movimiento o con miles de puntos en pantalla se dibujan sin halo.
+    // Proyección ortográfica directa con seno/coseno precalculados por evento: con un año
+    // de datos (~13.000 eventos) es varias veces más rápida que proj() + geoDistance().
+    const lam0 = -rot[0] * RAD, phi0 = -rot[1] * RAD;
+    const sp0 = Math.sin(phi0), cp0 = Math.cos(phi0);
+    const shown: { e: DisasterEvent; x: number; y: number; r: number }[] = [];
     for (const e of events) {
-      if (!front(e.lon, e.lat)) continue;
-      const [x, y] = proj([e.lon, e.lat])!;
-      const r = sizeFor(e, k);
-      const st = fillFor(e);
+      const t = trig(e);
+      const dl = t[0] - lam0, cdl = Math.cos(dl);
+      if (sp0 * t[1] + cp0 * t[2] * cdl < 0.02) continue; // cara oculta
+      const x = cx + R * t[2] * Math.sin(dl);
+      const y = cy - R * (cp0 * t[1] - sp0 * t[2] * cdl);
+      shown.push({ e, x, y, r: sizeFor(e, k) });
+    }
+    const glow = !moving.current && shown.length <= 4000;
+    ctx.globalCompositeOperation = 'lighter';
+    if (glow) {
+      for (const { e, x, y, r } of shown) {
+        const h = halo(NIGHT.type[e.type], r);
+        ctx.drawImage(h, x - h.width / 2 / HALO_DPR, y - h.height / 2 / HALO_DPR, h.width / HALO_DPR, h.height / HALO_DPR);
+      }
+    }
+    for (const { e, x, y, r } of shown) {
+      const col = NIGHT.type[e.type];
       const sh = SHAPE[e.type];
       drawShape(ctx, sh, x, y, r);
-      if (sh === 'cross') { ctx.strokeStyle = st.stroke; ctx.lineWidth = 1.6; ctx.stroke(); }
-      else { ctx.fillStyle = st.fill; ctx.fill(); ctx.strokeStyle = st.stroke; ctx.lineWidth = 1; ctx.stroke(); }
-      if (st.ring) { ctx.beginPath(); ctx.arc(x, y, r + 4, 0, Math.PI * 2); ctx.strokeStyle = COL.a900; ctx.lineWidth = 1; ctx.stroke(); }
+      if (sh === 'cross') { ctx.strokeStyle = col; ctx.lineWidth = 1.6; ctx.stroke(); }
+      else { ctx.fillStyle = col; ctx.globalAlpha = 0.72; ctx.fill(); ctx.globalAlpha = 1; }
+    }
+    ctx.globalCompositeOperation = 'source-over';
+
+    // Destacados (alerta oficial naranja/roja o sismo M6+, el mismo criterio que el rojo del
+    // periodístico) llevan anillo; el indicador de tsunami, anillo punteado.
+    for (const { e, x, y, r } of shown) {
+      if (isHighlighted(e)) {
+        const red = alertLevel(e) >= 3;
+        ctx.beginPath(); ctx.arc(x, y, r + 4, 0, TAU);
+        ctx.strokeStyle = red ? NIGHT.alertRed : NIGHT.alertOrange; ctx.lineWidth = red ? 1.6 : 1.1; ctx.stroke();
+      }
       if (e.tsunami && showTsunami) {
-        ctx.beginPath(); ctx.arc(x, y, r + 3, 0, Math.PI * 2); ctx.setLineDash([2, 2]); ctx.strokeStyle = COL.a900; ctx.stroke(); ctx.setLineDash([]);
+        ctx.beginPath(); ctx.arc(x, y, r + 3, 0, TAU); ctx.setLineDash([2, 2]);
+        ctx.strokeStyle = NIGHT.type.tsunami; ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
       }
       pts.push({ e, x, y, r });
     }
     screenPts.current = pts;
 
+    // Selección: dos anillos concéntricos (2a).
     if (selected && front(selected.lon, selected.lat)) {
       const [x, y] = proj([selected.lon, selected.lat])!;
-      const r = (selected.type === 'gvp' ? 4 : sizeFor(selected, k)) + 9;
-      ctx.strokeStyle = COL.text; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.rect(x - r, y - r, r * 2, r * 2); ctx.globalAlpha = 0.35; ctx.stroke(); ctx.globalAlpha = 1;
-      for (const [a, b] of [[x - r, y - r], [x + r, y - r], [x - r, y + r], [x + r, y + r]]) {
-        ctx.beginPath(); ctx.moveTo(a - 5, b); ctx.lineTo(a + 5, b); ctx.moveTo(a, b - 5); ctx.lineTo(a, b + 5); ctx.stroke();
-      }
+      const r = (selected.type === 'gvp' ? 4 : sizeFor(selected, k)) + 8;
+      ctx.strokeStyle = NIGHT.select; ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.95; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke();
+      ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.arc(x, y, r + 10, 0, TAU); ctx.stroke();
+      ctx.globalAlpha = 1;
     }
+  };
+
+  /** Halo radial de un color y radio (redondeado a 0,5 px), dibujado una sola vez. */
+  const halo = (color: string, r: number) => {
+    const rr = Math.min(40, Math.round(r * 2) / 2);
+    const key = color + rr;
+    let h = halos.current.get(key);
+    if (!h) {
+      const R = rr * 2.4 + 4;
+      h = document.createElement('canvas');
+      h.width = h.height = Math.ceil(R * 2 * HALO_DPR);
+      const g = h.getContext('2d')!;
+      const c = h.width / 2;
+      const grad = g.createRadialGradient(c, c, rr * 0.6 * HALO_DPR, c, c, R * HALO_DPR);
+      grad.addColorStop(0, color + '66'); grad.addColorStop(1, color + '00');
+      g.fillStyle = grad; g.fillRect(0, 0, h.width, h.height);
+      halos.current.set(key, h);
+    }
+    return h;
+  };
+
+  /** Marca la cámara en movimiento; al quedar quieta 160 ms, redibuja con calidad completa. */
+  const markMoving = () => {
+    if (!moving.current) { moving.current = true; wrapRef.current?.setAttribute('data-moving', ''); }
+    clearTimeout(idleTimer.current);
+    idleTimer.current = setTimeout(() => {
+      moving.current = false; wrapRef.current?.removeAttribute('data-moving'); req();
+    }, 160);
   };
 
   const req = () => {
@@ -150,7 +228,7 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
       const t = Math.min(1, (now - t0) / dur), e = easeCubicInOut(t);
       cam.current.rot = [r0[0] + (tx - r0[0]) * e, r0[1] + (ty - r0[1]) * e, 0];
       cam.current.k = k0 + (target - k0) * e;
-      req();
+      markMoving(); req();
       if (t < 1) anim.current = requestAnimationFrame(step);
     };
     anim.current = requestAnimationFrame(step);
@@ -164,6 +242,21 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
 
   // Redibujar cuando cambian datos, capas o selección.
   useEffect(req);
+
+  // Solo en desarrollo: window.__globeBench(60) → ms promedio por cuadro girando el globo.
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'production') return;
+    const w = window as unknown as { __globeBench?: (n?: number, asMoving?: boolean) => number };
+    w.__globeBench = (n = 60, asMoving = false) => {
+      moving.current = asMoving;
+      const t0 = performance.now();
+      for (let i = 0; i < n; i++) { cam.current.rot = [cam.current.rot[0] + 2, cam.current.rot[1], 0]; draw(); }
+      moving.current = false;
+      return +((performance.now() - t0) / n).toFixed(2);
+    };
+    return () => { delete w.__globeBench; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Placas tectónicas desde la API propia.
   useEffect(() => {
@@ -230,7 +323,7 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
         if (d0 > 0) cam.current.k = clampK(cam.current.k * d1 / d0);
         moved += 10;
       }
-      ptrs.set(e.pointerId, p); req();
+      ptrs.set(e.pointerId, p); markMoving(); req();
     };
     const up = (e: PointerEvent) => {
       const p = rel(e); const wasSingle = !multi;
@@ -242,7 +335,7 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
     };
     const wheel = (e: WheelEvent) => {
       e.preventDefault(); cancelAnimationFrame(anim.current);
-      cam.current.k = clampK(cam.current.k * Math.exp(-e.deltaY * 0.0015)); req();
+      cam.current.k = clampK(cam.current.k * Math.exp(-e.deltaY * 0.0015)); markMoving(); req();
     };
     const leave = () => setHover(null);
 
@@ -250,7 +343,7 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
     c.addEventListener('pointerup', up); c.addEventListener('pointercancel', up);
     c.addEventListener('wheel', wheel, { passive: false }); c.addEventListener('pointerleave', leave);
     return () => {
-      ro.disconnect(); cancelAnimationFrame(raf.current); cancelAnimationFrame(anim.current);
+      ro.disconnect(); cancelAnimationFrame(raf.current); cancelAnimationFrame(anim.current); clearTimeout(idleTimer.current);
       c.removeEventListener('pointerdown', down); c.removeEventListener('pointermove', move);
       c.removeEventListener('pointerup', up); c.removeEventListener('pointercancel', up);
       c.removeEventListener('wheel', wheel); c.removeEventListener('pointerleave', leave);

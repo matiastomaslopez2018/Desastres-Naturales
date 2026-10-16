@@ -1,4 +1,5 @@
 import { T } from './i18n';
+import { countryName } from './countries';
 import { fmtNum, fmtTime } from './format';
 import type { DisasterEvent, Lang } from './types';
 
@@ -19,7 +20,8 @@ export function eventDescription(lang: Lang, e: DisasterEvent): string {
   const t = T[lang];
   const parts: string[] = [t.T1[e.type]];
   if (e.type !== 'eq') { const m = headlineMag(lang, e); if (m) parts.push(m); }
-  if (e.country) parts.push(e.country);
+  const where = e.iso3 ? countryName(e.iso3, lang) : e.country;
+  if (where) parts.push(where);
   parts.push(fmtTime(lang, e.start ?? e.time, 'UTC'));
   if (e.type === 'eq' && e.depth != null) parts.push(`${t.f.depth.toLowerCase()} ${fmtNum(lang, e.depth, 1)} km`);
   if (e.status === 'reviewed') parts.push(t.reviewed);

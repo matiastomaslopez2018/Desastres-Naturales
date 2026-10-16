@@ -3,7 +3,7 @@ import { feature, mesh } from 'topojson-client';
 import type { Feature, Geometry } from 'geojson';
 import type { Topology, GeometryCollection } from 'topojson-specification';
 import world from 'world-atlas/countries-110m.json';
-import { COL, SHAPE, fillFor, relevance, shapeD, sizeFor } from '@/lib/symbols';
+import { PAPER, SHAPE, paperStyle, relevance, shapeD, sizeFor } from '@/lib/symbols';
 import type { DisasterEvent } from '@/lib/types';
 
 const topo = world as unknown as Topology<{ countries: GeometryCollection; land: GeometryCollection }>;
@@ -11,7 +11,7 @@ const LAND = feature(topo, topo.objects.land);
 const BORDERS = mesh(topo, topo.objects.countries, (a, b) => a !== b);
 const GRAT = geoGraticule10();
 
-/** Globo SVG estático encuadrado en un país, con su contorno resaltado y sus eventos. */
+/** Globo SVG estático (2b, papel) encuadrado en un país, con su contorno resaltado y sus eventos. */
 export function CountryGlobe({ shapes, centroid, events, label, size = 520 }: {
   shapes: Feature<Geometry>[]; centroid: [number, number]; events: DisasterEvent[]; label: string; size?: number;
 }) {
@@ -30,24 +30,25 @@ export function CountryGlobe({ shapes, centroid, events, label, size = 520 }: {
       <defs>
         <clipPath id="globe-clip"><path d={path({ type: 'Sphere' }) ?? ''} /></clipPath>
       </defs>
-      <path d={path({ type: 'Sphere' }) ?? ''} fill={COL.bg} />
+      <path d={path({ type: 'Sphere' }) ?? ''} fill={PAPER.sphere} />
       <g clipPath="url(#globe-clip)">
-        <path d={path(GRAT) ?? ''} fill="none" stroke={COL.n200} strokeWidth={0.6} />
-        <path d={path(LAND) ?? ''} fill={COL.n200} />
-        <path d={path(fc) ?? ''} fill={COL.a300} fillOpacity={0.45} stroke={COL.a700} strokeWidth={1} />
-        <path d={path(BORDERS) ?? ''} fill="none" stroke={COL.n400} strokeWidth={0.5} />
+        <path d={path(GRAT) ?? ''} fill="none" stroke={PAPER.grat} strokeWidth={0.6} />
+        <path d={path(LAND) ?? ''} fill={PAPER.land} />
+        <path d={path(BORDERS) ?? ''} fill="none" stroke={PAPER.borders} strokeWidth={0.7} />
+        {/* El país se recorta en papel claro sobre la tierra, con contorno de tinta. */}
+        <path d={path(fc) ?? ''} fill={PAPER.bg} stroke={PAPER.ink} strokeWidth={1.2} />
         {ordered.map((e) => {
           const p = proj([e.lon, e.lat]);
           if (!p || !path({ type: 'Point', coordinates: [e.lon, e.lat] })) return null;
-          const st = fillFor(e);
+          const st = paperStyle(e);
           const sh = SHAPE[e.type];
           const r = sizeFor(e, Math.min(k, 4));
           return (
-            <path key={e.id} d={shapeD(sh, p[0], p[1], r)} fill={sh === 'cross' ? 'none' : st.fill} stroke={st.stroke} strokeWidth={sh === 'cross' ? 1.4 : 0.8} />
+            <path key={e.id} d={shapeD(sh, p[0], p[1], r)} fill={sh === 'cross' ? 'none' : st.fill} fillOpacity={st.fillOpacity} stroke={st.stroke} strokeWidth={sh === 'cross' ? 1.4 : 0.9} />
           );
         })}
       </g>
-      <path d={path({ type: 'Sphere' }) ?? ''} fill="none" stroke={COL.text} strokeOpacity={0.55} />
+      <path d={path({ type: 'Sphere' }) ?? ''} fill="none" stroke={PAPER.ink} strokeOpacity={0.6} />
     </svg>
   );
 }

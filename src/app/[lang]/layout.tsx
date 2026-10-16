@@ -1,17 +1,28 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { notFound } from 'next/navigation';
-import { Barlow, Barlow_Condensed } from 'next/font/google';
+import { IBM_Plex_Mono, IBM_Plex_Sans, Newsreader, Source_Sans_3 } from 'next/font/google';
 import { LANGS, T, isLang } from '@/lib/i18n';
 import { SITE_URL } from '@/lib/site';
-import '../industry.css';
-import '../app.css';
+import '../base.css';
+import '../night.css';
+import '../paper.css';
 
-const barlow = Barlow({ subsets: ['latin'], weight: ['400', '500', '700'], variable: '--font-barlow' });
-const barlowCond = Barlow_Condensed({ subsets: ['latin'], weight: ['400', '600'], variable: '--font-barlow-condensed' });
+// 2a "Satélite nocturno" (mapa): IBM Plex. 2b "Periodístico" (editorial): Newsreader + Source Sans 3.
+const plexSans = IBM_Plex_Sans({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-plex-sans' });
+const plexMono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-plex-mono' });
+const newsreader = Newsreader({ subsets: ['latin'], weight: ['400', '600'], variable: '--font-newsreader' });
+const sourceSans = Source_Sans_3({ subsets: ['latin'], weight: ['400', '600'], variable: '--font-source-sans' });
 
 export function generateStaticParams() {
   return LANGS.map((lang) => ({ lang }));
 }
+
+export const viewport: Viewport = {
+  themeColor: [{ color: '#06080c' }],
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+};
 
 export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
   const { lang } = await params;
@@ -30,7 +41,7 @@ export default async function RootLayout({ children, params }: { children: React
   const { lang } = await params;
   if (!isLang(lang)) notFound();
   return (
-    <html lang={lang} className={`${barlow.variable} ${barlowCond.variable}`}>
+    <html lang={lang} className={`${plexSans.variable} ${plexMono.variable} ${newsreader.variable} ${sourceSans.variable}`}>
       <body>{children}</body>
     </html>
   );

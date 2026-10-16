@@ -27,24 +27,27 @@ export function PeriodNav({ lang, path, range, year, params = {} }: {
   const years: number[] = [];
   for (let y = new Date().getFullYear(); y >= MIN_YEAR; y--) years.push(y);
   return (
-    <div className="period-nav">
-      <div className="seg" role="group" aria-label={t.period}>
-        {STAT_RANGES.map((r) => (
-          <Link key={r} href={href(r)} className={`seg-opt seg-link${r === range ? ' on' : ''}`} aria-current={r === range ? 'true' : undefined} scroll={false}>
-            {t[`r${r}`]}
-          </Link>
-        ))}
-      </div>
+    <div className="ed-period">
+      <span className="ed-period-label">{t.period}</span>
+      {STAT_RANGES.map((r) => (
+        <Link key={r} href={href(r)} aria-current={r === range ? 'true' : undefined} scroll={false}>{t[`r${r}`]}</Link>
+      ))}
       {range === 'year' && (
-        <form method="get" action={path} className="inline-6">
+        <form method="get" action={path} className="ed-year">
           {Object.entries(params).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
           <input type="hidden" name="range" value="year" />
-          <select name="year" defaultValue={year} className="input" aria-label={t.yearLabel} style={{ width: 'auto' }}>
+          <select name="year" defaultValue={year} aria-label={t.yearLabel}>
             {years.map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
-          <button className="btn btn-secondary" type="submit">{t.apply}</button>
+          <button type="submit">{t.apply}</button>
         </form>
       )}
     </div>
   );
+}
+
+/** El período dentro de una oración: "los últimos 365 días" / "the last 365 days" / "2010". */
+export function periodPhrase(lang: Lang, range: RangeKey, year: number) {
+  if (range === 'year') return String(year);
+  return `${lang === 'es' ? 'los' : 'the'} ${periodLabel(lang, range, year)}`;
 }

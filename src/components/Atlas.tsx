@@ -4,14 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { geoDistance } from 'd3-geo';
 import { Globe, type GlobeHandle, type Layers, type Pickable } from './Globe';
-import { Glyph } from './Glyph';
+import { Glyph, TypeDot } from './Glyph';
 import { EventCard } from './EventCard';
-import { MethodDialog } from './MethodDialog';
-import { SiteNav } from './SiteHeader';
 import { T } from '@/lib/i18n';
 import { fmtNum, fmtRel, fmtTime } from '@/lib/format';
 import { MIN_YEAR, RANGES, rangeInfo } from '@/lib/range';
-import { SHAPE, TYPE_ORDER, relevance, type FilterType } from '@/lib/symbols';
+import { SHAPE, TYPE_ORDER, alertLevel, relevance, type FilterType } from '@/lib/symbols';
+import { bucketOf, buckets } from '@/lib/timeline';
 import type {
   DisasterEvent, EqDetail, EventsResponse, GvpVolcano, Lang, RangeKey, SourceKey, SourceStatus,
 } from '@/lib/types';
@@ -19,8 +18,10 @@ import type {
 type Props = { lang: Lang; initialRange: RangeKey; initialYear: number; initialSel?: string };
 
 const LAYER_KEYS = ['borders', 'plates', 'ring', 'gvp', 'hazard'] as const;
-const SRC_NAME: Record<SourceKey, string> = { usgs: 'USGS', eonet: 'NASA EONET', gdacs: 'GDACS', gvp: 'Smithsonian GVP', carto: 'Natural Earth · PB2002' };
+const SRC_NAME: Record<SourceKey, string> = { usgs: 'USGS', eonet: 'EONET', gdacs: 'GDACS', gvp: 'GVP', carto: 'PB2002' };
+const PLAY_MS = 650;
 
+/** 2a "Satélite nocturno": globo a pantalla completa con paneles flotantes y línea de tiempo. */
 export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
   const t = T[lang];
   const nf = useCallback((x: number, d = 0) => fmtNum(lang, x, d), [lang]);
@@ -33,6 +34,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
   );
   const [layers, setLayers] = useState<Layers>({ borders: true, plates: true, ring: true, gvp: false, hazard: false });
   const [events, setEvents] = useState<DisasterEvent[]>([]);
+  const [win, setWin] = useState<{ s: number; e: number } | null>(null);
   const [gvp, setGvp] = useState<GvpVolcano[]>([]);
   const [loading, setLoading] = useState(true);
   const [src, setSrc] = useState<Partial<Record<SourceKey, SourceStatus>>>({});
@@ -41,12 +43,13 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
   const [detail, setDetail] = useState<EqDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [hover, setHover] = useState<{ e: Pickable; x: number; y: number } | null>(null);
-  const [methodOpen, setMethodOpen] = useState(false);
+  const [focus, setFocus] = useState<number | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const globe = useRef<GlobeHandle>(null);
   const selId = useRef<string | null>(null);
 
-  const ri = rangeInfo(range, year);
-  const magFloor = ri.floor;
+  const magFloor = rangeInfo(range, year).floor;
 
   // Período y evento seleccionado en la URL (compartible).
   const selParam = sel && sel.type !== 'gvp' ? sel.id : null;
@@ -59,7 +62,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
     return s ? `?${s}` : '';
   }, [range, year, selParam]);
   useEffect(() => {
-    window.history.replaceState(null, '', `/${lang}${qs}`);
+    window.history.replaceState(null, '', `/${lang}${qs}${window.location.hash}`);
   }, [lang, qs]);
 
   // `?e=id`: abrir ese evento al cargar, esté o no dentro del período.
@@ -79,13 +82,14 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
   // Datos de eventos desde la API propia.
   useEffect(() => {
     const ctrl = new AbortController();
-    setLoading(true); setSel(null); setDetail(null);
+    setLoading(true); setSel(null); setDetail(null); setFocus(null); setPlaying(false);
     setSrc((s) => ({ ...s, usgs: { state: 'wait' }, eonet: { state: 'wait' }, gdacs: { state: 'wait' } }));
     const p = new URLSearchParams({ range, ...(range === 'year' ? { year: String(year) } : {}) });
     fetch(`/api/events?${p}`, { signal: ctrl.signal })
       .then((r) => (r.ok ? (r.json() as Promise<EventsResponse>) : Promise.reject(r.status)))
       .then((j) => {
-        setEvents(j.events); setSrc((s) => ({ ...s, ...j.sources })); setFetchedAt(j.fetchedAt); setLoading(false);
+        setEvents(j.events); setSrc((s) => ({ ...s, ...j.sources })); setFetchedAt(j.fetchedAt);
+        setWin({ s: Date.parse(j.range.start), e: Date.parse(j.range.end) }); setLoading(false);
       })
       .catch((err) => {
         if (ctrl.signal.aborted) return;
@@ -106,7 +110,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
       .catch(() => setSrc((s) => ({ ...s, gvp: { state: 'err' } })));
   }, []);
 
-  const isVisible = useCallback((e: DisasterEvent) => {
+  const passesFilters = useCallback((e: DisasterEvent) => {
     if (e.type === 'eq') {
       if (e.mag != null && e.mag < minMag) return false;
       return types.eq || (!!e.tsunami && types.tsunami);
@@ -114,11 +118,22 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
     return types[e.type];
   }, [types, minMag]);
 
+  const filtered = useMemo(() => events.filter(passesFilters), [events, passesFilters]);
+
+  // Línea de tiempo: tramos iguales del período, alto = eventos visibles en cada tramo.
+  const bs = useMemo(() => (win ? buckets(range, win.s, win.e, lang) : []), [win, range, lang]);
+  const perBucket = useMemo(() => {
+    const c = new Array(bs.length).fill(0);
+    for (const e of filtered) { const i = bucketOf(bs, e.time); if (i >= 0) c[i]++; }
+    return c as number[];
+  }, [filtered, bs]);
+  const maxBucket = Math.max(1, ...perBucket);
+
   // Orden de dibujo: alertas y magnitudes mayores arriba.
   const visible = useMemo(() => {
-    const v = events.filter(isVisible);
-    return v.sort((a, b) => relevance(a) - relevance(b));
-  }, [events, isVisible]);
+    const v = focus == null ? filtered : filtered.filter((e) => bucketOf(bs, e.time) === focus);
+    return v.slice().sort((a, b) => relevance(a) - relevance(b));
+  }, [filtered, focus, bs]);
 
   // Un evento abierto por enlace puede quedar fuera del período: se dibuja igual.
   const drawn = useMemo(
@@ -129,24 +144,37 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
   const counts = useMemo(() => {
     const c = Object.fromEntries(TYPE_ORDER.map((k) => [k, 0])) as Record<FilterType, number>;
     for (const e of events) {
+      if (focus != null && bucketOf(bs, e.time) !== focus) continue;
       if (e.type === 'eq') { if (e.mag == null || e.mag >= minMag) { c.eq++; if (e.tsunami) c.tsunami++; } }
       else c[e.type]++;
     }
     return c;
-  }, [events, minMag]);
+  }, [events, minMag, focus, bs]);
 
-  const typeLabel = (e: Pickable) => (e.type === 'gvp' ? t.gvpKicker : t.T[e.type]);
+  // Play: recorre los tramos uno por uno y vuelve a "todo el período" al final.
+  useEffect(() => {
+    if (!playing) return;
+    const id = setInterval(() => {
+      setFocus((f) => {
+        const next = f == null ? 0 : f + 1;
+        if (next >= bs.length) { setPlaying(false); return null; }
+        return next;
+      });
+    }, PLAY_MS);
+    return () => clearInterval(id);
+  }, [playing, bs.length]);
+
   const subLine = (e: Pickable) => {
     if (e.type === 'gvp') return [e.country, e.vtype].filter(Boolean).join(' · ');
-    const parts = [typeLabel(e)];
-    if (e.type === 'eq' && e.mag != null) parts.unshift('M ' + e.mag.toFixed(1));
+    const parts = [t.T1[e.type]];
+    if (e.type === 'eq' && e.mag != null) parts.unshift('M ' + nf(e.mag, 1));
     if (e.time) parts.push(fmtRel(lang, e.time));
     return parts.join(' · ');
   };
 
   const select = useCallback((e: Pickable) => {
     selId.current = e.id;
-    setSel(e); setDetail(null); setHover(null);
+    setSel(e); setDetail(null); setHover(null); setFiltersOpen(false);
     globe.current?.flyTo(e.lon, e.lat, 3);
     const isUsgs = e.type === 'eq' && e.src === 'USGS';
     setDetailLoading(isUsgs);
@@ -159,7 +187,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
   }, []);
   useEffect(() => { selId.current = sel?.id ?? null; }, [sel]);
 
-  const top = useMemo(() => visible.slice().sort((a, b) => relevance(b) - relevance(a)).slice(0, 12), [visible]);
+  const top = useMemo(() => visible.slice().sort((a, b) => relevance(b) - relevance(a)).slice(0, 10), [visible]);
   const nearby = useMemo(() => {
     if (!sel) return [];
     return visible
@@ -170,155 +198,146 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
       .slice(0, 6);
   }, [visible, sel]);
 
-  const rangeLabel = range === 'year' ? `${t.inYear} ${year}` : `${t.last} ${t[`r${range}`]}`;
+  const rangeLabel = focus != null && bs[focus] ? bs[focus].title : range === 'year' ? `${t.inYear} ${year}` : `${t.last} ${t[`r${range}`]}`;
+  const ri = rangeInfo(range, year);
   const rangeNote = range === 'year' ? `${t.noteLong} ${t.noteYear}` : ri.days > 31 ? t.noteLong : t.noteShort;
   const years = useMemo(() => {
     const out: number[] = [];
     for (let y = new Date().getFullYear(); y >= MIN_YEAR; y--) out.push(y);
     return out;
   }, []);
-  const otherLang: Lang = lang === 'es' ? 'en' : 'es';
   const onCarto = useCallback((s: SourceStatus) => setSrc((x) => ({ ...x, carto: s })), []);
+  const toggleType = (k: FilterType) => setTypes((s) => ({ ...s, [k]: !s[k] }));
+  const evSources: SourceKey[] = ['usgs', 'eonet', 'gdacs'];
+  const allOk = evSources.every((k) => src[k]?.state === 'ok');
 
   return (
-    <div className="page">
-      <header className="nav site-nav">
-        <div className="nav-brand brand">
-          <span className="brand-name">{t.brand}</span>
-          <span className="brand-sub">{t.brandSub}</span>
-        </div>
-        <SiteNav lang={lang} current="map" />
-        <span className="muted-12 tabular">{t.updated} {fetchedAt ? fmtTime(lang, fetchedAt) : '—'}</span>
-        <button className="btn btn-secondary" onClick={() => setMethodOpen(true)} style={{ fontSize: 13 }}>{t.method}</button>
-        <div className="seg" role="group" aria-label="Idioma / Language">
-          {(['es', 'en'] as Lang[]).map((l) => (
-            <Link key={l} href={`/${l}${qs}`} className={`seg-opt seg-link${l === lang ? ' on' : ''}`} aria-current={l === lang ? 'true' : undefined} hrefLang={l} prefetch={l === otherLang}>
-              {l.toUpperCase()}
-            </Link>
-          ))}
-        </div>
-      </header>
+    <div className="theme-night map-shell">
+      <section className="map-stage" aria-label={t.brand}>
+        <Globe ref={globe} events={drawn} gvp={gvp} layers={layers} selected={sel} showTsunami={types.tsunami}
+          onSelect={select} onHover={setHover} onCarto={onCarto} />
 
-      <main className="layout">
-        <aside className="col-filters">
-          <div className="stack-6">
-            <div className="block-title">{t.types}</div>
+        <header className="map-top">
+          <Link href={`/${lang}`} className="map-brand">ATLAS·DESASTRES</Link>
+          <div className="chips" role="group" aria-label={t.types}>
             {TYPE_ORDER.map((k) => (
-              <button key={k} className="toggle-row" aria-pressed={types[k]} style={{ opacity: types[k] ? 1 : 0.5 }}
-                onClick={() => setTypes((s) => ({ ...s, [k]: !s[k] }))}>
-                <span className="check"><span style={{ background: types[k] ? 'var(--color-accent)' : 'transparent' }} /></span>
-                <span className="glyph-cell"><Glyph shape={SHAPE[k]} /></span>
-                <span style={{ flex: 1, fontSize: 14 }}>{t.T[k]}</span>
-                <span className="muted-12 tabular">{nf(counts[k])}</span>
+              <button key={k} className="chip" aria-pressed={types[k]} onClick={() => toggleType(k)}>
+                <TypeDot type={k} />{t.Tshort[k]}
+              </button>
+            ))}
+          </div>
+          <span className={`live${allOk ? '' : ' degraded'}`} title={t.dataStatus}>
+            <span className="live-dot" />{t.live.toUpperCase()} · {fetchedAt ? fmtTime(lang, fetchedAt) : '—'}
+          </span>
+          <nav className="map-nav" aria-label={lang === 'es' ? 'Secciones' : 'Sections'}>
+            <Link href={`/${lang}/ranking`}>{t.nav2.ranking}</Link>
+            <Link href={`/${lang}/paises`}>{t.nav2.countries}</Link>
+            <Link href={`/${lang}/metodologia`}>{t.nav2.method}</Link>
+          </nav>
+          <span className="map-lang">
+            {(['es', 'en'] as Lang[]).map((l, i) => (
+              <span key={l}>
+                {i > 0 && ' / '}
+                <Link href={`/${l}${qs}`} hrefLang={l} aria-current={l === lang ? 'true' : undefined}>{l.toUpperCase()}</Link>
+              </span>
+            ))}
+          </span>
+          <button className="map-filters-btn" aria-expanded={filtersOpen} aria-controls="map-filters" onClick={() => setFiltersOpen((o) => !o)}>
+            {t.filters}
+          </button>
+        </header>
+
+        <aside id="map-filters" className={`panel panel-left${filtersOpen ? ' open' : ''}`}>
+          <div className="panel-count">
+            <span className="big-count">{nf(visible.length)}</span>
+            <span className="muted">{t.eventsIn} {rangeLabel}</span>
+          </div>
+          <div className="type-list" role="group" aria-label={t.types}>
+            {TYPE_ORDER.map((k) => (
+              <button key={k} className="type-row" aria-pressed={types[k]} onClick={() => toggleType(k)}>
+                <Glyph shape={SHAPE[k]} type={k} />
+                <span className="type-name">{t.T[k]}</span>
+                <span className="mono faint">{nf(counts[k])}</span>
               </button>
             ))}
           </div>
 
-          <div className="stack-10">
-            <div className="block-title">{t.period}</div>
-            <div className="seg" style={{ display: 'flex' }}>
+          <div className="stack">
+            <span className="panel-label">{t.period}</span>
+            <div className="seg" role="radiogroup" aria-label={t.period}>
               {RANGES.map((k) => (
-                <label key={k} className="seg-opt range-opt">
+                <label key={k} className="seg-opt">
                   <input type="radio" name="rng" checked={range === k} onChange={() => setRange(k)} />
                   {t[`r${k}`]}
                 </label>
               ))}
             </div>
             {range === 'year' && (
-              <select className="input" value={year} onChange={(e) => setYear(+e.target.value)} aria-label={t.yearLabel}>
+              <select className="night-select" value={year} onChange={(e) => setYear(+e.target.value)} aria-label={t.yearLabel}>
                 {years.map((y) => <option key={y} value={y}>{y}</option>)}
               </select>
             )}
-            <div className="note">{rangeNote}</div>
+            <span className="note">{rangeNote}</span>
           </div>
 
-          <div className="stack-8">
-            <div className="row-between" style={{ alignItems: 'baseline' }}>
-              <label htmlFor="minmag" className="block-title">{t.minMag}</label>
-              <span className="mag-val">M {nf(minMag, 1)}</span>
+          <div className="stack">
+            <div className="row-between">
+              <label htmlFor="minmag" className="panel-label">{t.minMag}</label>
+              <span className="mono">M {nf(minMag, 1)}</span>
             </div>
-            <input id="minmag" type="range" min={magFloor} max={8} step={0.1} value={minMag}
-              onChange={(e) => setMinMag(+e.target.value)} style={{ width: '100%' }} />
+            <input id="minmag" className="night-range" type="range" min={magFloor} max={8} step={0.1} value={minMag}
+              onChange={(e) => setMinMag(+e.target.value)} />
           </div>
 
-          <div className="stack-6">
-            <div className="block-title">{t.layers}</div>
+          <div className="night-legend" aria-label={t.legSize}>
+            <span className="row"><svg width="34" height="14" viewBox="0 0 34 14" aria-hidden="true"><circle cx="3" cy="7" r="2" fill="#ff7a3d" /><circle cx="12" cy="7" r="3.5" fill="#ff7a3d" /><circle cx="26" cy="7" r="6" fill="#ff7a3d" /></svg>{t.legendMag}</span>
+            <span className="row"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.5" fill="#ff7a3d" /><circle cx="8" cy="8" r="7" fill="none" stroke="#ff9a5c" strokeWidth="1.2" /></svg>{t.legendRing}</span>
+          </div>
+
+          <details className="layers">
+            <summary className="panel-label">{t.layers}</summary>
             {LAYER_KEYS.map((k) => (
-              <button key={k} className="toggle-row layer-row" disabled={k === 'hazard'} aria-pressed={layers[k]}
+              <button key={k} className="layer-row" disabled={k === 'hazard'} aria-pressed={layers[k]}
                 onClick={() => setLayers((s) => ({ ...s, [k]: !s[k] }))}>
-                <span className="check" style={{ marginTop: 2 }}><span style={{ background: layers[k] ? 'var(--color-accent)' : 'transparent' }} /></span>
+                <span className="check" aria-hidden="true" />
                 <span className="stack-2">
-                  <span style={{ fontSize: 14 }}>{t.L[k]}</span>
-                  <span className="muted-11">{t.N[k]}{k === 'gvp' && src.gvp?.state === 'err' ? ` · ${t.err}` : ''}</span>
+                  <span>{t.L[k]}</span>
+                  <span className="faint small">{t.N[k]}{k === 'gvp' && src.gvp?.state === 'err' ? ` · ${t.err}` : ''}</span>
                 </span>
               </button>
             ))}
-          </div>
+          </details>
         </aside>
 
-        <section className="col-globe" aria-label="Globo">
-          <Globe ref={globe} events={drawn} gvp={gvp} layers={layers} selected={sel} showTsunami={types.tsunami}
-            onSelect={select} onHover={setHover} onCarto={onCarto} />
-          <div className="ov-count">
-            <span className="count-num">{nf(visible.length)}</span>
-            <span className="muted-12">{t.eventsIn} {rangeLabel}</span>
-          </div>
-          <div className="ov-zoom">
-            <button className="btn btn-secondary btn-icon" onClick={() => globe.current?.zoomBy(1.8)} aria-label="Zoom +">+</button>
-            <button className="btn btn-secondary btn-icon" onClick={() => globe.current?.zoomBy(1 / 1.8)} aria-label="Zoom −">−</button>
-            <button className="btn btn-secondary btn-icon" onClick={() => { setSel(null); globe.current?.reset(); }} aria-label="Reset">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></svg>
-            </button>
-          </div>
-          <div className="ov-legend">
-            <span className="legend-item">
-              <svg width="34" height="14" viewBox="0 0 34 14" fill="rgba(89,128,166,.22)" stroke="var(--color-accent-700)"><circle cx="3" cy="7" r="2" /><circle cx="12" cy="7" r="3.5" /><circle cx="26" cy="7" r="6" /></svg>
-              {t.legSize}
-            </span>
-            <span className="legend-item">
-              <svg width="40" height="14" viewBox="0 0 40 14" stroke="var(--color-accent-800)"><circle cx="6" cy="7" r="5" fill="rgba(89,128,166,.22)" /><circle cx="20" cy="7" r="5" fill="var(--color-accent)" /><circle cx="34" cy="7" r="5" fill="var(--color-accent-900)" /></svg>
-              {t.legAlert}
-            </span>
-            <span>{t.hint}</span>
-          </div>
-          {hover && (
-            <div className="tooltip" style={{ left: hover.x, top: hover.y }}>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>{hover.e.title}</div>
-              <div className="muted-11">{subLine(hover.e)}</div>
-            </div>
-          )}
-          {loading && <div className="loading-box" role="status">{t.loading}</div>}
-        </section>
-
-        <aside className="col-detail">
+        <aside className={`panel panel-right${sel ? ' has-sel' : ''}`} aria-live="polite">
           {sel ? (
             <>
               <EventCard lang={lang} e={sel} detail={detail} detailLoading={detailLoading} onClose={() => { setSel(null); setDetail(null); }}
-                actions={sel.type !== 'gvp' && <Link href={`/${lang}/evento/${encodeURIComponent(sel.id)}`} className="src-link">{t.permalink} <span aria-hidden="true">→</span></Link>} />
+                actions={sel.type !== 'gvp' && <Link href={`/${lang}/evento/${encodeURIComponent(sel.id)}`} className="ev-link">{t.permalink} →</Link>} />
               {nearby.length > 0 && (
                 <div className="stack-4">
-                  <span className="block-title">{t.nearby}</span>
+                  <span className="panel-label">{t.nearby}</span>
                   {nearby.map(({ e, d }) => (
-                    <button key={e.id} className="list-row" onClick={() => select(e)}>
-                      <span className="glyph-cell" style={{ marginTop: 2 }}><Glyph shape={SHAPE[e.type]} /></span>
-                      <span className="stack-2"><span style={{ fontSize: 13 }}>{e.title}</span><span className="muted-11">{nf(d)} km · {subLine(e)}</span></span>
+                    <button key={e.id} className="ev-row" onClick={() => select(e)}>
+                      <Glyph shape={SHAPE[e.type]} type={e.type} alert={alertLevel(e)} />
+                      <span className="ev-row-body"><span className="ev-row-title">{e.title}</span><span className="ev-row-meta">{nf(d)} km · {subLine(e)}</span></span>
                     </button>
                   ))}
                 </div>
               )}
             </>
           ) : (
-            <div className="stack-4">
-              <h2 className="top-title">{t.topTitle}</h2>
-              <p className="top-sub">{t.topSub}</p>
+            <div className="stack-4 top-list">
+              <span className="panel-label">{t.topTitle}</span>
+              <p className="note" style={{ margin: '0 0 6px' }}>{t.topSub}</p>
               {top.map((e) => (
-                <button key={e.id} className="list-row top-row" onClick={() => select(e)}>
-                  <span className="top-mag">{e.type === 'eq' && e.mag != null ? e.mag.toFixed(1) : ''}</span>
-                  <span className="stack-3" style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ fontSize: 14, lineHeight: 1.3 }}>{e.title}</span>
-                    <span className="muted-11 inline-6">
-                      <Glyph shape={SHAPE[e.type]} />
-                      {[t.T[e.type], fmtRel(lang, e.time), e.alert ? `GDACS ${e.alert}` : e.pager ? `PAGER ${e.pager}` : ''].filter(Boolean).join(' · ')}
+                <button key={e.id} className="ev-row" onClick={() => select(e)}>
+                  <span className="ev-row-mag" style={{ color: `var(--type-${e.type})` }}>{e.type === 'eq' && e.mag != null ? nf(e.mag, 1) : ''}</span>
+                  <span className="ev-row-body">
+                    <span className="ev-row-title">{e.title}</span>
+                    <span className="ev-row-meta">
+                      <Glyph shape={SHAPE[e.type]} type={e.type} alert={alertLevel(e)} size={12} />
+                      {[t.T1[e.type], fmtRel(lang, e.time), e.alert ? `GDACS ${e.alert}` : e.pager ? `PAGER ${e.pager}` : ''].filter(Boolean).join(' · ')}
                     </span>
                   </span>
                 </button>
@@ -326,24 +345,51 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
             </div>
           )}
         </aside>
-      </main>
 
-      <footer className="site-footer">
-        <span className="block-title">{t.dataStatus}</span>
-        {(Object.keys(SRC_NAME) as SourceKey[]).map((k) => {
-          const s = src[k] ?? { state: 'wait' };
-          const cls = s.state === 'ok' ? 'tag-accent' : s.state === 'err' ? 'tag-outline' : 'tag-neutral';
-          return (
-            <span key={k} className="inline-6">
-              <span className={`tag ${cls}`}>{t[s.state]}</span>
-              {SRC_NAME[k]} <span className="tabular">{s.count != null ? nf(s.count) : ''}</span>
+        <div className="map-zoom">
+          <button onClick={() => globe.current?.zoomBy(1.8)} aria-label={t.zoomIn} title={t.zoomIn}>+</button>
+          <button onClick={() => globe.current?.zoomBy(1 / 1.8)} aria-label={t.zoomOut} title={t.zoomOut}>−</button>
+          <button onClick={() => { setSel(null); globe.current?.reset(); }} aria-label={t.resetView} title={t.resetView}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></svg>
+          </button>
+        </div>
+
+        <div className="map-bottom">
+          <button className="play" onClick={() => setPlaying((p) => !p)} aria-label={playing ? t.pause : t.play} title={playing ? t.pause : t.play} disabled={!bs.length}>
+            {playing ? '❚❚' : '▶'}
+          </button>
+          <div className="timeline" role="group" aria-label={t.period}>
+            {bs.map((b) => (
+              <button key={b.i} className={`tl-bar${focus === b.i ? ' on' : ''}${focus != null && focus !== b.i ? ' dim' : ''}`}
+                title={`${b.title} · ${nf(perBucket[b.i] ?? 0)}`} aria-pressed={focus === b.i}
+                onClick={() => { setPlaying(false); setFocus((f) => (f === b.i ? null : b.i)); }}>
+                <span className="tl-fill" style={{ height: `${Math.round(((perBucket[b.i] ?? 0) / maxBucket) * 100)}%` }} />
+                <span className="tl-label">{bs.length <= 14 || b.i % 5 === 0 || focus === b.i ? b.label : ' '}</span>
+              </button>
+            ))}
+          </div>
+          <div className="map-sources">
+            {focus != null && <button className="tl-all" onClick={() => { setPlaying(false); setFocus(null); }}>{t.allPeriod}</button>}
+            <span className="src-line" title={t.dataStatus}>
+              {t.srcShort}:
+              {(['usgs', 'eonet', 'gdacs'] as SourceKey[]).map((k) => {
+                const s = src[k]?.state ?? 'wait';
+                return <span key={k} className={`src src-${s}`} title={`${SRC_NAME[k]} · ${t[s]}`}>{SRC_NAME[k]}</span>;
+              })}
             </span>
-          );
-        })}
-        <span className="footer-credit">{t.carto}</span>
-      </footer>
+          </div>
+        </div>
 
-      {methodOpen && <MethodDialog lang={lang} onClose={() => setMethodOpen(false)} />}
+        <a href="#semana" className="scroll-cue">{t.weekBelow} ↓</a>
+
+        {hover && (
+          <div className="tooltip" style={{ left: hover.x, top: hover.y }}>
+            <div className="tooltip-title">{hover.e.title}</div>
+            <div className="faint small">{subLine(hover.e)}</div>
+          </div>
+        )}
+        {loading && <div className="loading" role="status">{t.loading}</div>}
+      </section>
     </div>
   );
 }

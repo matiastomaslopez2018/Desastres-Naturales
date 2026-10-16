@@ -1,16 +1,15 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
-import { Corners } from '@/components/Corners';
 import { CountryGlobe } from '@/components/CountryGlobe';
 import { Glyph } from '@/components/Glyph';
-import { PeriodNav, parseStatRange, periodLabel } from '@/components/PeriodNav';
-import { SiteHeader } from '@/components/SiteHeader';
+import { PeriodNav, parseStatRange, periodLabel, periodPhrase } from '@/components/PeriodNav';
+import { SiteFooter, SiteHeader } from '@/components/SiteHeader';
 import { countryName, isIso3 } from '@/lib/countries';
 import { fmtNum, fmtTime } from '@/lib/format';
 import { T, isLang } from '@/lib/i18n';
 import { parseYear } from '@/lib/range';
-import { SHAPE, alertLevel } from '@/lib/symbols';
+import { SHAPE, alertLevel, isHighlighted } from '@/lib/symbols';
 import { countryShape } from '@/lib/server/countries';
 import { RANK_TYPES, getCountry } from '@/lib/server/stats';
 import type { Lang } from '@/lib/types';
@@ -59,89 +58,87 @@ export default async function CountryPage({ params, searchParams }: Props) {
   const range = parseStatRange(sp.range);
   const year = parseYear(sp.year);
   const keep = { range: range === '1y' ? undefined : range, year: range === 'year' ? String(year) : undefined };
-  const { events, stats, position } = await getCountry(iso3, range, year);
+  const { events, stats, position, fetchedAt } = await getCountry(iso3, range, year);
   const shape = countryShape(iso3);
   const name = countryName(iso3, lang);
   const nf = (x: number, d = 0) => fmtNum(lang, x, d);
-  const period = periodLabel(lang, range, year);
   const list = events.slice(0, LIST_MAX);
 
-  const kpis: { label: string; value: React.ReactNode; sub?: React.ReactNode }[] = [
-    { label: t.col.alerts, value: nf(stats?.alerts ?? 0), sub: stats?.red ? t.redOf(stats.red) : t.alertsHelp },
+  const nEq = stats?.byType.eq ?? 0;
+  const phrase = periodPhrase(lang, range, year);
+  const headline = nEq
+    ? t.countryLead(name, nf(nEq), phrase)
+    : stats?.total ? t.countryLeadOther(name, nf(stats.total), phrase) : t.countryLeadNone(name, phrase);
+
+  const figures: { label: string; value: React.ReactNode; sub?: React.ReactNode; red?: boolean }[] = [
+    { label: t.col.alerts, value: nf(stats?.alerts ?? 0), sub: stats?.red ? t.redOf(stats.red) : t.alertsHelp, red: !!stats?.red },
     { label: t.col.total, value: nf(stats?.total ?? 0), sub: position.total ? `${t.posOf(position.total, position.of)} ${t.byTotal}` : undefined },
-    { label: t.col.eq, value: nf(stats?.byType.eq ?? 0) },
+    { label: t.col.eq, value: nf(nEq) },
     {
       label: t.col.maxmag,
       value: stats?.maxEq ? <Link href={`/${lang}/evento/${encodeURIComponent(stats.maxEq.id)}`}>M {nf(stats.maxEq.mag ?? 0, 1)}</Link> : '—',
       sub: stats?.maxEq ? fmtTime(lang, stats.maxEq.time, 'UTC') : undefined,
+      red: (stats?.maxEq?.mag ?? 0) >= 6,
     },
   ];
 
   return (
-    <div className="page">
-      <SiteHeader lang={lang} langHrefs={{ es: `/es/pais/${iso}${qs(keep)}`, en: `/en/pais/${iso}${qs(keep)}` }} />
-      <main className="content-page">
-        <Link href={`/${lang}/ranking${qs(keep)}`} className="muted-12 back-link">← {t.rankTitle}</Link>
-        <div className="page-head">
-          <div className="stack-6">
-            <span className="block-title">{t.countryKicker} · {iso3}</span>
-            <h1 className="page-title">{name}</h1>
-            {position.alerts && <p className="page-sub">{t.posOf(position.alerts, position.of)} {t.byAlerts} · {period}</p>}
-          </div>
-          <PeriodNav lang={lang} path={`/${lang}/pais/${iso}`} range={range} year={year} />
+    <div className="theme-paper ed-page">
+      <SiteHeader lang={lang} langHrefs={{ es: `/es/pais/${iso}${qs(keep)}`, en: `/en/pais/${iso}${qs(keep)}` }} current="countries" updatedAt={fetchedAt} />
+      <main className="ed-main">
+        <div className="ed-head">
+          <Link href={`/${lang}/ranking${qs(keep)}`} className="ed-back">← {t.rankTitle}</Link>
+          <span className="ed-kicker">{name}{position.alerts ? ` · ${t.posOf(position.alerts, position.of)} ${t.byAlerts}` : ''}</span>
+          <h1 className="ed-headline">{headline}</h1>
         </div>
+        <PeriodNav lang={lang} path={`/${lang}/pais/${iso}`} range={range} year={year} />
 
-        <div className="kpis">
-          {kpis.map((k) => (
-            <div key={k.label} className="card blueprint kpi">
-              <Corners />
-              <span className="block-title">{k.label}</span>
-              <span className="kpi-value">{k.value}</span>
-              {k.sub && <span className="muted-11">{k.sub}</span>}
+        <div className="ed-stats">
+          {figures.map((k) => (
+            <div key={k.label} className="ed-stat">
+              <span className="ed-stat-label">{k.label}</span>
+              <span className={`ed-stat-value${k.red ? ' red' : ''}`}>{k.value}</span>
+              {k.sub && <span className="ed-stat-sub">{k.sub}</span>}
             </div>
           ))}
         </div>
 
-        <div className="country-grid">
-          <div className="stack-10">
+        <div className="ed-grid">
+          <div className="stack">
             {shape && <CountryGlobe shapes={shape.features} centroid={shape.centroid} events={events} label={name} />}
-            <div className="stack-4">
+            <div>
               {RANK_TYPES.map((k) => (
-                <div key={k} className="type-row">
-                  <span className="glyph-cell"><Glyph shape={SHAPE[k]} /></span>
-                  <span style={{ flex: 1 }}>{t.col[k]}</span>
-                  <span className="tabular">{nf(stats?.byType[k] ?? 0)}</span>
+                <div key={k} className="ed-type-row">
+                  <Glyph shape={SHAPE[k]} type={k} />
+                  <span className="row-between"><span>{t.col[k]}</span><strong className="tabular">{nf(stats?.byType[k] ?? 0)}</strong></span>
                 </div>
               ))}
             </div>
-            <p className="note">{t.countryNote}</p>
+            <p className="ed-note">{t.countryNote}</p>
           </div>
 
-          <section className="stack-4" aria-labelledby="ev-list">
-            <div className="row-between">
-              <h2 id="ev-list" className="top-title" style={{ fontSize: 22 }}>{t.eventsList}</h2>
-              {events.length > LIST_MAX && <span className="muted-12">{t.showing(LIST_MAX, events.length)}</span>}
+          <section aria-labelledby="ev-list">
+            <div className="row-between" style={{ alignItems: 'baseline' }}>
+              <h2 id="ev-list" className="ed-h3">{t.eventsList}</h2>
+              {events.length > LIST_MAX && <span className="ed-note">{t.showing(LIST_MAX, events.length)}</span>}
             </div>
-            {list.length === 0 && <p className="muted-13">{t.noData}</p>}
-            {list.map((e) => {
-              const lvl = alertLevel(e);
-              return (
-                <Link key={e.id} href={`/${lang}/evento/${encodeURIComponent(e.id)}`} className="list-row top-row link-row">
-                  <span className="top-mag">{e.type === 'eq' && e.mag != null ? nf(e.mag, 1) : ''}</span>
-                  <span className="stack-3" style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ fontSize: 14, lineHeight: 1.3 }}>{e.title}</span>
-                    <span className="muted-11 inline-6">
-                      <Glyph shape={SHAPE[e.type]} kind={lvl >= 3 ? 'dark' : lvl === 2 ? 'solid' : ''} />
-                      {[t.T1[e.type], fmtTime(lang, e.time, 'UTC'), e.alert ? `GDACS ${e.alert}` : e.pager ? `PAGER ${e.pager}` : '', e.src].filter(Boolean).join(' · ')}
-                    </span>
+            {list.length === 0 && <p className="ed-note">{t.noData}</p>}
+            {list.map((e) => (
+              <Link key={e.id} href={`/${lang}/evento/${encodeURIComponent(e.id)}`} className="ed-list-row">
+                <span className={`ed-list-mag${isHighlighted(e) ? ' red' : ''}`}>{e.type === 'eq' && e.mag != null ? nf(e.mag, 1) : ''}</span>
+                <span className="ev-row-body">
+                  <span className="ed-list-title">{e.title}</span>
+                  <span className="ed-list-meta row">
+                    <Glyph shape={SHAPE[e.type]} type={e.type} alert={alertLevel(e)} size={12} />
+                    {[t.T1[e.type], fmtTime(lang, e.time, 'UTC'), e.alert ? `GDACS ${e.alert}` : e.pager ? `PAGER ${e.pager}` : '', e.src].filter(Boolean).join(' · ')}
                   </span>
-                </Link>
-              );
-            })}
+                </span>
+              </Link>
+            ))}
           </section>
         </div>
       </main>
-      <footer className="site-footer"><span>{t.carto}</span></footer>
+      <SiteFooter lang={lang} />
     </div>
   );
 }

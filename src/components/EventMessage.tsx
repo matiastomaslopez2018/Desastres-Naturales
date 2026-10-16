@@ -1,17 +1,19 @@
 import Link from 'next/link';
 
+/** Mensaje de página completa (404 o fuente caída) en estilo editorial. */
 export function EventMessage({ title, text, href, back, action }: { title: string; text: string; href: string; back: string; action?: React.ReactNode }) {
   return (
-    <main className="event-message">
-      <div className="card blueprint" style={{ padding: 24, gap: 12, maxWidth: 520 }}>
-        <i className="corner tl" /><i className="corner tr" /><i className="corner bl" /><i className="corner br" />
-        <h1 style={{ margin: 0, fontSize: 32, textTransform: 'uppercase' }}>{title}</h1>
-        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.55 }}>{text}</p>
-        <div className="inline-6" style={{ gap: 12 }}>
-          <Link href={href} className="btn btn-secondary">{back}</Link>
-          {action}
+    <div className="theme-paper ed-page">
+      <main className="ed-message">
+        <div className="ed-message-box">
+          <h1 className="ed-headline">{title}</h1>
+          <p className="ed-dek">{text}</p>
+          <div className="row" style={{ gap: 12 }}>
+            <Link href={href} className="ed-button">{back}</Link>
+            {action}
+          </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }

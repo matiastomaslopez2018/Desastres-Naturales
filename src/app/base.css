@@ -1,0 +1,129 @@
+/*
+ * Atlas de Desastres — base común.
+ * Dos temas (INVESTIGACION_DISENO.md §5):
+ *   .theme-night  → 2a "Satélite nocturno" (mapa)
+ *   .theme-paper  → 2b "Periodístico" (resumen, ranking, países, fichas, metodología)
+ * Cada componente usa los mismos tokens (--bg, --text, --accent…) y el tema los define.
+ */
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; }
+img, svg { display: block; max-width: 100%; }
+button, input, select { font: inherit; color: inherit; }
+:focus { outline: none; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* Color por tipo de evento (2a). En papel se pisan con tinta: el tipo lo da la forma. */
+:root {
+  --type-eq: #ff7a3d;
+  --type-volcano: #ff3d6e;
+  --type-fire: #ffb547;
+  --type-storm: #6ec8ff;
+  --type-flood: #3d8bff;
+  --type-drought: #c9a26b;
+  --type-tsunami: #7af0e0;
+  --type-gvp: #9fb0c3;
+}
+
+.theme-night {
+  color-scheme: dark;
+  --bg: #06080c;
+  --panel: rgba(12, 17, 25, .74);
+  --panel-strong: rgba(12, 17, 25, .86);
+  --panel-border: rgba(255, 255, 255, .08);
+  --chip: rgba(255, 255, 255, .06);
+  --text: #e6edf5;
+  --muted: #9fb0c3;
+  --faint: #7d8ea2;
+  --rule: rgba(255, 255, 255, .08);
+  --accent: #ff9a5c;
+  --accent-strong: #ff7a3d;
+  --alert-orange: #ff9a5c;
+  --alert-red: #ff3d3d;
+  --live: #3dff9a;
+  --focus: #6ec8ff;
+  --font-ui: var(--font-plex-sans), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --font-display: var(--font-plex-sans), system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+}
+
+.theme-paper {
+  color-scheme: light;
+  --bg: #faf8f3;
+  --paper-2: #f1eee6;
+  --land: #dcd5c5;
+  --text: #1a1a1a;
+  --muted: #444;
+  --faint: #666;
+  --rule: #d9d4c8;
+  --rule-strong: #1a1a1a;
+  --accent: #c8102e;
+  --accent-strong: #c8102e;
+  --alert-orange: #c8102e;
+  --alert-red: #c8102e;
+  --focus: #c8102e;
+  --font-ui: var(--font-source-sans), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --font-display: var(--font-newsreader), Georgia, serif;
+  --type-eq: #1a1a1a; --type-volcano: #1a1a1a; --type-fire: #1a1a1a; --type-storm: #1a1a1a;
+  --type-flood: #1a1a1a; --type-drought: #1a1a1a; --type-tsunami: #1a1a1a; --type-gvp: #666;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+}
+
+/* utilidades */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.tabular { font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--font-mono); }
+.muted { color: var(--muted); }
+.faint { color: var(--faint); }
+.row { display: flex; align-items: center; gap: 8px; }
+.row-between { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.stack { display: flex; flex-direction: column; gap: 8px; }
+.stack-2 { display: flex; flex-direction: column; gap: 2px; }
+.stack-4 { display: flex; flex-direction: column; gap: 4px; }
+
+/* glifo de tipo: forma = tipo, color = --type-* (tinta en papel) */
+.glyph { flex: none; }
+.glyph .shape { fill: color-mix(in srgb, var(--g) 30%, transparent); stroke: var(--g); stroke-width: 1.2; }
+.glyph.alert-2 .shape { fill: var(--g); }
+.glyph.alert-3 .shape { fill: var(--g); stroke: var(--alert-red); stroke-width: 2; }
+.theme-paper .glyph.alert-2 .shape, .theme-paper .glyph.alert-3 .shape { fill: var(--accent); stroke: var(--accent); }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--g); }
+.theme-night .dot { box-shadow: 0 0 8px var(--g); }
+
+/* ficha de evento (mismo marcado en el panel nocturno y en la página editorial) */
+.ev-card { display: flex; flex-direction: column; gap: 14px; }
+.ev-kicker { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+.ev-close { margin-left: auto; background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 13px; padding: 4px 6px; letter-spacing: 0; text-transform: none; font-family: var(--font-ui); }
+.ev-close:hover { color: var(--text); }
+.ev-big { display: flex; align-items: baseline; gap: 8px; }
+.ev-big-num { font-family: var(--font-display); font-weight: 600; font-size: 72px; line-height: .9; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.ev-big-unit { font-size: 14px; color: var(--muted); }
+.ev-title { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: 22px; line-height: 1.25; text-wrap: pretty; }
+.ev-alert { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-left: 3px solid var(--alert-orange); }
+.ev-alert.red { border-left-color: var(--alert-red); }
+.ev-alert-label { font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+.ev-alert-text { font-size: 13px; line-height: 1.45; }
+.ev-facts { margin: 0; display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr); column-gap: 16px; }
+.ev-facts dt, .ev-facts dd { padding: 7px 0; border-top: 1px solid var(--rule); }
+.ev-facts dt { font-size: 12px; color: var(--faint); }
+.ev-facts dd { margin: 0; font-size: 13px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; text-wrap: pretty; }
+.ev-sources { display: flex; flex-direction: column; gap: 6px; }
+.ev-sources-title { font-family: var(--font-mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
+.ev-link { color: var(--accent); font-size: 13px; text-decoration: none; }
+.ev-link:hover { text-decoration: underline; }
+.ev-loading { font-size: 12px; color: var(--faint); }
+
+/* listas de eventos */
+.ev-row { display: flex; gap: 12px; align-items: flex-start; width: 100%; padding: 10px 4px; background: none; border: 0; border-top: 1px solid var(--rule); cursor: pointer; text-align: left; color: inherit; text-decoration: none; }
+.ev-row:hover { background: color-mix(in srgb, var(--text) 5%, transparent); }
+.ev-row-mag { font-family: var(--font-display); font-weight: 600; font-size: 22px; line-height: 1; min-width: 44px; font-variant-numeric: tabular-nums; }
+.ev-row-body { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.ev-row-title { font-size: 14px; line-height: 1.3; }
+.ev-row-meta { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--faint); }

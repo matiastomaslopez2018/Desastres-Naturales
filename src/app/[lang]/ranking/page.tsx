@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Glyph } from '@/components/Glyph';
-import { PeriodNav, parseStatRange, periodLabel } from '@/components/PeriodNav';
-import { SiteHeader } from '@/components/SiteHeader';
+import { PeriodNav, parseStatRange, periodLabel, periodPhrase } from '@/components/PeriodNav';
+import { SiteFooter, SiteHeader } from '@/components/SiteHeader';
 import { countryName, countryPath } from '@/lib/countries';
 import { fmtNum } from '@/lib/format';
 import { T, isLang } from '@/lib/i18n';
@@ -50,13 +50,17 @@ export default async function RankingPage({ params, searchParams }: Props) {
   const range = parseStatRange(sp.range);
   const year = parseYear(sp.year);
   const sort = parseSort(sp.orden);
-  const { stats, sources } = await getRanking(range, year);
+  const { stats, sources, fetchedAt } = await getRanking(range, year);
   const rows = rank(stats.values(), sort);
   const nf = (x: number, d = 0) => fmtNum(lang, x, d);
   const keep = { range: range === '1y' ? undefined : range, year: range === 'year' ? String(year) : undefined };
   const sortHref = (k: SortKey) => `/${lang}/ranking${qs({ ...keep, orden: k === 'alerts' ? undefined : k })}`;
   const langHref = (l: Lang) => `/${l}/ranking${qs({ ...keep, orden: sort === 'alerts' ? undefined : sort })}`;
   const failing = Object.entries(sources).filter(([, s]) => s?.state === 'err').map(([k]) => k.toUpperCase());
+
+  const leader = rank(stats.values(), 'alerts')[0];
+  const period = periodLabel(lang, range, year);
+  const headline = leader ? t.rankLead(countryName(leader.iso3, lang), t.alertsN(leader.alerts), periodPhrase(lang, range, year)) : t.rankTitle;
 
   const head = (k: SortKey, label: React.ReactNode, title?: string) => (
     <th key={k} scope="col" className={k === sort ? 'sorted' : undefined} aria-sort={k === sort ? 'descending' : undefined} title={title}>
@@ -65,56 +69,57 @@ export default async function RankingPage({ params, searchParams }: Props) {
   );
 
   return (
-    <div className="page">
-      <SiteHeader lang={lang} langHrefs={{ es: langHref('es'), en: langHref('en') }} current="ranking" />
-      <main className="content-page">
-        <div className="page-head">
-          <div className="stack-6">
-            <h1 className="page-title">{t.rankTitle}</h1>
-            <p className="page-sub">{t.rankSub}</p>
-          </div>
+    <div className="theme-paper ed-page">
+      <SiteHeader lang={lang} langHrefs={{ es: langHref('es'), en: langHref('en') }} current="ranking" updatedAt={fetchedAt} />
+      <main className="ed-main">
+        <div className="ed-head">
+          <span className="ed-kicker">{t.rankTitle}</span>
+          <h1 className="ed-headline">{headline}</h1>
+          <p className="ed-dek">{t.rankSub}</p>
+        </div>
+        <div className="ed-head-row">
           <PeriodNav lang={lang} path={`/${lang}/ranking`} range={range} year={year} params={sort === 'alerts' ? {} : { orden: sort }} />
+          <span className="ed-note">{t.alertsHelp}</span>
         </div>
 
-        {failing.length > 0 && <p className="alert-box alert-text" role="status">{t.err}: {failing.join(', ')}</p>}
+        {failing.length > 0 && <p className="ev-alert red" role="status">{t.err}: {failing.join(', ')}</p>}
 
         {rows.length === 0 ? (
-          <p className="muted-13">{t.noData}</p>
+          <p className="ed-note">{t.noData}</p>
         ) : (
-          <div className="table-wrap">
-            <table className="table rank-table">
-              <caption className="sr-only">{t.rankTitle} · {periodLabel(lang, range, year)}</caption>
+          <div className="ed-table-wrap">
+            <table className="ed-table">
+              <caption className="sr-only">{t.rankTitle} · {period}</caption>
               <thead>
                 <tr>
-                  <th scope="col" className="num">{t.col.pos}</th>
+                  <th scope="col">{t.col.pos}</th>
                   <th scope="col">{t.col.country}</th>
                   {head('alerts', t.col.alerts, t.alertsHelp)}
                   {head('total', t.col.total)}
                   {head('maxmag', t.col.maxmag)}
-                  {RANK_TYPES.map((k) => head(k, <span className="inline-6"><Glyph shape={SHAPE[k]} />{t.col[k]}</span>))}
+                  {RANK_TYPES.map((k) => head(k, <span className="row"><Glyph shape={SHAPE[k]} type={k} size={12} />{t.col[k]}</span>))}
                 </tr>
               </thead>
               <tbody>
                 {rows.map((s, i) => (
                   <tr key={s.iso3}>
-                    <td className="num muted">{i + 1}</td>
+                    <td className="pos">{i + 1}</td>
                     <th scope="row"><Link href={countryPath(lang, s.iso3) + qs(keep)}>{countryName(s.iso3, lang)}</Link></th>
-                    <td className="num">{s.alerts ? <>{nf(s.alerts)}{s.red ? <span className="muted"> · {t.redOf(s.red)}</span> : null}</> : <span className="muted">0</span>}</td>
-                    <td className="num">{nf(s.total)}</td>
-                    <td className="num">
-                      {s.maxEq ? <Link href={`/${lang}/evento/${encodeURIComponent(s.maxEq.id)}`}>M {nf(s.maxEq.mag ?? 0, 1)}</Link> : <span className="muted">—</span>}
+                    <td>{s.alerts ? <>{nf(s.alerts)}{s.red ? <span className="red"> · {t.redOf(s.red)}</span> : null}</> : <span className="zero">0</span>}</td>
+                    <td>{nf(s.total)}</td>
+                    <td>
+                      {s.maxEq ? <Link href={`/${lang}/evento/${encodeURIComponent(s.maxEq.id)}`} className={(s.maxEq.mag ?? 0) >= 6 ? 'red' : undefined}>M {nf(s.maxEq.mag ?? 0, 1)}</Link> : <span className="zero">—</span>}
                     </td>
-                    {RANK_TYPES.map((k) => <td key={k} className="num">{s.byType[k] ? nf(s.byType[k]) : <span className="muted">0</span>}</td>)}
+                    {RANK_TYPES.map((k) => <td key={k}>{s.byType[k] ? nf(s.byType[k]) : <span className="zero">0</span>}</td>)}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
-        <p className="note page-note">{t.rankNote}</p>
+        <p className="ed-note">{t.rankNote}</p>
       </main>
-      <footer className="site-footer"><span>{t.carto}</span></footer>
+      <SiteFooter lang={lang} />
     </div>
   );
 }
-

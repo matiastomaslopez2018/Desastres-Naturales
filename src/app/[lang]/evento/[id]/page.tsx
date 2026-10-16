@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { EventCard } from '@/components/EventCard';
-import { SiteHeader } from '@/components/SiteHeader';
+import { SiteFooter, SiteHeader } from '@/components/SiteHeader';
 import { StaticGlobe } from '@/components/StaticGlobe';
 import { T, isLang } from '@/lib/i18n';
 import { eventDescription, eventTitle } from '@/lib/eventText';
@@ -49,24 +49,22 @@ export default async function EventPage({ params }: Props) {
   const mapHref = `/${lang}?e=${encodeURIComponent(e.id)}`;
 
   return (
-    <div className="page">
+    <div className="theme-paper ed-page">
       <SiteHeader lang={lang} langHrefs={{ es: `/es/evento/${encodeURIComponent(e.id)}`, en: `/en/evento/${encodeURIComponent(e.id)}` }} />
 
-      <main className="event-page">
-        <div className="event-page-globe">
-          <Link href={mapHref} className="muted-12 back-link">{t.backToMap}</Link>
-          <StaticGlobe e={e} plates={plates} label={`${t.mapAlt}: ${e.title}`} />
-          <p className="muted-12 tabular" style={{ margin: 0 }}>{eventDescription(lang, e)}</p>
-        </div>
-        <div className="event-page-card">
+      <main className="ed-main">
+        <Link href={mapHref} className="ed-back">{t.backToMap}</Link>
+        <div className="ed-event">
+          <figure className="ed-event-figure">
+            <StaticGlobe e={e} plates={plates} label={`${t.mapAlt}: ${e.title}`} />
+            <figcaption className="tabular">{eventDescription(lang, e)}</figcaption>
+          </figure>
           <EventCard lang={lang} e={e} detail={detail} titleAs="h1"
-            actions={<Link href={mapHref} className="btn btn-secondary" style={{ alignSelf: 'flex-start' }}>{t.viewOnMap}</Link>} />
+            actions={<Link href={mapHref} className="ed-button">{t.viewOnMap}</Link>} />
         </div>
       </main>
 
-      <footer className="site-footer">
-        <span>{t.carto}</span>
-      </footer>
+      <SiteFooter lang={lang} />
     </div>
   );
 }

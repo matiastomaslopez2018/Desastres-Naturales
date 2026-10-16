@@ -8,24 +8,35 @@ export const SHAPE: Record<FilterType, Shape> = {
   eq: 'circle', tsunami: 'ring2', volcano: 'triangle', fire: 'diamond', storm: 'square', flood: 'triDown', drought: 'cross',
 };
 
-/** Tokens del sistema Industry usados en el canvas (no lee CSS en caliente). */
-export const COL = {
-  bg: '#f2f2f3', text: '#1d1f20',
-  n200: '#e7e7ea', n300: '#d4d4d7', n400: '#b7b7ba', n500: '#98989b',
-  a300: '#b5d9fd', a: '#5980a6', a700: '#416180', a800: '#2c455d', a900: '#1d2d3d',
-  tint: 'rgba(89,128,166,.22)',
+/** 2a "Satélite nocturno": colores del globo en canvas (mismo valor que --type-* en base.css). */
+export const NIGHT = {
+  bg: '#06080c', sphere: '#0b1220', land: '#18243a',
+  grat: 'rgba(120,160,220,.08)', borders: 'rgba(140,170,220,.18)', plates: 'rgba(255,122,61,.28)',
+  ring: 'rgba(255,122,61,.10)', glow: 'rgba(80,140,255,.22)', rim: 'rgba(140,180,255,.35)',
+  text: '#e6edf5', muted: '#9fb0c3', select: '#ff9a5c', alertOrange: '#ff9a5c', alertRed: '#ff3d3d', gvp: '#7d8ea2',
+  type: {
+    eq: '#ff7a3d', volcano: '#ff3d6e', fire: '#ffb547', storm: '#6ec8ff', flood: '#3d8bff', drought: '#c9a26b', tsunami: '#7af0e0',
+  } as Record<FilterType, string>,
+};
+
+/** 2b "Periodístico": papel, tinta y un solo rojo (mapas estáticos, imagen OG). */
+export const PAPER = {
+  bg: '#faf8f3', sphere: '#f1eee6', land: '#dcd5c5', borders: '#faf8f3', grat: 'rgba(26,26,26,.06)',
+  plates: 'rgba(26,26,26,.25)', ink: '#1a1a1a', muted: '#555', rule: '#d9d4c8', red: '#c8102e', highlight: 'rgba(200,16,46,.12)',
 };
 
 export const ALERT_RANK: Record<AlertLevel, number> = { green: 0, yellow: 1, orange: 2, red: 3 };
 export const alertLevel = (e: Pick<DisasterEvent, 'alert' | 'pager'>) =>
   Math.max(e.alert ? ALERT_RANK[e.alert] : 0, e.pager ? ALERT_RANK[e.pager] : 0);
 
-export function fillFor(e: DisasterEvent) {
-  const lvl = alertLevel(e);
-  if (lvl >= 3) return { fill: COL.a900, stroke: COL.a900, ring: true };
-  if (lvl === 2) return { fill: COL.a, stroke: COL.a800, ring: false };
-  if (lvl === 1) return { fill: COL.a300, stroke: COL.a800, ring: false };
-  return { fill: COL.tint, stroke: COL.a700, ring: false };
+/** En el periodístico se destaca en rojo: alerta oficial naranja/roja o sismo M6+. */
+export const isHighlighted = (e: DisasterEvent) => alertLevel(e) >= 2 || (e.type === 'eq' && (e.mag ?? 0) >= 6);
+
+/** Estilo de un evento en papel: contorno de tinta, relleno rojo si es destacado. */
+export function paperStyle(e: DisasterEvent) {
+  return isHighlighted(e)
+    ? { fill: PAPER.red, stroke: PAPER.red, fillOpacity: 0.85 }
+    : { fill: e.type === 'eq' ? 'none' : PAPER.ink, stroke: PAPER.ink, fillOpacity: e.type === 'eq' ? 0 : 0.55 };
 }
 
 export function sizeFor(e: { type: string; mag?: number | null }, k: number) {

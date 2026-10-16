@@ -1,46 +1,58 @@
 import Link from 'next/link';
 import { T } from '@/lib/i18n';
+import { fmtTime } from '@/lib/format';
 import type { Lang } from '@/lib/types';
+
+export type Section = 'map' | 'ranking' | 'countries' | 'method';
 
 type Props = {
   lang: Lang;
   /** Ruta de esta misma página en cada idioma. */
   langHrefs: Record<Lang, string>;
-  current?: 'map' | 'ranking';
+  current?: Section;
+  updatedAt?: number;
 };
 
-/** Encabezado de las páginas de servidor (ficha, ranking, país). El mapa tiene el suyo en Atlas. */
-export function SiteHeader({ lang, langHrefs, current }: Props) {
+/** Encabezado editorial 2b: marca en serif, secciones con subrayado rojo, idioma. */
+export function SiteHeader({ lang, langHrefs, current, updatedAt }: Props) {
   const t = T[lang];
+  const items: { k: Section; href: string; label: string }[] = [
+    { k: 'map', href: `/${lang}`, label: t.nav2.map },
+    { k: 'ranking', href: `/${lang}/ranking`, label: t.nav2.ranking },
+    { k: 'countries', href: `/${lang}/paises`, label: t.nav2.countries },
+    { k: 'method', href: `/${lang}/metodologia`, label: t.nav2.method },
+  ];
   return (
-    <header className="nav site-nav">
-      <div className="nav-brand brand">
-        <Link href={`/${lang}`} className="brand-name brand-link">{t.brand}</Link>
-        <span className="brand-sub">{t.brandSub}</span>
-      </div>
-      <SiteNav lang={lang} current={current} />
-      <div className="seg" role="group" aria-label="Idioma / Language">
-        {(['es', 'en'] as const).map((l) => (
-          <Link key={l} href={langHrefs[l]} hrefLang={l} className={`seg-opt seg-link${l === lang ? ' on' : ''}`} aria-current={l === lang ? 'true' : undefined}>
-            {l.toUpperCase()}
-          </Link>
+    <header className="ed-header">
+      <Link href={`/${lang}`} className="ed-brand">{t.brand}</Link>
+      <nav className="ed-nav" aria-label={lang === 'es' ? 'Secciones' : 'Sections'}>
+        {items.map((i) => (
+          <Link key={i.k} href={i.href} aria-current={current === i.k ? 'page' : undefined}>{i.label}</Link>
         ))}
+      </nav>
+      <div className="ed-header-end">
+        {updatedAt ? <span className="ed-updated">{t.updated} {fmtTime(lang, updatedAt)}</span> : null}
+        <span className="ed-lang">
+          {(['es', 'en'] as const).map((l, i) => (
+            <span key={l}>
+              {i > 0 && ' · '}
+              <Link href={langHrefs[l]} hrefLang={l} aria-current={l === lang ? 'true' : undefined}>{l.toUpperCase()}</Link>
+            </span>
+          ))}
+        </span>
       </div>
     </header>
   );
 }
 
-export function SiteNav({ lang, current }: { lang: Lang; current?: 'map' | 'ranking' }) {
+export function SiteFooter({ lang }: { lang: Lang }) {
   const t = T[lang];
-  const items = [
-    { k: 'map' as const, href: `/${lang}`, label: t.nav.map },
-    { k: 'ranking' as const, href: `/${lang}/ranking`, label: t.nav.ranking },
-  ];
   return (
-    <nav className="site-links" aria-label={lang === 'es' ? 'Secciones' : 'Sections'}>
-      {items.map((i) => (
-        <Link key={i.k} href={i.href} aria-current={current === i.k ? 'page' : undefined}>{i.label}</Link>
-      ))}
-    </nav>
+    <footer className="ed-footer">
+      <span className="ed-footer-brand">{t.brand}</span>
+      <span>{t.footerAbout}</span>
+      <span>{t.carto}</span>
+      <Link href={`/${lang}/metodologia`}>{t.readMethod}</Link>
+    </footer>
   );
 }

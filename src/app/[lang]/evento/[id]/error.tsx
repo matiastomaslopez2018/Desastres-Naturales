@@ -11,6 +11,6 @@ export default function EventError({ reset }: { error: Error; reset(): void }) {
   const t = T[l];
   return (
     <EventMessage title={t.errorTitle} text={t.errorText} href={`/${l}`} back={t.backToMap}
-      action={<button className="btn btn-primary" onClick={reset}>{t.retry}</button>} />
+      action={<button className="ed-button" onClick={reset}>{t.retry}</button>} />
   );
 }
