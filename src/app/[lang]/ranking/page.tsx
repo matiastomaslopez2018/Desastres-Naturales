@@ -13,6 +13,8 @@ import { RANK_TYPES, getRanking, parseSort, rank, type SortKey } from '@/lib/ser
 import type { Lang } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
+// Un período que todavía no está en la base se trae de las fuentes en el momento.
+export const maxDuration = 60;
 
 type SP = { range?: string; year?: string; orden?: string };
 type Props = { params: Promise<{ lang: string }>; searchParams: Promise<SP> };

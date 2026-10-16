@@ -7,6 +7,8 @@ import type { DisasterEvent } from '@/lib/types';
 
 // Sale de la base: se arma por pedido, no en el build.
 export const dynamic = 'force-dynamic';
+// Un período que todavía no está en la base se trae de las fuentes en el momento.
+export const maxDuration = 60;
 
 /** Tope de fichas de evento (el límite de un sitemap es 50.000 URLs; cada una va en dos idiomas). */
 const MAX_EVENTS = 2000;

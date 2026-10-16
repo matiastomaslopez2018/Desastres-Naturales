@@ -2,7 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { runLiveIngest } from '@/lib/server/jobs';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 300;
+// 60 s entra en todos los planes de Vercel; una corrida incremental tarda 1–5 s.
+export const maxDuration = 60;
 
 /**
  * Ingesta programada (Vercel Cron u otro scheduler). Con `CRON_SECRET` exige

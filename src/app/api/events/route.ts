@@ -3,6 +3,8 @@ import { getEvents } from '@/lib/server/ingest';
 import { parseRange, parseYear } from '@/lib/range';
 
 export const dynamic = 'force-dynamic';
+// Un período que todavía no está en la base se trae de las fuentes en el momento.
+export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;

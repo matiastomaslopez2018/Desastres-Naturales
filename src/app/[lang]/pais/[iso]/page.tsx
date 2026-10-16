@@ -16,6 +16,8 @@ import { RANK_TYPES, getCountry } from '@/lib/server/stats';
 import type { Lang } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
+// Un período que todavía no está en la base se trae de las fuentes en el momento.
+export const maxDuration = 60;
 
 const LIST_MAX = 50;
 

@@ -1,13 +1,21 @@
 import 'server-only';
 import { mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { createClient, type Client, type InStatement } from '@libsql/client';
 import type { DisasterEvent, SourceKey } from '../types';
 
 /**
  * Base de datos libSQL: archivo SQLite local en desarrollo (`file:data/atlas.db`)
  * o Turso en producción (`DATABASE_URL=libsql://…` + `DATABASE_AUTH_TOKEN`).
+ *
+ * En Vercel sin DATABASE_URL solo /tmp es escribible: se usa un archivo ahí.
+ * Funciona, pero es efímero y propio de cada instancia (cada arranque en frío
+ * vuelve a pedir los datos a las fuentes). Para producción real, usar Turso.
  */
-const URL = process.env.DATABASE_URL ?? 'file:data/atlas.db';
+const URL = process.env.DATABASE_URL || (process.env.VERCEL ? 'file:/tmp/atlas.db' : 'file:data/atlas.db');
+if (process.env.VERCEL && !process.env.DATABASE_URL) {
+  console.warn('[db] Sin DATABASE_URL: usando /tmp/atlas.db (efímero). Configurar Turso para persistir los datos.');
+}
 
 const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS events (
@@ -43,7 +51,7 @@ let ready: Promise<Client> | null = null;
 export function db(): Promise<Client> {
   if (ready) return ready;
   ready = (async () => {
-    if (URL.startsWith('file:')) mkdirSync('data', { recursive: true });
+    if (URL.startsWith('file:')) mkdirSync(dirname(URL.slice('file:'.length)), { recursive: true });
     client = createClient({ url: URL, authToken: process.env.DATABASE_AUTH_TOKEN });
     if (URL.startsWith('file:')) await client.execute('PRAGMA journal_mode = WAL');
     await client.batch(SCHEMA, 'write');

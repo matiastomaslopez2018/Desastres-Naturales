@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getEventById, isEventId } from '@/lib/server/ingest';
 
 export const dynamic = 'force-dynamic';
+// Si el evento no está en la base, se consulta a la fuente en el momento.
+export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
   const id = req.nextUrl.searchParams.get('id') ?? '';

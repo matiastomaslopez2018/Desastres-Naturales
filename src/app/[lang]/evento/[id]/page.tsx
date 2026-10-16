@@ -10,6 +10,8 @@ import { getPlates } from '@/lib/server/ingest';
 import { loadEvent } from './data';
 
 export const dynamic = 'force-dynamic';
+// Si el evento no está en la base, se consulta a la fuente en el momento.
+export const maxDuration = 60;
 
 type Props = { params: Promise<{ lang: string; id: string }> };
 

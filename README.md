@@ -21,7 +21,7 @@ Variables en `.env.example`.
 ```
 fuentes oficiales ──(jobs.ts)──▶ libSQL ──(ingest.ts)──▶ /api/events, /evento/[id]
       ▲                            │
- cron cada 10 min            coverage: ventanas ya cargadas por fuente
+ cron (diario o c/10 min)     coverage: ventanas ya cargadas por fuente
  backfill histórico          ingest_runs: última corrida OK/error (footer "Estado de fuentes")
 ```
 
@@ -34,11 +34,36 @@ fuentes oficiales ──(jobs.ts)──▶ libSQL ──(ingest.ts)──▶ /ap
 
 | Dónde | Cómo |
 | --- | --- |
-| Vercel | `vercel.json` llama a `/api/cron/ingest` cada 10 min. Definir `CRON_SECRET`. El plan Hobby solo permite un cron por día; para cada 10 min hace falta Pro o un scheduler externo que llame a la ruta con `Authorization: Bearer $CRON_SECRET`. |
+| Vercel | `vercel.json` llama a `/api/cron/ingest` una vez por día (06:00 UTC), que es el máximo del plan Hobby. Para cada 10 min: plan Pro (cambiar el `schedule` a `*/10 * * * *`) o un scheduler externo. |
+| Scheduler externo | [cron-job.org](https://cron-job.org) (gratis) u otro: `GET https://<tu-sitio>/api/cron/ingest` cada 10 min con el header `Authorization: Bearer <CRON_SECRET>`. |
 | Servidor propio | `INGEST_INTERVAL_MIN=10 npm start` corre la ingesta dentro del proceso (`src/instrumentation.ts`). |
 | Manual o cron del SO | `npm run ingest` |
 
-En producción serverless el archivo local no persiste. Usar Turso (`DATABASE_URL=libsql://…`, `DATABASE_AUTH_TOKEN`), que habla el mismo protocolo libSQL.
+En producción serverless el archivo local no persiste. Usar Turso (`DATABASE_URL=libsql://…`, `DATABASE_AUTH_TOKEN`), que habla el mismo protocolo libSQL. Sin `DATABASE_URL`, en Vercel se usa `/tmp/atlas.db`: el sitio funciona, pero cada instancia nueva arranca vacía y vuelve a pedir los datos a las fuentes.
+
+## Publicar en Vercel
+
+1. **Turso**: crear una cuenta en [turso.tech](https://turso.tech) y una base, por ejemplo `atlas-desastres`, en la región más cercana a la de Vercel (Washington D.C., `aws-us-east-1`, para la región por defecto `iad1`). Copiar la URL (`libsql://…`) y crear un token de acceso.
+2. **Cargar la base desde tu máquina**: poner en `.env.local` (no se sube a git)
+
+   ```
+   DATABASE_URL=libsql://atlas-desastres-<usuario>.turso.io
+   DATABASE_AUTH_TOKEN=<token>
+   ```
+
+   y correr `npm run ingest` y después `npm run backfill`. Así el sitio arranca con 30 días al detalle y el último año desde M4.5, sin esperas.
+3. **Vercel**: en [vercel.com/new](https://vercel.com/new), importar el repo `Desastres-Naturales` desde GitHub. Framework: Next.js. El proyecto está en la raíz, no hay que cambiar nada.
+4. **Variables de entorno** (Settings → Environment Variables, entorno Production):
+
+   | Variable | Valor |
+   | --- | --- |
+   | `DATABASE_URL` | la URL de Turso |
+   | `DATABASE_AUTH_TOKEN` | el token de Turso |
+   | `CRON_SECRET` | una cadena larga al azar. Sin ella, `/api/cron/ingest` responde 401 en producción. |
+   | `NEXT_PUBLIC_SITE_URL` | opcional, solo con dominio propio. Si falta, se usa el dominio `*.vercel.app` de producción. |
+
+5. **Deploy**. Cada `git push` a `master` vuelve a publicar el sitio. Para comprobarlo, abrir `/es`, ver que el pie diga "OK" en las tres fuentes y abrir `/sitemap.xml`.
+6. **Ingesta frecuente** (opcional): configurar el scheduler externo de la tabla de arriba.
 
 ## Estructura
 
