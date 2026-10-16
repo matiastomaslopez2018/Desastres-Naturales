@@ -1,6 +1,7 @@
 import countries from 'i18n-iso-countries';
 import en from 'i18n-iso-countries/langs/en.json';
 import { T } from './i18n';
+import { translateRegion } from './flinnEngdahl';
 import type { AlertLevel, DisasterEvent, Lang } from './types';
 
 countries.registerLocale(en);
@@ -20,17 +21,21 @@ const ALIAS: Record<string, string> = {
   'Ivory Coast': 'CI', "Cote d'Ivoire": 'CI', 'Czech Republic': 'CZ', Czechia: 'CZ', Russia: 'RU', Tanzania: 'TZ',
   'Viet Nam': 'VN', Vietnam: 'VN', Laos: 'LA', Syria: 'SY', Iran: 'IR', 'South Korea': 'KR', 'North Korea': 'KP',
   Bolivia: 'BO', Venezuela: 'VE', Moldova: 'MD', Kosovo: 'XK', 'East Timor': 'TL', 'Timor-Leste': 'TL', 'Timor Leste': 'TL', 'Cape Verde': 'CV',
-  Swaziland: 'SZ', Eswatini: 'SZ', Macedonia: 'MK', 'North Macedonia': 'MK', Burma: 'MM', Myanmar: 'MM', Micronesia: 'FM',
+  Swaziland: 'SZ', Eswatini: 'SZ', Macedonia: 'MK', 'North Macedonia': 'MK', Burma: 'MM', Myanmar: 'MM', Micronesia: 'FM', 'Federated States of Micronesia': 'FM',
 };
 
 const displayNames = new Map<Lang, Intl.DisplayNames>();
-export function countryFromEnglish(name: string, lang: Lang): string {
+/** País en inglés → idioma de la página, o null si no se reconoce. */
+function countryOrNull(name: string, lang: Lang): string | null {
   const n = name.trim();
   const a2 = ALIAS[n] ?? countries.getAlpha2Code(n, 'en');
-  if (!a2) return n;
+  if (!a2) return null;
   let dn = displayNames.get(lang);
   if (!dn) displayNames.set(lang, (dn = new Intl.DisplayNames([lang], { type: 'region' })));
-  return dn.of(a2) ?? n;
+  return dn.of(a2) ?? null;
+}
+export function countryFromEnglish(name: string, lang: Lang): string {
+  return countryOrNull(name, lang) ?? name.trim();
 }
 
 /* ───────────── región aproximada (para títulos multipaís) ───────────── */
@@ -53,19 +58,20 @@ const regionOf = (lon: number, lat: number, lang: Lang) => {
 
 /* ───────────── lugares de USGS ───────────── */
 
-/** "32 km SSW of Kabare, Indonesia": distancia, rumbo y lugar de referencia. */
-const USGS_PLACE = /^(\d+(?:\.\d+)?) km ([NSEW]{1,3}) of (.+)$/;
+/** "32 km SSW of Kabare, Indonesia" (a veces sin espacio: "19km ESE of …"). */
+const USGS_PLACE = /^(\d+(?:\.\d+)?) ?km ([NSEW]{1,3}) of (.+)$/;
 
 /**
  * Lugar de un sismo de USGS en el idioma de la página: "32 km al SSO de Kabare,
  * Indonesia". El rumbo pasa W → O (SSW → SSO, WNW → ONO) y el país del final se
- * traduce si se reconoce. Otros formatos ("central Mid-Atlantic Ridge") quedan como
- * los publica USGS.
+ * traduce si se reconoce. Los nombres de regiones Flinn-Engdahl ("central Mid-Atlantic
+ * Ridge" → "centro de la Dorsal Mesoatlántica") se traducen con su diccionario; lo que
+ * no está ahí queda como lo publica USGS.
  */
 export function localPlace(place: string, lang: Lang): string {
   if (lang === 'en') return place;
   const m = USGS_PLACE.exec(place.trim());
-  if (!m) return place;
+  if (!m) return translateRegion(place.trim(), (c) => countryOrNull(c, lang)) ?? place;
   const [, km, dir, ref] = m;
   const parts = ref.split(', ');
   if (parts.length > 1) parts[parts.length - 1] = countryFromEnglish(parts[parts.length - 1], lang);
