@@ -184,3 +184,23 @@
 
 /* Transición del globo nocturno al papel: un degradé en vez de un corte. */
 .dusk { height: 160px; background: linear-gradient(to bottom, #06080c 0%, #141a24 30%, #6b6a66 70%, #faf8f3 100%); }
+
+/* ── Fase 2 · A ── */
+/* Pestañas de "Más relevantes" */
+.tabs { display: flex; gap: 4px; margin: 4px 0 2px; }
+.tab { flex: 1; padding: 6px 8px; border-radius: 999px; border: 1px solid var(--panel-border); background: none; color: var(--muted); font-size: 12px; cursor: pointer; }
+.tab[aria-selected='true'] { background: rgba(255, 255, 255, .12); color: var(--text); border-color: rgba(255, 255, 255, .2); }
+.ev-group { align-items: center; }
+.ev-group .ev-row-meta { font-size: 12px; color: var(--muted); }
+
+/* Play, velocidad y scrubber */
+.play-group { display: flex; align-items: center; gap: 6px; margin-bottom: 14px; }
+.play-group .play { margin-bottom: 0; }
+.speed { min-width: 36px; height: 28px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--panel-border); background: var(--chip); color: var(--text); font-family: var(--font-mono); font-size: 11px; cursor: pointer; }
+.timeline { cursor: ew-resize; touch-action: none; user-select: none; }
+.tl-bar.on .tl-track { position: relative; }
+.tl-bar.on .tl-track::after { content: ''; position: absolute; left: 50%; top: -2px; bottom: -4px; width: 1px; background: rgba(255, 255, 255, .7); }
+@media (max-width: 760px) {
+  .play-group { gap: 4px; margin-bottom: 14px; }
+  .speed { min-width: 30px; height: 24px; padding: 0 5px; font-size: 10px; }
+}

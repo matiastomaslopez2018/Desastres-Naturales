@@ -5,6 +5,7 @@ import { CountryGlobe } from '@/components/CountryGlobe';
 import { Glyph } from '@/components/Glyph';
 import { PeriodNav, parseStatRange, periodLabel, periodPhrase } from '@/components/PeriodNav';
 import { SiteFooter, SiteHeader } from '@/components/SiteHeader';
+import { ShareButtons } from '@/components/ShareButtons';
 import { countryName, isIso3 } from '@/lib/countries';
 import { fmtNum, fmtTime } from '@/lib/format';
 import { T, isLang } from '@/lib/i18n';
@@ -92,7 +93,10 @@ export default async function CountryPage({ params, searchParams }: Props) {
           <span className="ed-kicker">{name}{position.alerts ? ` · ${t.posOf(position.alerts, position.of)} ${t.byAlerts}` : ''}</span>
           <h1 className="ed-headline">{headline}</h1>
         </div>
-        <PeriodNav lang={lang} path={`/${lang}/pais/${iso}`} range={range} year={year} />
+        <div className="ed-head-row">
+          <PeriodNav lang={lang} path={`/${lang}/pais/${iso}`} range={range} year={year} />
+          <ShareButtons lang={lang} path={`/${lang}/pais/${iso}${qs(keep)}`} text={t.shareCountry(name)} />
+        </div>
 
         <div className="ed-stats">
           {figures.map((k) => (

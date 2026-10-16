@@ -9,6 +9,10 @@ const nextConfig: NextConfig = {
       "./node_modules/@fontsource/newsreader/files/newsreader-latin-{400,600}-normal.woff",
       "./node_modules/@fontsource/source-sans-3/files/source-sans-3-latin-{400,600}-normal.woff",
     ],
+    "/[lang]/pais/[iso]/opengraph-image": [
+      "./node_modules/@fontsource/newsreader/files/newsreader-latin-{400,600}-normal.woff",
+      "./node_modules/@fontsource/source-sans-3/files/source-sans-3-latin-{400,600}-normal.woff",
+    ],
   },
 };
 

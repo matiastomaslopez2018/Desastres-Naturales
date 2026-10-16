@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { EventCard } from '@/components/EventCard';
 import { SiteFooter, SiteHeader } from '@/components/SiteHeader';
+import { ShareButtons } from '@/components/ShareButtons';
 import { StaticGlobe } from '@/components/StaticGlobe';
 import { T, isLang } from '@/lib/i18n';
 import { eventDescription, eventTitle } from '@/lib/eventText';
@@ -61,7 +62,12 @@ export default async function EventPage({ params }: Props) {
             <figcaption className="tabular">{eventDescription(lang, e)}</figcaption>
           </figure>
           <EventCard lang={lang} e={e} detail={detail} titleAs="h1"
-            actions={<Link href={mapHref} className="ed-button">{t.viewOnMap}</Link>} />
+            actions={
+              <>
+                <ShareButtons lang={lang} path={`/${lang}/evento/${encodeURIComponent(e.id)}`} text={t.shareEvent(eventTitle(lang, e))} />
+                <Link href={mapHref} className="ed-button">{t.viewOnMap}</Link>
+              </>
+            } />
         </div>
       </main>
 

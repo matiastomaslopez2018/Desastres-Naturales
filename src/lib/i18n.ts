@@ -75,6 +75,16 @@ const es = {
     storm: ['tormenta', 'tormentas'], flood: ['inundación', 'inundaciones'], drought: ['sequía', 'sequías'],
   } as Record<string, [string, string]>,
   includes: (list: string) => `Incluye ${list}`,
+  // Fase 2 · A
+  tabWeek: 'Esta semana', tabPeriod: 'En el período', tabAlerts: 'Alertas activas',
+  tabPeriodSub: 'Eventos que empezaron dentro del período, por magnitud y alerta oficial.',
+  tabAlertsSub: 'Alertas oficiales naranja o roja (GDACS, USGS PAGER) con datos nuevos en el período.',
+  noAlerts: 'No hay alertas oficiales naranja o roja en el período.',
+  moreLong: (n: number) => `+ ${n} sequía${n === 1 ? '' : 's'} en curso más`, showLess: 'Mostrar menos',
+  speed: 'Velocidad',
+  share: 'Compartir', copyLink: 'Copiar enlace', copied: 'Enlace copiado',
+  shareEvent: (title: string) => `${title} — Atlas de Desastres`,
+  shareCountry: (c: string) => `${c}: desastres naturales según fuentes oficiales — Atlas de Desastres`,
 };
 
 type Dict = typeof es;
@@ -148,6 +158,15 @@ const en: Dict = {
     storm: ['storm', 'storms'], flood: ['flood', 'floods'], drought: ['drought', 'droughts'],
   },
   includes: (list: string) => `Includes ${list}`,
+  tabWeek: 'This week', tabPeriod: 'In the period', tabAlerts: 'Active alerts',
+  tabPeriodSub: 'Events that started within the period, by magnitude and official alert.',
+  tabAlertsSub: 'Official orange or red alerts (GDACS, USGS PAGER) with new data in the period.',
+  noAlerts: 'No official orange or red alerts in the period.',
+  moreLong: (n: number) => `+ ${n} more ongoing drought${n === 1 ? '' : 's'}`, showLess: 'Show less',
+  speed: 'Speed',
+  share: 'Share', copyLink: 'Copy link', copied: 'Link copied',
+  shareEvent: (title: string) => `${title} — Disaster Atlas`,
+  shareCountry: (c: string) => `${c}: natural disasters from official sources — Disaster Atlas`,
 };
 
 export const T: Record<Lang, Dict> = { es, en };

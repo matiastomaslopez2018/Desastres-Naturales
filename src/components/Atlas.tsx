@@ -6,6 +6,8 @@ import { geoDistance } from 'd3-geo';
 import { Globe, type GlobeHandle, type Layers, type Pickable } from './Globe';
 import { Glyph, TypeDot } from './Glyph';
 import { EventCard } from './EventCard';
+import { ShareButtons } from './ShareButtons';
+import { eventTitle } from '@/lib/eventText';
 import { T } from '@/lib/i18n';
 import { fmtDay, fmtHour, fmtNum, fmtRel } from '@/lib/format';
 import { MIN_YEAR, RANGES, rangeInfo } from '@/lib/range';
@@ -20,7 +22,10 @@ type Props = { lang: Lang; initialRange: RangeKey; initialYear: number; initialS
 
 const LAYER_KEYS = ['borders', 'plates', 'ring', 'gvp', 'hazard'] as const;
 const SRC_NAME: Record<SourceKey, string> = { usgs: 'USGS', eonet: 'EONET', gdacs: 'GDACS', gvp: 'GVP', carto: 'PB2002' };
-const PLAY_MS = 650;
+/** Un tramo de la línea de tiempo por cuadro de reproducción, a 1×. */
+const PLAY_MS = 900;
+/** Eventos de larga duración: como mucho 2 en la lista; el resto se agrupa. */
+const LONG_TYPES = new Set(['drought']);
 
 /** 2a "Satélite nocturno": globo a pantalla completa con paneles flotantes y línea de tiempo. */
 export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
@@ -46,6 +51,10 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
   const [hover, setHover] = useState<{ e: Pickable; x: number; y: number } | null>(null);
   const [focus, setFocus] = useState<number | null>(null);
   const [playing, setPlaying] = useState(false);
+  const [speed, setSpeed] = useState<1 | 2 | 4>(1);
+  const [tab, setTab] = useState<'period' | 'alerts'>('period');
+  const [showAllLong, setShowAllLong] = useState(false);
+  const scrub = useRef<{ startI: number; prev: number | null; moved: boolean } | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const globe = useRef<GlobeHandle>(null);
   // Hoja inferior de "Más relevantes" en celular: cerrada asoma 2–3 ítems; se arrastra hacia arriba.
@@ -165,9 +174,9 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
         if (next >= bs.length) { setPlaying(false); return null; }
         return next;
       });
-    }, PLAY_MS);
+    }, PLAY_MS / speed);
     return () => clearInterval(id);
-  }, [playing, bs.length]);
+  }, [playing, bs.length, speed]);
 
   const subLine = (e: Pickable) => {
     if (e.type === 'gvp') return [e.country, e.vtype].filter(Boolean).join(' · ');
@@ -192,12 +201,23 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
   }, []);
   useEffect(() => { selId.current = sel?.id ?? null; }, [sel]);
 
-  // Solo eventos con datos nuevos dentro del período (una sequía abierta hace meses entra
-  // si GDACS la actualizó ahora, y se rotula "en curso desde…").
-  const top = useMemo(
-    () => visible.filter((e) => !win || lastUpdate(e) >= win.s).sort((a, b) => relevance(b) - relevance(a)).slice(0, 10),
-    [visible, win],
-  );
+  // Dos pestañas: "Esta semana" (empezaron dentro del período) y "Alertas activas"
+  // (alerta oficial naranja/roja con datos nuevos en el período, aunque hayan empezado antes).
+  const tabEvents = useMemo(() => {
+    const list = tab === 'period'
+      ? visible.filter((e) => !win || (e.start ?? e.time) >= win.s)
+      : visible.filter((e) => alertLevel(e) >= 2 && (!win || lastUpdate(e) >= win.s));
+    return list.sort((a, b) => relevance(b) - relevance(a));
+  }, [visible, win, tab]);
+  const { top, moreLong } = useMemo(() => {
+    const long = tabEvents.filter((e) => LONG_TYPES.has(e.type));
+    const rest = tabEvents.filter((e) => !LONG_TYPES.has(e.type)).slice(0, 10);
+    const shownLong = showAllLong ? long : long.slice(0, 2);
+    return {
+      top: [...rest, ...shownLong].sort((a, b) => relevance(b) - relevance(a)),
+      moreLong: long.length - 2,
+    };
+  }, [tabEvents, showAllLong]);
   const when = (e: DisasterEvent) => {
     const began = e.start ?? e.time;
     if (!win || began >= win.s) return fmtRel(lang, lastUpdate(e));
@@ -246,6 +266,32 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
     // Toque: alterna. Arrastre: queda del lado más cercano.
     if (d.moved < 6) setSheetOpen((o) => !o);
     else setSheetOpen(h > d.h + (sheetOpen ? -80 : 80));
+  };
+
+  /** Índice del tramo bajo el puntero. */
+  const bucketAt = (el: HTMLElement, x: number) => {
+    const r = el.getBoundingClientRect();
+    return Math.max(0, Math.min(bs.length - 1, Math.floor(((x - r.left) / r.width) * bs.length)));
+  };
+  const scrubDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!bs.length) return;
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* puntero sintético */ }
+    const i = bucketAt(e.currentTarget, e.clientX);
+    scrub.current = { startI: i, prev: focus, moved: false };
+    setPlaying(false);
+    setFocus(i);
+  };
+  const scrubMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!scrub.current) return;
+    const i = bucketAt(e.currentTarget, e.clientX);
+    if (i !== scrub.current.startI) scrub.current.moved = true;
+    setFocus(i);
+  };
+  const scrubUp = () => {
+    const s0 = scrub.current;
+    scrub.current = null;
+    // Toque sin arrastrar sobre el tramo ya fijado: lo suelta (vuelve a todo el período).
+    if (s0 && !s0.moved && s0.prev === s0.startI) setFocus(null);
   };
 
   const onCarto = useCallback((s: SourceStatus) => setSrc((x) => ({ ...x, carto: s })), []);
@@ -372,7 +418,12 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
           {sel ? (
             <>
               <EventCard lang={lang} e={sel} detail={detail} detailLoading={detailLoading} onClose={() => { setSel(null); setDetail(null); }}
-                actions={sel.type !== 'gvp' && <Link href={`/${lang}/evento/${encodeURIComponent(sel.id)}`} className="ev-link">{t.permalink} →</Link>} />
+                actions={sel.type !== 'gvp' && (
+                  <>
+                    <Link href={`/${lang}/evento/${encodeURIComponent(sel.id)}`} className="ev-link">{t.permalink} →</Link>
+                    <ShareButtons lang={lang} path={`/${lang}/evento/${encodeURIComponent(sel.id)}`} text={t.shareEvent(eventTitle(lang, sel))} />
+                  </>
+                )} />
               {nearby.length > 0 && (
                 <div className="stack-4">
                   <span className="panel-label">{t.nearby}</span>
@@ -399,7 +450,16 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
                 <span className="sheet-grip" aria-hidden="true" />
               </button>
               <span className="panel-label">{t.topTitle}</span>
-              <p className="note" style={{ margin: '0 0 6px' }}>{t.topSub}</p>
+              <div className="tabs" role="tablist" aria-label={t.topTitle}>
+                {(['period', 'alerts'] as const).map((k) => (
+                  <button key={k} role="tab" aria-selected={tab === k} className="tab"
+                    onClick={() => { setTab(k); setShowAllLong(false); }}>
+                    {k === 'alerts' ? t.tabAlerts : range === '7d' ? t.tabWeek : t.tabPeriod}
+                  </button>
+                ))}
+              </div>
+              <p className="note" style={{ margin: '0 0 6px' }}>{tab === 'alerts' ? t.tabAlertsSub : t.tabPeriodSub}</p>
+              {top.length === 0 && <p className="note">{tab === 'alerts' ? t.noAlerts : t.noData}</p>}
               {top.map((e) => (
                 <button key={e.id} className="ev-row" onClick={() => select(e)}>
                   <span className="ev-row-mag" style={{ color: `var(--type-${e.type})` }}>{e.type === 'eq' && e.mag != null ? nf(e.mag, 1) : ''}</span>
@@ -412,6 +472,12 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
                   </span>
                 </button>
               ))}
+              {moreLong > 0 && (
+                <button className="ev-row ev-group" onClick={() => setShowAllLong((v) => !v)} aria-expanded={showAllLong}>
+                  <Glyph shape={SHAPE.drought} type="drought" size={12} />
+                  <span className="ev-row-body"><span className="ev-row-meta">{showAllLong ? t.showLess : t.moreLong(moreLong)}</span></span>
+                </button>
+              )}
             </div>
           )}
         </aside>
@@ -425,14 +491,21 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
         </div>
 
         <div className="map-bottom">
-          <button className="play" onClick={() => setPlaying((p) => !p)} aria-label={playing ? t.pause : t.play} title={playing ? t.pause : t.play} disabled={!bs.length}>
-            {playing ? '❚❚' : '▶'}
-          </button>
-          <div className={`timeline${bs.length > 14 ? ' dense' : ''}`} role="group" aria-label={t.period}>
+          <div className="play-group">
+            <button className="play" onClick={() => setPlaying((p) => !p)} aria-label={playing ? t.pause : t.play} title={playing ? t.pause : t.play} disabled={!bs.length}>
+              {playing ? '❚❚' : '▶'}
+            </button>
+            <button className="speed" onClick={() => setSpeed((v) => (v === 1 ? 2 : v === 2 ? 4 : 1))} title={t.speed} aria-label={`${t.speed}: ${speed}×`}>
+              {speed}×
+            </button>
+          </div>
+          {/* Arrastrar sobre la línea de tiempo la recorre (scrubber); tocar un tramo lo fija o lo suelta. */}
+          <div className={`timeline${bs.length > 14 ? ' dense' : ''}`} role="group" aria-label={t.period}
+            onPointerDown={scrubDown} onPointerMove={scrubMove} onPointerUp={scrubUp} onPointerCancel={scrubUp}>
             {bs.map((b) => (
               <button key={b.i} className={`tl-bar${focus === b.i ? ' on' : ''}${focus != null && focus !== b.i ? ' dim' : ''}`}
                 title={`${b.title} · ${nf(perBucket[b.i] ?? 0)}`} aria-pressed={focus === b.i}
-                onClick={() => { setPlaying(false); setFocus((f) => (f === b.i ? null : b.i)); }}>
+                onClick={(ev) => { if (ev.detail === 0) { setPlaying(false); setFocus((f) => (f === b.i ? null : b.i)); } }}>
                 <span className="tl-count">{nf(perBucket[b.i] ?? 0)}</span>
                 <span className="tl-track"><span className="tl-fill" style={{ height: `${Math.round(((perBucket[b.i] ?? 0) / maxBucket) * 100)}%` }} /></span>
                 <span className="tl-label">{bs.length <= 14 || b.i % 5 === 0 || focus === b.i ? b.label : ' '}</span>
