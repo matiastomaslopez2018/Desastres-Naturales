@@ -53,6 +53,13 @@ export default async function RankingPage({ params, searchParams }: Props) {
   const { stats, sources, fetchedAt } = await getRanking(range, year);
   const rows = rank(stats.values(), sort);
   const nf = (x: number, d = 0) => fmtNum(lang, x, d);
+  /** "Incluye 673 incendios y 3 inundaciones": de qué está hecho el total. */
+  const list = new Intl.ListFormat(lang, { type: 'conjunction' });
+  const composition = (byType: Record<string, number>) =>
+    t.includes(list.format(
+      RANK_TYPES.filter((k) => byType[k]).sort((a, b) => byType[b] - byType[a])
+        .map((k) => `${nf(byType[k])} ${t.comp[k][byType[k] === 1 ? 0 : 1]}`),
+    ));
   const keep = { range: range === '1y' ? undefined : range, year: range === 'year' ? String(year) : undefined };
   const sortHref = (k: SortKey) => `/${lang}/ranking${qs({ ...keep, orden: k === 'alerts' ? undefined : k })}`;
   const langHref = (l: Lang) => `/${l}/ranking${qs({ ...keep, orden: sort === 'alerts' ? undefined : sort })}`;
@@ -106,7 +113,9 @@ export default async function RankingPage({ params, searchParams }: Props) {
                     <td className="pos">{i + 1}</td>
                     <th scope="row"><Link href={countryPath(lang, s.iso3) + qs(keep)}>{countryName(s.iso3, lang)}</Link></th>
                     <td>{s.alerts ? <>{nf(s.alerts)}{s.red ? <span className="red"> · {t.redOf(s.red)}</span> : null}</> : <span className="zero">0</span>}</td>
-                    <td>{nf(s.total)}</td>
+                    <td>
+                      <span className="composition" title={composition(s.byType)} aria-label={`${nf(s.total)} · ${composition(s.byType)}`}>{nf(s.total)}</span>
+                    </td>
                     <td>
                       {s.maxEq ? <Link href={`/${lang}/evento/${encodeURIComponent(s.maxEq.id)}`} className={(s.maxEq.mag ?? 0) >= 6 ? 'red' : undefined}>M {nf(s.maxEq.mag ?? 0, 1)}</Link> : <span className="zero">—</span>}
                     </td>

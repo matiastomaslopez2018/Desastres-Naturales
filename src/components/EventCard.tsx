@@ -6,7 +6,7 @@ import type { Pickable } from './Globe';
 import { countryName, countryPath } from '@/lib/countries';
 import { T } from '@/lib/i18n';
 import { MULTI_COUNTRY_MIN, localPlace, localSeverity, localTitle, titlePlaces } from '@/lib/localize';
-import { fmtNum, fmtTime } from '@/lib/format';
+import { fmtCoords, fmtNum, fmtTime } from '@/lib/format';
 import { SHAPE, alertLevel } from '@/lib/symbols';
 import type { EqDetail, Lang, Link } from '@/lib/types';
 
@@ -32,7 +32,7 @@ export function EventCard({ lang, e, detail, detailLoading, onClose, actions, ti
   };
   const pm = (v: number, err: number | null | undefined, unit: string, dg: number) =>
     nf(v, dg) + (err != null ? ` ± ${nf(err, dg)}` : '') + (unit ? ' ' + unit : '');
-  const coords = (extra = '') => `${nf(e.lat, 3)}°, ${nf(e.lon, 3)}°${extra}`;
+  const coords = (extra = '') => `${fmtCoords(lang, e.lat, e.lon)}${extra}`;
 
   let big = '', bigUnit = '', alertLabel = '', alertText = '';
   let kicker: string;
@@ -58,7 +58,8 @@ export function EventCard({ lang, e, detail, detailLoading, onClose, actions, ti
       big = e.mag != null ? nf(e.mag, 1) : '—';
       bigUnit = (e.magType ?? '') + (d.magErr != null ? ` ± ${nf(d.magErr, 2)}` : '');
       const place = e.src === 'USGS' ? localPlace(e.title, lang) : e.title;
-      add(f.place, place);
+      // Sin fila "Lugar" cuando repite el título de la ficha.
+      if (place !== localTitle(e, lang)) add(f.place, place);
       // El texto oficial tal como lo publica USGS, cuando la traducción lo cambió.
       if (place !== e.title) add(t.origUsgs, e.title);
       addCountry();

@@ -7,7 +7,7 @@ import { Globe, type GlobeHandle, type Layers, type Pickable } from './Globe';
 import { Glyph, TypeDot } from './Glyph';
 import { EventCard } from './EventCard';
 import { T } from '@/lib/i18n';
-import { fmtNum, fmtRel, fmtTime } from '@/lib/format';
+import { fmtDay, fmtNum, fmtRel, fmtTime } from '@/lib/format';
 import { MIN_YEAR, RANGES, rangeInfo } from '@/lib/range';
 import { SHAPE, TYPE_ORDER, alertLevel, lastUpdate, relevance, type FilterType } from '@/lib/symbols';
 import { alertTag, localTitle } from '@/lib/localize';
@@ -194,19 +194,10 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
     () => visible.filter((e) => !win || lastUpdate(e) >= win.s).sort((a, b) => relevance(b) - relevance(a)).slice(0, 10),
     [visible, win],
   );
-  const sinceFmt = useMemo(() => {
-    const loc = lang === 'es' ? 'es-AR' : 'en-GB';
-    return {
-      thisYear: new Intl.DateTimeFormat(loc, { day: 'numeric', month: 'short' }),
-      other: new Intl.DateTimeFormat(loc, { day: 'numeric', month: 'short', year: 'numeric' }),
-    };
-  }, [lang]);
   const when = (e: DisasterEvent) => {
     const began = e.start ?? e.time;
     if (!win || began >= win.s) return fmtRel(lang, lastUpdate(e));
-    const d = new Date(began);
-    const f = d.getFullYear() === new Date().getFullYear() ? sinceFmt.thisYear : sinceFmt.other;
-    return t.ongoingSince(f.format(d).replace('.', ''));
+    return t.ongoingSince(fmtDay(lang, began));
   };
   const nearby = useMemo(() => {
     if (!sel) return [];
@@ -241,7 +232,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
         </div>
 
         <header className="map-top">
-          <Link href={`/${lang}`} className="map-brand">ATLAS·DESASTRES</Link>
+          <Link href={`/${lang}`} className="map-brand">{t.brand}</Link>
           <div className="chips" role="group" aria-label={t.types}>
             {TYPE_ORDER.map((k) => (
               <button key={k} className="chip" aria-pressed={types[k]} onClick={() => toggleType(k)}>
@@ -250,7 +241,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
             ))}
           </div>
           <span className={`live${allOk ? '' : ' degraded'}`} title={t.dataStatus}>
-            <span className="live-dot" />{t.live.toUpperCase()} · {fetchedAt ? fmtTime(lang, fetchedAt) : '—'}
+            <span className="live-dot" /><span className="live-text">{t.live.toUpperCase()} · {fetchedAt ? fmtTime(lang, fetchedAt) : '—'}</span>
           </span>
           <nav className="map-nav" aria-label={lang === 'es' ? 'Secciones' : 'Sections'}>
             <Link href={`/${lang}/ranking`}>{t.nav2.ranking}</Link>

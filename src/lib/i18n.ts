@@ -22,7 +22,7 @@ const es = {
   open: 'En curso', closed: 'Finalizado', yes: 'Sí — ver tsunami.gov', pager: 'Impacto estimado · USGS PAGER', gdacs: 'Alerta GDACS',
   PAGER: { green: 'Verde: 0 víctimas estimadas · pérdidas < US$1 M', yellow: 'Amarillo: 1–99 víctimas estimadas · US$1–100 M', orange: 'Naranja: 100–999 víctimas estimadas · US$100 M–1.000 M', red: 'Rojo: 1.000+ víctimas estimadas · > US$1.000 M' } as Record<string, string>,
   GD: { orange: 'Naranja: impacto humanitario moderado; puede requerir ayuda internacional.', red: 'Roja: impacto humanitario alto; probable necesidad de ayuda internacional.' } as Record<string, string>,
-  noteShort: 'Sismos desde M2.5. Fuentes: USGS, NASA EONET, GDACS.', noteLong: 'Rangos mayores a 30 días: sismos desde M4.5 (límite de rendimiento).', noteYear: 'Cobertura histórica de NASA EONET desigual según categoría.',
+  noteShort: 'Sismos desde M2,5. Fuentes: USGS, NASA EONET, GDACS.', noteLong: 'Rangos mayores a 30 días: sismos desde M4,5 (límite de rendimiento).', noteYear: 'Cobertura histórica de NASA EONET desigual según categoría.',
   gvpKicker: 'Volcán · referencia', bce: 'a. C.',
   permalink: 'Ficha completa', viewOnMap: 'Ver en el mapa', backToMap: '← Volver al mapa',
   notFoundTitle: 'Evento no encontrado', notFoundText: 'La fuente no tiene un evento con ese identificador. Puede haber sido eliminado o fusionado con otro.',
@@ -30,13 +30,13 @@ const es = {
   sourceLine: 'Fuente', mapAlt: 'Ubicación del evento en el globo',
   nav: { map: 'Mapa', ranking: 'Ranking' },
   rankTitle: 'Ranking de países', rankSub: 'Eventos naturales por país según las fuentes oficiales, en el período elegido.',
-  rankNote: 'Sismos desde M4.5, el umbral a partir del cual el catálogo global de USGS es completo. Los conteos reflejan lo que publica cada fuente: NASA EONET registra incendios con mucho más detalle en algunos países que en otros, así que compararlos entre países requiere cautela. Los eventos en el mar no se asignan a ningún país.',
+  rankNote: 'Sismos desde M4,5, el umbral a partir del cual el catálogo global de USGS es completo. Los conteos reflejan lo que publica cada fuente: NASA EONET registra incendios con mucho más detalle en algunos países que en otros, así que compararlos entre países requiere cautela. Los eventos en el mar no se asignan a ningún país.',
   sortBy: 'Ordenar por', apply: 'Ver', noData: 'No hay eventos registrados en este período.',
-  col: { pos: '#', country: 'País', alerts: 'Alertas', total: 'Eventos', eq: 'Sismos M4.5+', maxmag: 'Mayor sismo', volcano: 'Volcanes', fire: 'Incendios', storm: 'Tormentas', flood: 'Inundaciones', drought: 'Sequías' },
+  col: { pos: '#', country: 'País', alerts: 'Alertas', total: 'Eventos', eq: 'Sismos M4,5+', maxmag: 'Mayor sismo', volcano: 'Volcanes', fire: 'Incendios', storm: 'Tormentas', flood: 'Inundaciones', drought: 'Sequías' },
   alertsHelp: 'Alertas oficiales naranja o roja (GDACS o USGS PAGER)',
   countryKicker: 'País', posOf: (n: number, m: number) => `Puesto ${n} de ${m}`, byAlerts: 'por alertas', byTotal: 'por cantidad de eventos',
   redOf: (n: number) => `${n} roja${n === 1 ? '' : 's'}`, eventsList: 'Eventos en el período', showing: (n: number, m: number) => `Mostrando ${n} de ${m}`,
-  countryNote: 'Incluye todos los eventos ubicados dentro del país; los totales y el ranking cuentan sismos desde M4.5.',
+  countryNote: 'Incluye todos los eventos ubicados dentro del país; los totales y el ranking cuentan sismos desde M4,5.',
   rankPeriod: (p: string) => `Período: ${p}`, inRange: { '30d': 'últimos 30 días', '1y': 'últimos 365 días' } as Record<string, string>,
   countryMeta: (c: string, p: string) => `Desastres naturales en ${c} (${p}): sismos, volcanes, incendios, tormentas, inundaciones y sequías según USGS, NASA EONET y GDACS.`,
   rankMeta: (p: string) => `Ranking de países por desastres naturales (${p}): alertas oficiales, sismos, incendios, tormentas e inundaciones según USGS, NASA EONET y GDACS.`,
@@ -70,6 +70,11 @@ const es = {
   lastIngest: 'Última actualización', fetched: 'Registros en la última corrida',
   ongoingSince: (d: string) => `en curso desde ${d}`, countriesRow: 'Países', origUsgs: 'Texto original (USGS)',
   alertsN: (n: number) => `${n} alerta${n === 1 ? '' : 's'}`,
+  comp: {
+    eq: ['sismo M4,5+', 'sismos M4,5+'], volcano: ['volcán', 'volcanes'], fire: ['incendio', 'incendios'],
+    storm: ['tormenta', 'tormentas'], flood: ['inundación', 'inundaciones'], drought: ['sequía', 'sequías'],
+  } as Record<string, [string, string]>,
+  includes: (list: string) => `Incluye ${list}`,
 };
 
 type Dict = typeof es;
@@ -138,6 +143,11 @@ const en: Dict = {
   lastIngest: 'Last update', fetched: 'Records in the last run',
   ongoingSince: (d: string) => `ongoing since ${d}`, countriesRow: 'Countries', origUsgs: 'Original text (USGS)',
   alertsN: (n: number) => `${n} alert${n === 1 ? '' : 's'}`,
+  comp: {
+    eq: ['M4.5+ quake', 'M4.5+ quakes'], volcano: ['volcano', 'volcanoes'], fire: ['wildfire', 'wildfires'],
+    storm: ['storm', 'storms'], flood: ['flood', 'floods'], drought: ['drought', 'droughts'],
+  },
+  includes: (list: string) => `Includes ${list}`,
 };
 
 export const T: Record<Lang, Dict> = { es, en };
@@ -145,14 +155,16 @@ export const T: Record<Lang, Dict> = { es, en };
 export const METHOD: Record<Lang, { h: string; p: string }[]> = {
   es: [
     { h: 'Qué se muestra', p: 'Solo eventos publicados por organismos oficiales o científicos. No se agregan, estiman ni corrigen datos: cada ficha muestra su fuente, su estado y su incertidumbre cuando la fuente la publica.' },
-    { h: 'Terremotos — USGS ComCat', p: 'Catálogo del Servicio Geológico de EE.UU. Desde M2.5 para rangos de hasta 30 días y desde M4.5 para rangos mayores. "Preliminar" es una solución automática que puede cambiar; "Revisado" fue verificado por un sismólogo. Los márgenes (± km) salen de la solución de origen.' },
+    { h: 'Terremotos — USGS ComCat', p: 'Catálogo del Servicio Geológico de EE.UU. Desde M2,5 para rangos de hasta 30 días y desde M4,5 para rangos mayores. "Preliminar" es una solución automática que puede cambiar; "Revisado" fue verificado por un sismólogo. Los márgenes (± km) salen de la solución de origen.' },
     { h: 'Impacto estimado — USGS PAGER', p: 'Estimación probabilística de víctimas y pérdidas económicas tras un sismo. Verde: 0 víctimas, < US$1 M. Amarillo: 1–99, US$1–100 M. Naranja: 100–999, US$100 M–1.000 M. Rojo: 1.000+, > US$1.000 M. Es una estimación, no un recuento.' },
     { h: 'Volcanes, incendios, tormentas, inundaciones y sequías — NASA EONET', p: 'Eventos naturales curados por NASA a partir de fuentes como Smithsonian, InciWeb, JTWC y GDACS. Cada ficha enlaza la fuente primaria. La cobertura histórica es desigual según la categoría.' },
+    { h: 'Incendios', p: 'Casi todos los incendios llegan por NASA EONET desde dos fuentes: GDACS, que registra áreas quemadas de 5.000 ha o más detectadas por satélite en todo el mundo, e IRWIN, el sistema de incidentes de EE. UU., que publica incendios mucho más chicos. Por eso EE. UU., Australia y varios países de África central y austral concentran muchos registros: un recuento alto refleja cómo publica cada fuente, no necesariamente más daño. Solo una fracción mínima tiene alerta oficial naranja o roja.' },
+    { h: 'País asignado y nombres de las fuentes', p: 'El país sale de la posición del evento, no del título que pone la fuente. Por ejemplo, GDACS titula "Sudán" a cientos de incendios que caen dentro de Sudán del Sur; acá se cuentan en Sudán del Sur. Cerca de las fronteras, la cartografía 1:110M puede asignar el país vecino. Los registros duplicados de EONET (mismo título, posición y día) se cuentan una sola vez.' },
     { h: 'Alertas — GDACS', p: 'Sistema Global de Alertas y Coordinación de Desastres (ONU y Comisión Europea). Se muestran alertas naranja y roja; si coinciden en lugar y fecha con un evento ya listado, se adjuntan a ese evento.' },
     { h: 'Tsunamis', p: 'El indicador de tsunami del USGS marca sismos grandes en zonas oceánicas: no confirma que haya ocurrido un tsunami. Las alertas oficiales las emiten los centros de NOAA (tsunami.gov).' },
     { h: 'Capas de referencia', p: 'Límites de placas: modelo PB2002 (Bird, 2003). Cinturón de Fuego: trazado aproximado, solo orientativo. Volcanes del Holoceno: Smithsonian Global Volcanism Program. Fronteras: Natural Earth 1:110M. Riesgo sísmico (GEM): aún no incluido, requiere licencia.' },
     { h: 'País', p: 'El país de cada evento se calcula por punto-en-polígono contra Natural Earth 1:110M. Los eventos en el mar quedan sin país salvo que GDACS lo informe. Los códigos siguen ISO 3166-1: Chipre del Norte y Somalilandia se cuentan en Chipre y Somalia, y Kosovo usa el código provisorio XK.' },
-    { h: 'Ranking de países', p: 'Cuenta eventos por país en el período elegido, con sismos desde M4.5 (umbral de completitud del catálogo global de USGS). "Alertas" son las alertas oficiales naranja o roja de GDACS o USGS PAGER. Un ranking alto refleja más eventos registrados, no necesariamente más daño: la cobertura de cada fuente varía según el país.' },
+    { h: 'Ranking de países', p: 'Cuenta eventos por país en el período elegido, con sismos desde M4,5 (umbral de completitud del catálogo global de USGS). "Alertas" son las alertas oficiales naranja o roja de GDACS o USGS PAGER. Un ranking alto refleja más eventos registrados, no necesariamente más daño: la cobertura de cada fuente varía según el país.' },
     { h: 'Horarios', p: 'Cada evento se muestra en UTC y en la hora local de tu dispositivo.' },
   ],
   en: [
@@ -160,6 +172,8 @@ export const METHOD: Record<Lang, { h: string; p: string }[]> = {
     { h: 'Earthquakes — USGS ComCat', p: 'U.S. Geological Survey catalog. From M2.5 for ranges up to 30 days, M4.5 for longer ranges. "Preliminary" is an automatic solution that may change; "Reviewed" was checked by a seismologist. Margins (± km) come from the origin solution.' },
     { h: 'Estimated impact — USGS PAGER', p: 'Probabilistic estimate of fatalities and economic losses after an earthquake. Green: 0, < US$1M. Yellow: 1–99, US$1–100M. Orange: 100–999, US$100M–1B. Red: 1,000+, > US$1B. It is an estimate, not a count.' },
     { h: 'Volcanoes, wildfires, storms, floods and droughts — NASA EONET', p: 'Natural events curated by NASA from sources such as Smithsonian, InciWeb, JTWC and GDACS. Each card links the primary source. Historical coverage varies by category.' },
+    { h: 'Wildfires', p: 'Almost all wildfires come through NASA EONET from two sources: GDACS, which records satellite-detected burned areas of 5,000 ha or more worldwide, and IRWIN, the US incident system, which publishes much smaller fires. That is why the US, Australia and several countries in central and southern Africa concentrate many records: a high count reflects how each source publishes, not necessarily more damage. Only a tiny fraction carry an official orange or red alert.' },
+    { h: 'Assigned country and source names', p: 'The country comes from the event position, not from the title the source gives it. For example, GDACS titles hundreds of fires "Sudan" that fall inside South Sudan; here they count for South Sudan. Near borders, the 1:110M cartography may assign the neighboring country. Duplicate EONET records (same title, position and day) are counted once.' },
     { h: 'Alerts — GDACS', p: 'Global Disaster Alert and Coordination System (UN and European Commission). Orange and red alerts are shown; when they match a listed event in place and date, they are attached to it.' },
     { h: 'Tsunamis', p: 'The USGS tsunami flag marks large quakes in oceanic regions: it does not confirm a tsunami occurred. Official warnings are issued by NOAA centers (tsunami.gov).' },
     { h: 'Reference layers', p: 'Plate boundaries: PB2002 model (Bird, 2003). Ring of Fire: approximate trace, for orientation only. Holocene volcanoes: Smithsonian Global Volcanism Program. Borders: Natural Earth 1:110M. Seismic hazard (GEM): not yet included, requires a license.' },

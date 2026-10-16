@@ -9,7 +9,8 @@
 /* barra superior */
 .map-top { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 20px; padding: 18px 28px; pointer-events: none; }
 .map-top > * { pointer-events: auto; }
-.map-brand { font-family: var(--font-mono); font-size: 14px; letter-spacing: .18em; color: var(--text); text-decoration: none; white-space: nowrap; }
+/* Mismo logo que el resto del sitio: "Atlas de Desastres" en serif. */
+.map-brand { font-family: var(--font-newsreader), Georgia, serif; font-size: 22px; font-weight: 600; letter-spacing: -.01em; color: var(--text); text-decoration: none; white-space: nowrap; }
 .chips { display: flex; gap: 6px; flex-wrap: nowrap; overflow: hidden; }
 .chip { display: flex; align-items: center; gap: 7px; padding: 6px 11px; border-radius: 999px; background: var(--chip); border: 1px solid var(--panel-border); font-size: 12px; cursor: pointer; white-space: nowrap; color: var(--text); }
 .chip[aria-pressed='false'] { opacity: .4; }
@@ -125,9 +126,11 @@
 
 /* móvil: filtros y ficha como hojas inferiores */
 @media (max-width: 760px) {
-  .map-top { padding: 12px 14px; gap: 12px; flex-wrap: wrap; }
-  .map-brand { font-size: 12px; }
-  .live { font-size: 10px; }
+  .map-top { padding: 12px 14px; gap: 12px; flex-wrap: nowrap; }
+  .map-brand { font-size: 18px; }
+  .live { font-size: 10px; margin-left: auto; }
+  .live-text { display: none; } /* en celular queda solo el punto verde */
+  .map-lang { margin-left: 0; }
   .map-filters-btn { display: block; order: 10; padding: 6px 12px; border-radius: 999px; background: var(--chip); border: 1px solid var(--panel-border); font-size: 12px; cursor: pointer; }
   .panel-left { left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; max-height: 70%; border-radius: 16px; transform: translateY(calc(100% + 16px)); transition: transform .25s ease; z-index: 3; }
   .panel-left.open { transform: none; }
@@ -136,10 +139,11 @@
   .panel-right.has-sel ~ .map-zoom { display: none; }
   .ev-big-num, .theme-night .ev-big-num { font-size: 56px; }
   .map-zoom { right: 14px; bottom: 96px; }
-  .globe-area { top: 84px; bottom: 84px; }
+  /* Globo justo debajo de la barra (una sola línea) y casi a todo el ancho. */
+  .globe-area { top: 52px; bottom: auto; height: min(calc(100vw + 24px), calc(100% - 52px - 96px)); }
   /* Con la ficha abierta (hoja inferior), el globo pasa a la franja de arriba para que el
      evento seleccionado quede a la vista; el vuelo lo centra en esa franja. */
-  .map-stage:has(.panel-right.has-sel) .globe-area { bottom: 62%; }
+  .map-stage:has(.panel-right.has-sel) .globe-area { height: calc(38% - 52px); }
   .panel-right.has-sel { max-height: 60%; }
   .map-zoom button { width: 34px; height: 34px; }
   .map-bottom { left: 12px; right: 12px; bottom: 12px; gap: 10px; }
@@ -147,7 +151,10 @@
   .tl-track { height: 32px; }
   .timeline { gap: 1px; }
   .tl-label { font-size: 9px; }
-  .map-sources { display: none; }
+  /* En celular solo queda el aviso del resumen, en el espacio libre sobre la línea de tiempo. */
+  .map-sources { position: absolute; left: 0; right: 0; bottom: 92px; width: auto; align-items: center; }
+  .src-line, .tl-all { display: none; }
+  .map-stage:has(.panel-right.has-sel) .map-sources, .map-stage:has(.panel-left.open) .map-sources { display: none; }
   .tooltip { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .panel-left { transition: none; } }

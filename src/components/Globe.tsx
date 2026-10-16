@@ -73,7 +73,8 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
-    const R = (Math.min(W, H) / 2) * 0.86 * k;
+    // En pantallas angostas el globo ocupa casi todo el ancho.
+    const R = (Math.min(W, H) / 2) * (W < 600 ? 0.96 : 0.86) * k;
     const cx = W / 2, cy = H / 2;
     // En movimiento, contornos con menos remuestreo (más rápido, imperceptible mientras gira).
     proj.scale(R).translate([cx, cy]).rotate(rot).precision(moving.current ? 2 : 0.4);

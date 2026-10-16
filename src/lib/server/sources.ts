@@ -21,6 +21,9 @@ const asAlert = (v: unknown): AlertLevel | null => {
   return (ALERTS as string[]).includes(s) ? (s as AlertLevel) : null;
 };
 const isoDay = (d: Date) => d.toISOString().slice(0, 10);
+/** Algunas fuentes mandan entidades HTML en los títulos ("Cote d&#039;Ivoire"). */
+export const decodeEntities = (s: string) =>
+  s.replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n)).replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 /** GDACS publica fechas UTC sin zona ("2026-10-07T15:00:00"). */
 const parseUtc = (s: string) => Date.parse(/[zZ]|[+-]\d\d:?\d\d$/.test(s) ? s : s + 'Z');
 
@@ -107,7 +110,7 @@ function mapEonet(ev: EonetEvent): DisasterEvent | null {
   const lg = gs[gs.length - 1];
   return {
     id: 'eonet-' + ev.id, type, src: 'NASA EONET', lon: last[0], lat: last[1],
-    time: Date.parse(lg.date), start: Date.parse(gs[0].date), title: ev.title, closed: !!ev.closed,
+    time: Date.parse(lg.date), start: Date.parse(gs[0].date), title: decodeEntities(ev.title), closed: !!ev.closed,
     mag: lg.magnitudeValue, magUnit: lg.magnitudeUnit ?? undefined,
     track: type === 'storm' && pts.length > 1 ? pts : null,
     links: (ev.sources ?? []).map((x) => ({ label: x.id, url: x.url })),
@@ -159,7 +162,7 @@ function mapGdacs(f: GdacsFeature): DisasterEvent | null {
   const [lon, lat] = f.geometry.coordinates;
   return {
     id: 'gdacs-' + p.eventtype + p.eventid, type, src: 'GDACS', lon, lat,
-    time: parseUtc(p.fromdate), end: parseUtc(p.todate), title: p.name || p.description || p.eventtype,
+    time: parseUtc(p.fromdate), end: parseUtc(p.todate), title: decodeEntities(p.name || p.description || p.eventtype),
     country: p.country || undefined, iso3: /^[A-Z]{3}$/.test(p.iso3 ?? '') ? p.iso3 : undefined,
     alert: asAlert(p.alertlevel), severity: p.severitydata?.severitytext,
     url: p.url?.report, mag: type === 'eq' ? gdacsEqMag(p.severitydata) : null,

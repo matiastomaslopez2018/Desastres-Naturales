@@ -46,6 +46,23 @@ export function mergeGdacs(base: DisasterEvent[], gdacs: DisasterEvent[]): Disas
 
 const splitGdacs = (rows: DisasterEvent[]) => mergeGdacs(rows.filter((e) => e.src !== 'GDACS'), rows.filter((e) => e.src === 'GDACS'));
 
+/**
+ * EONET a veces publica el mismo incendio dos veces (mismo título, posición y día,
+ * distinto id): ~0,2 % de los registros. Se queda el más reciente.
+ */
+function dedupeEonet(rows: DisasterEvent[]): DisasterEvent[] {
+  const seen = new Map<string, DisasterEvent>();
+  const out: DisasterEvent[] = [];
+  for (const e of rows) {
+    if (e.src !== 'NASA EONET') { out.push(e); continue; }
+    const key = `${e.type}|${e.title.replace(/\s\d{6,}$/, '')}|${e.lon.toFixed(2)}|${e.lat.toFixed(2)}|${new Date(e.start ?? e.time).toISOString().slice(0, 10)}`;
+    const prev = seen.get(key);
+    if (!prev) { seen.set(key, e); out.push(e); }
+    else if (e.time > prev.time) { out[out.indexOf(prev)] = e; seen.set(key, e); }
+  }
+  return out;
+}
+
 /* ───────────── Eventos de un período ───────────── */
 
 export async function getEvents(range: RangeKey, year: number): Promise<EventsResponse> {
@@ -73,7 +90,7 @@ export async function getEvents(range: RangeKey, year: number): Promise<EventsRe
     if (run?.lastOkAt) fetchedAt = Math.max(fetchedAt, run.lastOkAt);
   }
   return {
-    events: splitGdacs(rows), sources, fetchedAt: fetchedAt || Date.now(),
+    events: splitGdacs(dedupeEonet(rows)), sources, fetchedAt: fetchedAt || Date.now(),
     range: { start: s.toISOString(), end: e.toISOString(), floor },
   };
 }

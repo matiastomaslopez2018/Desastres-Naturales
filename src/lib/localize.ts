@@ -114,7 +114,9 @@ function parsePlaces(e: DisasterEvent, lang: Lang): { word: string; places: stri
 }
 
 /** Espacios dobles y el número de evento que EONET agrega al final ("Flood in Kenya 1103589"). */
-const clean = (s: string) => s.replace(/\s+/g, ' ').replace(/\s\d{6,}$/, '').trim();
+const clean = (s: string) => decodeHtml(s).replace(/\s+/g, ' ').replace(/\s\d{6,}$/, '').trim();
+/** Para registros guardados antes de decodificar entidades HTML en la ingesta. */
+const decodeHtml = (s: string) => s.replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n)).replace(/&amp;/g, '&');
 
 export const MULTI_COUNTRY_MIN = 3;
 

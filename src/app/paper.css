@@ -163,3 +163,6 @@ button.ed-button { background: none; cursor: pointer; color: inherit; font-famil
   .theme-paper .ev-big-num { font-size: 72px; }
   .ed-footer a { margin-left: 0; }
 }
+
+/* Total del ranking con su desglose al pasar el mouse (tooltip). */
+.composition { border-bottom: 1px dotted var(--faint); cursor: help; }
