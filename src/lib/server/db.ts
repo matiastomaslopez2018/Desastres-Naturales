@@ -5,17 +5,33 @@ import { createClient, type Client, type InStatement } from '@libsql/client';
 import type { DisasterEvent, SourceKey } from '../types';
 
 /**
- * Base de datos libSQL: archivo SQLite local en desarrollo (`file:data/atlas.db`)
- * o Turso en producción (`DATABASE_URL=libsql://…` + `DATABASE_AUTH_TOKEN`).
+ * Base de datos libSQL: Turso en producción, archivo SQLite local en desarrollo.
  *
- * En Vercel sin DATABASE_URL solo /tmp es escribible: se usa un archivo ahí.
- * Funciona, pero es efímero y propio de cada instancia (cada arranque en frío
- * vuelve a pedir los datos a las fuentes). Para producción real, usar Turso.
+ * Credenciales de Turso: las que crea la integración de Vercel con prefijo STORAGE
+ * (`STORAGE_URL` + `STORAGE_AUTH_TOKEN`); también se aceptan otros nombres habituales.
+ * Sin ninguna, se usa `file:data/atlas.db` (o `/tmp/atlas.db` en Vercel, efímero y
+ * propio de cada instancia: funciona, pero cada arranque en frío vuelve a pedir los
+ * datos a las fuentes).
  */
-const URL = process.env.DATABASE_URL || (process.env.VERCEL ? 'file:/tmp/atlas.db' : 'file:data/atlas.db');
-if (process.env.VERCEL && !process.env.DATABASE_URL) {
-  console.warn('[db] Sin DATABASE_URL: usando /tmp/atlas.db (efímero). Configurar Turso para persistir los datos.');
+const firstEnv = (names: string[]) => {
+  for (const n of names) if (process.env[n]) return { name: n, value: process.env[n]! };
+  return null;
+};
+const urlEnv = firstEnv(['STORAGE_URL', 'STORAGE_DATABASE_URL', 'STORAGE_TURSO_DATABASE_URL', 'TURSO_DATABASE_URL', 'DATABASE_URL']);
+const tokenEnv = firstEnv(['STORAGE_AUTH_TOKEN', 'STORAGE_DATABASE_AUTH_TOKEN', 'STORAGE_TURSO_AUTH_TOKEN', 'TURSO_AUTH_TOKEN', 'DATABASE_AUTH_TOKEN']);
+const URL = urlEnv?.value || (process.env.VERCEL ? 'file:/tmp/atlas.db' : 'file:data/atlas.db');
+const AUTH_TOKEN = tokenEnv?.value;
+if (process.env.VERCEL && !urlEnv) {
+  console.warn('[db] Sin STORAGE_URL: usando /tmp/atlas.db (efímero). Conectar Turso para persistir los datos.');
 }
+
+/** Para diagnóstico: qué base se usa, sin exponer el token. */
+export const dbInfo = () => ({
+  kind: URL.startsWith('file:') ? 'archivo local' : 'Turso',
+  url: URL.startsWith('file:') ? URL : URL.split('?')[0],
+  urlVar: urlEnv?.name ?? null,
+  tokenVar: tokenEnv?.name ?? null,
+});
 
 const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS events (
@@ -52,7 +68,7 @@ export function db(): Promise<Client> {
   if (ready) return ready;
   ready = (async () => {
     if (URL.startsWith('file:')) mkdirSync(dirname(URL.slice('file:'.length)), { recursive: true });
-    client = createClient({ url: URL, authToken: process.env.DATABASE_AUTH_TOKEN });
+    client = createClient({ url: URL, authToken: AUTH_TOKEN });
     if (URL.startsWith('file:')) await client.execute('PRAGMA journal_mode = WAL');
     await client.batch(SCHEMA, 'write');
     return client;

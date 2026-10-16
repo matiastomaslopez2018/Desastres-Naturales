@@ -39,26 +39,25 @@ fuentes oficiales ──(jobs.ts)──▶ libSQL ──(ingest.ts)──▶ /ap
 | Servidor propio | `INGEST_INTERVAL_MIN=10 npm start` corre la ingesta dentro del proceso (`src/instrumentation.ts`). |
 | Manual o cron del SO | `npm run ingest` |
 
-En producción serverless el archivo local no persiste. Usar Turso (`DATABASE_URL=libsql://…`, `DATABASE_AUTH_TOKEN`), que habla el mismo protocolo libSQL. Sin `DATABASE_URL`, en Vercel se usa `/tmp/atlas.db`: el sitio funciona, pero cada instancia nueva arranca vacía y vuelve a pedir los datos a las fuentes.
+En producción serverless el archivo local no persiste. Usar Turso (`STORAGE_URL=libsql://…`, `STORAGE_AUTH_TOKEN`, los nombres que crea la integración de Vercel con prefijo STORAGE; también se aceptan `DATABASE_URL`/`DATABASE_AUTH_TOKEN` y `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN`), que habla el mismo protocolo libSQL. Sin `STORAGE_URL`, en Vercel se usa `/tmp/atlas.db`: el sitio funciona, pero cada instancia nueva arranca vacía y vuelve a pedir los datos a las fuentes.
 
 ## Publicar en Vercel
 
-1. **Turso**: crear una cuenta en [turso.tech](https://turso.tech) y una base, por ejemplo `atlas-desastres`, en la región más cercana a la de Vercel (Washington D.C., `aws-us-east-1`, para la región por defecto `iad1`). Copiar la URL (`libsql://…`) y crear un token de acceso.
-2. **Cargar la base desde tu máquina**: poner en `.env.local` (no se sube a git)
+1. **Turso desde Vercel**: en el proyecto de Vercel, Storage → Turso, con prefijo `STORAGE`. La integración crea `STORAGE_URL` y `STORAGE_AUTH_TOKEN` en las variables de entorno; el código las lee tal cual.
+2. **Cargar la base desde tu máquina**: bajar esas variables a `.env.local` (no se sube a git)
 
    ```
-   DATABASE_URL=libsql://atlas-desastres-<usuario>.turso.io
-   DATABASE_AUTH_TOKEN=<token>
+   npx vercel link
+   npx vercel env pull .env.local
    ```
 
-   y correr `npm run ingest` y después `npm run backfill`. Así el sitio arranca con 30 días al detalle y el último año desde M4.5, sin esperas.
-3. **Vercel**: en [vercel.com/new](https://vercel.com/new), importar el repo `Desastres-Naturales` desde GitHub. Framework: Next.js. El proyecto está en la raíz, no hay que cambiar nada.
+   y correr `npm run ingest` y después `npm run backfill`. Las tablas se crean solas en la primera conexión. Así el sitio arranca con 30 días al detalle y el último año desde M4.5, sin esperas.
+3. **Vercel**: el proyecto importa el repo `Desastres-Naturales` desde GitHub. Framework: Next.js. El proyecto está en la raíz, no hay que cambiar nada.
 4. **Variables de entorno** (Settings → Environment Variables, entorno Production):
 
    | Variable | Valor |
    | --- | --- |
-   | `DATABASE_URL` | la URL de Turso |
-   | `DATABASE_AUTH_TOKEN` | el token de Turso |
+   | `STORAGE_URL`, `STORAGE_AUTH_TOKEN` | las crea la integración de Turso |
    | `CRON_SECRET` | una cadena larga al azar. Sin ella, `/api/cron/ingest` responde 401 en producción. |
    | `NEXT_PUBLIC_SITE_URL` | opcional, solo con dominio propio. Si falta, se usa el dominio `*.vercel.app` de producción. |
 
