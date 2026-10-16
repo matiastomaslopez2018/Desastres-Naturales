@@ -145,7 +145,8 @@ button.ed-button { background: none; cursor: pointer; color: inherit; font-famil
 
 @media (max-width: 900px) {
   .week-cols { grid-template-columns: 1fr; gap: 36px; }
-  .ed-grid, .ed-event { grid-template-columns: 1fr; gap: 32px; }
+  /* minmax(0, 1fr): una columna "1fr" se estira con contenido que no se parte y desborda la página. */
+  .ed-grid, .ed-event { grid-template-columns: minmax(0, 1fr); gap: 32px; }
   .ed-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ed-stat:nth-child(3) { padding-left: 0; border-left: 0; }
   .ed-stat:nth-child(n+3) { border-top: 1px solid var(--rule); }
@@ -162,6 +163,13 @@ button.ed-button { background: none; cursor: pointer; color: inherit; font-famil
   .ed-stat-value { font-size: 36px; }
   .theme-paper .ev-big-num { font-size: 72px; }
   .ed-footer a { margin-left: 0; }
+  .ed-list-meta.row { display: block; white-space: normal; }
+  .ed-list-meta .glyph { display: inline-block; vertical-align: -2px; margin-right: 6px; }
+  .ed-list-row { gap: 12px; }
+  /* Ranking en celular: país, alertas y eventos; el detalle por tipo está en la ficha del país. */
+  .ed-table .opt { display: none; }
+  .ed-table th, .ed-table td { padding: 9px 6px; }
+  .ed-table tbody th { font-size: 16px; white-space: normal; }
 }
 
 /* Total del ranking con su desglose al pasar el mouse (tooltip). */

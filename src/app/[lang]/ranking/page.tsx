@@ -69,8 +69,9 @@ export default async function RankingPage({ params, searchParams }: Props) {
   const period = periodLabel(lang, range, year);
   const headline = leader ? t.rankLead(countryName(leader.iso3, lang), t.alertsN(leader.alerts), periodPhrase(lang, range, year)) : t.rankTitle;
 
+  // Columnas opcionales (mayor sismo y tipos): se ocultan en celular.
   const head = (k: SortKey, label: React.ReactNode, title?: string) => (
-    <th key={k} scope="col" className={k === sort ? 'sorted' : undefined} aria-sort={k === sort ? 'descending' : undefined} title={title}>
+    <th key={k} scope="col" className={[k === sort ? 'sorted' : '', k === 'alerts' || k === 'total' ? '' : 'opt'].filter(Boolean).join(' ') || undefined} aria-sort={k === sort ? 'descending' : undefined} title={title}>
       <Link href={sortHref(k)} scroll={false}>{label}{k === sort ? ' ↓' : ''}</Link>
     </th>
   );
@@ -116,10 +117,10 @@ export default async function RankingPage({ params, searchParams }: Props) {
                     <td>
                       <span className="composition" title={composition(s.byType)} aria-label={`${nf(s.total)} · ${composition(s.byType)}`}>{nf(s.total)}</span>
                     </td>
-                    <td>
+                    <td className="opt">
                       {s.maxEq ? <Link href={`/${lang}/evento/${encodeURIComponent(s.maxEq.id)}`} className={(s.maxEq.mag ?? 0) >= 6 ? 'red' : undefined}>M {nf(s.maxEq.mag ?? 0, 1)}</Link> : <span className="zero">—</span>}
                     </td>
-                    {RANK_TYPES.map((k) => <td key={k}>{s.byType[k] ? nf(s.byType[k]) : <span className="zero">0</span>}</td>)}
+                    {RANK_TYPES.map((k) => <td key={k} className="opt">{s.byType[k] ? nf(s.byType[k]) : <span className="zero">0</span>}</td>)}
                   </tr>
                 ))}
               </tbody>
