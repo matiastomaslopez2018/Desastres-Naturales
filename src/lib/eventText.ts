@@ -1,6 +1,7 @@
 import { T } from './i18n';
 import { countryName } from './countries';
 import { fmtNum, fmtTime } from './format';
+import { alertName, localTitle } from './localize';
 import type { DisasterEvent, Lang } from './types';
 
 /** Magnitud principal para títulos: "M 6,1" en sismos, "751 acres" en otros si la fuente la da. */
@@ -12,7 +13,8 @@ export function headlineMag(lang: Lang, e: DisasterEvent): string {
 
 export function eventTitle(lang: Lang, e: DisasterEvent): string {
   const m = e.type === 'eq' ? headlineMag(lang, e) : '';
-  return m ? `${m} — ${e.title}` : e.title;
+  const title = localTitle(e, lang);
+  return m ? `${m} — ${title}` : title;
 }
 
 /** Una línea factual para meta description y OG: tipo, fecha UTC, estado, alerta y fuente. */
@@ -26,8 +28,8 @@ export function eventDescription(lang: Lang, e: DisasterEvent): string {
   if (e.type === 'eq' && e.depth != null) parts.push(`${t.f.depth.toLowerCase()} ${fmtNum(lang, e.depth, 1)} km`);
   if (e.status === 'reviewed') parts.push(t.reviewed);
   else if (e.status === 'automatic') parts.push(t.automatic);
-  if (e.pager) parts.push(`PAGER ${e.pager}`);
-  if (e.alert) parts.push(`GDACS ${e.alert}`);
+  if (e.pager) parts.push(`PAGER ${alertName(e.pager, lang)}`);
+  if (e.alert) parts.push(`GDACS ${alertName(e.alert, lang)}`);
   parts.push(`${t.sourceLine}: ${e.src}`);
   return parts.join(' · ');
 }

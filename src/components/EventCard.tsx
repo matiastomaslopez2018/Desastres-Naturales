@@ -5,6 +5,7 @@ import { Glyph } from './Glyph';
 import type { Pickable } from './Globe';
 import { countryName, countryPath } from '@/lib/countries';
 import { T } from '@/lib/i18n';
+import { MULTI_COUNTRY_MIN, localSeverity, localTitle, titlePlaces } from '@/lib/localize';
 import { fmtNum, fmtTime } from '@/lib/format';
 import { SHAPE, alertLevel } from '@/lib/symbols';
 import type { EqDetail, Lang, Link } from '@/lib/types';
@@ -78,11 +79,13 @@ export function EventCard({ lang, e, detail, detailLoading, onClose, actions, ti
     } else {
       if (e.mag != null) { big = nf(e.mag, e.mag % 1 ? 1 : 0); bigUnit = e.magUnit ?? ''; }
       addCountry();
+      const places = titlePlaces(e, lang);
+      if (places.length >= MULTI_COUNTRY_MIN) add(t.countriesRow, new Intl.ListFormat(lang, { type: 'conjunction' }).format(places));
       add(f.start, e.start ? fmtTime(lang, e.start, 'UTC') : fmtTime(lang, e.time, 'UTC'));
       add(f.end, e.src === 'NASA EONET' ? fmtTime(lang, e.time, 'UTC') : e.end ? fmtTime(lang, e.end, 'UTC') : null);
       add(f.local, fmtTime(lang, e.time));
       add(f.status, e.src === 'NASA EONET' ? (e.closed ? t.closed : t.open) : null);
-      add(f.severity, e.severity);
+      add(f.severity, localSeverity(e.severity, lang));
       add(f.track, e.track ? nf(e.track.length) : null);
       add(f.coords, coords());
       for (const l of e.links ?? []) links.push(l);
@@ -91,7 +94,7 @@ export function EventCard({ lang, e, detail, detailLoading, onClose, actions, ti
     }
     if (e.alert && t.GD[e.alert]) {
       alertLabel = t.gdacs;
-      alertText = t.GD[e.alert] + (e.severity && e.type === 'eq' ? ' · ' + e.severity : '');
+      alertText = t.GD[e.alert] + (e.severity && e.type === 'eq' ? ' · ' + localSeverity(e.severity, lang) : '');
     }
     if (e.gdacsUrl) links.push({ label: 'GDACS · report', url: e.gdacsUrl });
   }
@@ -108,7 +111,7 @@ export function EventCard({ lang, e, detail, detailLoading, onClose, actions, ti
           <span className="ev-big-unit">{bigUnit}</span>
         </div>
       )}
-      <Title className="ev-title">{e.title}</Title>
+      <Title className="ev-title">{e.type === 'gvp' ? e.title : localTitle(e, lang)}</Title>
       {alertText && (
         <div className={`ev-alert${lvl >= 3 ? ' red' : ''}`}>
           <span className="ev-alert-label">{alertLabel}</span>

@@ -25,6 +25,9 @@ export const PAPER = {
   plates: 'rgba(26,26,26,.25)', ink: '#1a1a1a', muted: '#555', rule: '#d9d4c8', red: '#c8102e', highlight: 'rgba(200,16,46,.12)',
 };
 
+/** Último dato publicado del evento (eventos en curso: último punto o fin informado). */
+export const lastUpdate = (e: Pick<DisasterEvent, 'time' | 'end'>) => Math.max(e.time, e.end ?? 0);
+
 export const ALERT_RANK: Record<AlertLevel, number> = { green: 0, yellow: 1, orange: 2, red: 3 };
 export const alertLevel = (e: Pick<DisasterEvent, 'alert' | 'pager'>) =>
   Math.max(e.alert ? ALERT_RANK[e.alert] : 0, e.pager ? ALERT_RANK[e.pager] : 0);

@@ -9,7 +9,8 @@ import { EventCard } from './EventCard';
 import { T } from '@/lib/i18n';
 import { fmtNum, fmtRel, fmtTime } from '@/lib/format';
 import { MIN_YEAR, RANGES, rangeInfo } from '@/lib/range';
-import { SHAPE, TYPE_ORDER, alertLevel, relevance, type FilterType } from '@/lib/symbols';
+import { SHAPE, TYPE_ORDER, alertLevel, lastUpdate, relevance, type FilterType } from '@/lib/symbols';
+import { alertTag, localTitle } from '@/lib/localize';
 import { bucketOf, buckets } from '@/lib/timeline';
 import type {
   DisasterEvent, EqDetail, EventsResponse, GvpVolcano, Lang, RangeKey, SourceKey, SourceStatus,
@@ -124,14 +125,14 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
   const bs = useMemo(() => (win ? buckets(range, win.s, win.e, lang) : []), [win, range, lang]);
   const perBucket = useMemo(() => {
     const c = new Array(bs.length).fill(0);
-    for (const e of filtered) { const i = bucketOf(bs, e.time); if (i >= 0) c[i]++; }
+    for (const e of filtered) { const i = bucketOf(bs, lastUpdate(e)); if (i >= 0) c[i]++; }
     return c as number[];
   }, [filtered, bs]);
   const maxBucket = Math.max(1, ...perBucket);
 
   // Orden de dibujo: alertas y magnitudes mayores arriba.
   const visible = useMemo(() => {
-    const v = focus == null ? filtered : filtered.filter((e) => bucketOf(bs, e.time) === focus);
+    const v = focus == null ? filtered : filtered.filter((e) => bucketOf(bs, lastUpdate(e)) === focus);
     return v.slice().sort((a, b) => relevance(a) - relevance(b));
   }, [filtered, focus, bs]);
 
@@ -144,7 +145,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
   const counts = useMemo(() => {
     const c = Object.fromEntries(TYPE_ORDER.map((k) => [k, 0])) as Record<FilterType, number>;
     for (const e of events) {
-      if (focus != null && bucketOf(bs, e.time) !== focus) continue;
+      if (focus != null && bucketOf(bs, lastUpdate(e)) !== focus) continue;
       if (e.type === 'eq') { if (e.mag == null || e.mag >= minMag) { c.eq++; if (e.tsunami) c.tsunami++; } }
       else c[e.type]++;
     }
@@ -168,7 +169,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
     if (e.type === 'gvp') return [e.country, e.vtype].filter(Boolean).join(' · ');
     const parts = [t.T1[e.type]];
     if (e.type === 'eq' && e.mag != null) parts.unshift('M ' + nf(e.mag, 1));
-    if (e.time) parts.push(fmtRel(lang, e.time));
+    if (e.time) parts.push(fmtRel(lang, lastUpdate(e)));
     return parts.join(' · ');
   };
 
@@ -187,7 +188,26 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
   }, []);
   useEffect(() => { selId.current = sel?.id ?? null; }, [sel]);
 
-  const top = useMemo(() => visible.slice().sort((a, b) => relevance(b) - relevance(a)).slice(0, 10), [visible]);
+  // Solo eventos con datos nuevos dentro del período (una sequía abierta hace meses entra
+  // si GDACS la actualizó ahora, y se rotula "en curso desde…").
+  const top = useMemo(
+    () => visible.filter((e) => !win || lastUpdate(e) >= win.s).sort((a, b) => relevance(b) - relevance(a)).slice(0, 10),
+    [visible, win],
+  );
+  const sinceFmt = useMemo(() => {
+    const loc = lang === 'es' ? 'es-AR' : 'en-GB';
+    return {
+      thisYear: new Intl.DateTimeFormat(loc, { day: 'numeric', month: 'short' }),
+      other: new Intl.DateTimeFormat(loc, { day: 'numeric', month: 'short', year: 'numeric' }),
+    };
+  }, [lang]);
+  const when = (e: DisasterEvent) => {
+    const began = e.start ?? e.time;
+    if (!win || began >= win.s) return fmtRel(lang, lastUpdate(e));
+    const d = new Date(began);
+    const f = d.getFullYear() === new Date().getFullYear() ? sinceFmt.thisYear : sinceFmt.other;
+    return t.ongoingSince(f.format(d).replace('.', ''));
+  };
   const nearby = useMemo(() => {
     if (!sel) return [];
     return visible
@@ -214,8 +234,11 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
   return (
     <div className="theme-night map-shell">
       <section className="map-stage" aria-label={t.brand}>
-        <Globe ref={globe} events={drawn} gvp={gvp} layers={layers} selected={sel} showTsunami={types.tsunami}
-          onSelect={select} onHover={setHover} onCarto={onCarto} />
+        {/* El globo vive entre la barra superior y la línea de tiempo: nada lo tapa. */}
+        <div className="globe-area">
+          <Globe ref={globe} events={drawn} gvp={gvp} layers={layers} selected={sel} showTsunami={types.tsunami}
+            onSelect={select} onHover={setHover} onCarto={onCarto} />
+        </div>
 
         <header className="map-top">
           <Link href={`/${lang}`} className="map-brand">ATLAS·DESASTRES</Link>
@@ -320,7 +343,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
                   {nearby.map(({ e, d }) => (
                     <button key={e.id} className="ev-row" onClick={() => select(e)}>
                       <Glyph shape={SHAPE[e.type]} type={e.type} alert={alertLevel(e)} />
-                      <span className="ev-row-body"><span className="ev-row-title">{e.title}</span><span className="ev-row-meta">{nf(d)} km · {subLine(e)}</span></span>
+                      <span className="ev-row-body"><span className="ev-row-title">{localTitle(e, lang)}</span><span className="ev-row-meta">{nf(d)} km · {subLine(e)}</span></span>
                     </button>
                   ))}
                 </div>
@@ -334,10 +357,10 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
                 <button key={e.id} className="ev-row" onClick={() => select(e)}>
                   <span className="ev-row-mag" style={{ color: `var(--type-${e.type})` }}>{e.type === 'eq' && e.mag != null ? nf(e.mag, 1) : ''}</span>
                   <span className="ev-row-body">
-                    <span className="ev-row-title">{e.title}</span>
+                    <span className="ev-row-title">{localTitle(e, lang)}</span>
                     <span className="ev-row-meta">
                       <Glyph shape={SHAPE[e.type]} type={e.type} alert={alertLevel(e)} size={12} />
-                      {[t.T1[e.type], fmtRel(lang, e.time), e.alert ? `GDACS ${e.alert}` : e.pager ? `PAGER ${e.pager}` : ''].filter(Boolean).join(' · ')}
+                      {[t.T1[e.type], when(e), alertTag(e, lang)].filter(Boolean).join(' · ')}
                     </span>
                   </span>
                 </button>
@@ -358,17 +381,19 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
           <button className="play" onClick={() => setPlaying((p) => !p)} aria-label={playing ? t.pause : t.play} title={playing ? t.pause : t.play} disabled={!bs.length}>
             {playing ? '❚❚' : '▶'}
           </button>
-          <div className="timeline" role="group" aria-label={t.period}>
+          <div className={`timeline${bs.length > 14 ? ' dense' : ''}`} role="group" aria-label={t.period}>
             {bs.map((b) => (
               <button key={b.i} className={`tl-bar${focus === b.i ? ' on' : ''}${focus != null && focus !== b.i ? ' dim' : ''}`}
                 title={`${b.title} · ${nf(perBucket[b.i] ?? 0)}`} aria-pressed={focus === b.i}
                 onClick={() => { setPlaying(false); setFocus((f) => (f === b.i ? null : b.i)); }}>
-                <span className="tl-fill" style={{ height: `${Math.round(((perBucket[b.i] ?? 0) / maxBucket) * 100)}%` }} />
+                <span className="tl-count">{nf(perBucket[b.i] ?? 0)}</span>
+                <span className="tl-track"><span className="tl-fill" style={{ height: `${Math.round(((perBucket[b.i] ?? 0) / maxBucket) * 100)}%` }} /></span>
                 <span className="tl-label">{bs.length <= 14 || b.i % 5 === 0 || focus === b.i ? b.label : ' '}</span>
               </button>
             ))}
           </div>
           <div className="map-sources">
+            <a href="#semana" className="scroll-cue">{t.weekBelow} ↓</a>
             {focus != null && <button className="tl-all" onClick={() => { setPlaying(false); setFocus(null); }}>{t.allPeriod}</button>}
             <span className="src-line" title={t.dataStatus}>
               {t.srcShort}:
@@ -380,11 +405,10 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
           </div>
         </div>
 
-        <a href="#semana" className="scroll-cue">{t.weekBelow} ↓</a>
 
         {hover && (
           <div className="tooltip" style={{ left: hover.x, top: hover.y }}>
-            <div className="tooltip-title">{hover.e.title}</div>
+            <div className="tooltip-title">{hover.e.type === 'gvp' ? hover.e.title : localTitle(hover.e, lang)}</div>
             <div className="faint small">{subLine(hover.e)}</div>
           </div>
         )}

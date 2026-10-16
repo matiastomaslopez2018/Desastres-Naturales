@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { ImageResponse } from 'next/og';
 import { countryName } from '@/lib/countries';
+import { alertName, localTitle } from '@/lib/localize';
 import { T, isLang } from '@/lib/i18n';
 import { headlineMag } from '@/lib/eventText';
 import { fmtTime } from '@/lib/format';
@@ -44,7 +45,8 @@ export default async function OgImage({ params }: { params: Promise<{ lang: stri
   const big = e ? headlineMag(lang, e) : '';
   const red = e ? isHighlighted(e) : false;
   const lvl = e ? alertLevel(e) : 0;
-  const alertText = e?.alert && lvl >= 2 ? `GDACS · ${e.alert.toUpperCase()}` : e?.pager && lvl >= 2 ? `USGS PAGER · ${e.pager.toUpperCase()}` : '';
+  const alertText = e?.alert && lvl >= 2 ? `GDACS · ${alertName(e.alert, lang).toUpperCase()}` : e?.pager && lvl >= 2 ? `USGS PAGER · ${alertName(e.pager, lang).toUpperCase()}` : '';
+  const title = e ? localTitle(e, lang) : '';
   const where = e?.iso3 ? countryName(e.iso3, lang) : e?.country;
 
   return new ImageResponse(
@@ -64,8 +66,8 @@ export default async function OgImage({ params }: { params: Promise<{ lang: stri
                 {big}
               </div>
             )}
-            <div style={{ display: 'flex', fontFamily: 'Newsreader', fontSize: e ? (e.title.length > 60 ? 40 : 50) : 64, lineHeight: 1.08, marginTop: 10 }}>
-              {e ? e.title : t.brand}
+            <div style={{ display: 'flex', fontFamily: 'Newsreader', fontSize: e ? (title.length > 60 ? 40 : 50) : 64, lineHeight: 1.08, marginTop: 10 }}>
+              {e ? title : t.brand}
             </div>
             {e && (
               <div style={{ display: 'flex', fontSize: 24, color: PAPER.muted, marginTop: 16 }}>

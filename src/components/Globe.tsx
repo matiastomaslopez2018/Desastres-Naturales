@@ -141,7 +141,7 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
     ctx.globalCompositeOperation = 'lighter';
     if (glow) {
       for (const { e, x, y, r } of shown) {
-        const h = halo(NIGHT.type[e.type], r);
+        const h = halo(NIGHT.type[e.type], r, isHighlighted(e));
         ctx.drawImage(h, x - h.width / 2 / HALO_DPR, y - h.height / 2 / HALO_DPR, h.width / HALO_DPR, h.height / HALO_DPR);
       }
     }
@@ -181,19 +181,22 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
     }
   };
 
-  /** Halo radial de un color y radio (redondeado a 0,5 px), dibujado una sola vez. */
-  const halo = (color: string, r: number) => {
+  /**
+   * Halo radial de un color y radio (redondeado a 0,5 px), dibujado una sola vez.
+   * "soft": brillo tenue para todos; "strong": solo destacados (M6+ o alerta oficial).
+   */
+  const halo = (color: string, r: number, strong: boolean) => {
     const rr = Math.min(40, Math.round(r * 2) / 2);
-    const key = color + rr;
+    const key = color + rr + (strong ? 's' : 'w');
     let h = halos.current.get(key);
     if (!h) {
-      const R = rr * 2.4 + 4;
+      const R = strong ? rr * 2.6 + 6 : rr * 2 + 3;
       h = document.createElement('canvas');
       h.width = h.height = Math.ceil(R * 2 * HALO_DPR);
       const g = h.getContext('2d')!;
       const c = h.width / 2;
       const grad = g.createRadialGradient(c, c, rr * 0.6 * HALO_DPR, c, c, R * HALO_DPR);
-      grad.addColorStop(0, color + '66'); grad.addColorStop(1, color + '00');
+      grad.addColorStop(0, color + (strong ? '73' : '33')); grad.addColorStop(1, color + '00');
       g.fillStyle = grad; g.fillRect(0, 0, h.width, h.height);
       halos.current.set(key, h);
     }

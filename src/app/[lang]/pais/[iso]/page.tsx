@@ -11,6 +11,7 @@ import { T, isLang } from '@/lib/i18n';
 import { parseYear } from '@/lib/range';
 import { SHAPE, alertLevel, isHighlighted } from '@/lib/symbols';
 import { countryShape } from '@/lib/server/countries';
+import { alertTag, localTitle } from '@/lib/localize';
 import { RANK_TYPES, getCountry } from '@/lib/server/stats';
 import type { Lang } from '@/lib/types';
 
@@ -127,10 +128,10 @@ export default async function CountryPage({ params, searchParams }: Props) {
               <Link key={e.id} href={`/${lang}/evento/${encodeURIComponent(e.id)}`} className="ed-list-row">
                 <span className={`ed-list-mag${isHighlighted(e) ? ' red' : ''}`}>{e.type === 'eq' && e.mag != null ? nf(e.mag, 1) : ''}</span>
                 <span className="ev-row-body">
-                  <span className="ed-list-title">{e.title}</span>
+                  <span className="ed-list-title">{localTitle(e, lang)}</span>
                   <span className="ed-list-meta row">
                     <Glyph shape={SHAPE[e.type]} type={e.type} alert={alertLevel(e)} size={12} />
-                    {[t.T1[e.type], fmtTime(lang, e.time, 'UTC'), e.alert ? `GDACS ${e.alert}` : e.pager ? `PAGER ${e.pager}` : '', e.src].filter(Boolean).join(' · ')}
+                    {[t.T1[e.type], fmtTime(lang, e.time, 'UTC'), alertTag(e, lang), e.src].filter(Boolean).join(' · ')}
                   </span>
                 </span>
               </Link>

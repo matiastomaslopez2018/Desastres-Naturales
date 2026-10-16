@@ -8,6 +8,7 @@ import { T, isLang } from '@/lib/i18n';
 import { eventDescription, eventTitle } from '@/lib/eventText';
 import { getPlates } from '@/lib/server/ingest';
 import { loadEvent } from './data';
+import { localTitle } from '@/lib/localize';
 
 export const dynamic = 'force-dynamic';
 // Si el evento no está en la base, se consulta a la fuente en el momento.
@@ -56,7 +57,7 @@ export default async function EventPage({ params }: Props) {
         <Link href={mapHref} className="ed-back">{t.backToMap}</Link>
         <div className="ed-event">
           <figure className="ed-event-figure">
-            <StaticGlobe e={e} plates={plates} label={`${t.mapAlt}: ${e.title}`} />
+            <StaticGlobe e={e} plates={plates} label={`${t.mapAlt}: ${localTitle(e, lang)}`} />
             <figcaption className="tabular">{eventDescription(lang, e)}</figcaption>
           </figure>
           <EventCard lang={lang} e={e} detail={detail} titleAs="h1"
