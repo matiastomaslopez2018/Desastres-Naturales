@@ -68,7 +68,7 @@ const es = {
   methodMeta: 'Fuentes, criterios y limitaciones del Atlas de Desastres: USGS, NASA EONET, GDACS, Smithsonian y Natural Earth.',
   footerAbout: 'Solo datos publicados por organismos oficiales y científicos. Cada ficha enlaza su fuente primaria.',
   lastIngest: 'Última actualización', fetched: 'Registros en la última corrida',
-  ongoingSince: (d: string) => `en curso desde ${d}`, countriesRow: 'Países',
+  ongoingSince: (d: string) => `en curso desde ${d}`, countriesRow: 'Países', origUsgs: 'Texto original (USGS)',
   alertsN: (n: number) => `${n} alerta${n === 1 ? '' : 's'}`,
 };
 
@@ -136,7 +136,7 @@ const en: Dict = {
   methodMeta: 'Sources, criteria and limitations of the Disaster Atlas: USGS, NASA EONET, GDACS, Smithsonian and Natural Earth.',
   footerAbout: 'Only data published by official and scientific bodies. Every record links its primary source.',
   lastIngest: 'Last update', fetched: 'Records in the last run',
-  ongoingSince: (d: string) => `ongoing since ${d}`, countriesRow: 'Countries',
+  ongoingSince: (d: string) => `ongoing since ${d}`, countriesRow: 'Countries', origUsgs: 'Original text (USGS)',
   alertsN: (n: number) => `${n} alert${n === 1 ? '' : 's'}`,
 };
 

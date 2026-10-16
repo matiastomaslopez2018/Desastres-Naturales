@@ -5,7 +5,7 @@ import { Glyph } from './Glyph';
 import type { Pickable } from './Globe';
 import { countryName, countryPath } from '@/lib/countries';
 import { T } from '@/lib/i18n';
-import { MULTI_COUNTRY_MIN, localSeverity, localTitle, titlePlaces } from '@/lib/localize';
+import { MULTI_COUNTRY_MIN, localPlace, localSeverity, localTitle, titlePlaces } from '@/lib/localize';
 import { fmtNum, fmtTime } from '@/lib/format';
 import { SHAPE, alertLevel } from '@/lib/symbols';
 import type { EqDetail, Lang, Link } from '@/lib/types';
@@ -57,7 +57,10 @@ export function EventCard({ lang, e, detail, detailLoading, onClose, actions, ti
     if (e.type === 'eq') {
       big = e.mag != null ? nf(e.mag, 1) : '—';
       bigUnit = (e.magType ?? '') + (d.magErr != null ? ` ± ${nf(d.magErr, 2)}` : '');
-      add(f.place, e.title);
+      const place = e.src === 'USGS' ? localPlace(e.title, lang) : e.title;
+      add(f.place, place);
+      // El texto oficial tal como lo publica USGS, cuando la traducción lo cambió.
+      if (place !== e.title) add(t.origUsgs, e.title);
       addCountry();
       add(f.utc, fmtTime(lang, e.time, 'UTC'));
       add(f.local, fmtTime(lang, e.time));

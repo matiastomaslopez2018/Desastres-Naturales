@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Glyph } from './Glyph';
 import { WorldMap } from './WorldMap';
 import { countryName } from '@/lib/countries';
+import { localTitle } from '@/lib/localize';
 import { fmtNum, fmtRel } from '@/lib/format';
 import { T } from '@/lib/i18n';
 import { SHAPE, isHighlighted, type FilterType } from '@/lib/symbols';
@@ -27,11 +28,15 @@ export function WeeklySummary({ lang, data }: { lang: Lang; data: EventsResponse
   }
   const maxType = Math.max(1, ...TYPES.map((k) => counts[k]));
 
-  const where = (e: DisasterEvent) => (e.iso3 ? countryName(e.iso3, lang) : (e.title.split(', ').pop() ?? e.title));
+  const where = (e: DisasterEvent) => {
+    if (e.iso3) return countryName(e.iso3, lang);
+    const t = localTitle(e, lang);
+    return t.split(', ').pop() ?? t;
+  };
   const labels = quakes.slice(0, 12).map((e) => ({ e, text: `M${nf(e.mag ?? 0, 1)} · ${where(e)}` }));
 
   const headline = quakes.length ? t.weekHeadline(nf(quakes.length), quakes.length === 1) : t.weekNoQuakes;
-  const dek = (strongest ? t.weekDek(nf(strongest.mag ?? 0, 1), strongest.title) : '') + (activeOther ? t.weekDekOther(nf(activeOther)) : '');
+  const dek = (strongest ? t.weekDek(nf(strongest.mag ?? 0, 1), localTitle(strongest, lang)) : '') + (activeOther ? t.weekDekOther(nf(activeOther)) : '');
 
   return (
     <section id="semana" className="theme-paper week" aria-labelledby="week-title">
@@ -58,7 +63,7 @@ export function WeeklySummary({ lang, data }: { lang: Lang; data: EventsResponse
           {quakes.slice(0, 5).map((e) => (
             <Link key={e.id} href={`/${lang}/evento/${encodeURIComponent(e.id)}`} className="ed-list-row">
               <span className={`ed-list-mag${isHighlighted(e) ? ' red' : ''}`}>{nf(e.mag ?? 0, 1)}</span>
-              <span className="ed-list-title">{e.title}</span>
+              <span className="ed-list-title">{localTitle(e, lang)}</span>
               <span className="ed-list-meta">{fmtRel(lang, e.time)}</span>
             </Link>
           ))}

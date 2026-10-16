@@ -19,7 +19,7 @@ const ALIAS: Record<string, string> = {
   'Democratic Republic of Congo': 'CD', 'The Democratic Republic of Congo': 'CD', 'The Democratic Republic of the Congo': 'CD', 'Democratic Republic of the Congo': 'CD', 'Republic of Congo': 'CG', Congo: 'CG',
   'Ivory Coast': 'CI', "Cote d'Ivoire": 'CI', 'Czech Republic': 'CZ', Czechia: 'CZ', Russia: 'RU', Tanzania: 'TZ',
   'Viet Nam': 'VN', Vietnam: 'VN', Laos: 'LA', Syria: 'SY', Iran: 'IR', 'South Korea': 'KR', 'North Korea': 'KP',
-  Bolivia: 'BO', Venezuela: 'VE', Moldova: 'MD', Kosovo: 'XK', 'East Timor': 'TL', 'Timor-Leste': 'TL', 'Cape Verde': 'CV',
+  Bolivia: 'BO', Venezuela: 'VE', Moldova: 'MD', Kosovo: 'XK', 'East Timor': 'TL', 'Timor-Leste': 'TL', 'Timor Leste': 'TL', 'Cape Verde': 'CV',
   Swaziland: 'SZ', Eswatini: 'SZ', Macedonia: 'MK', 'North Macedonia': 'MK', Burma: 'MM', Myanmar: 'MM', Micronesia: 'FM',
 };
 
@@ -50,6 +50,27 @@ const regionOf = (lon: number, lat: number, lang: Lang) => {
   const r = REGIONS.find((g) => g.test(lon, lat));
   return r ? r[lang] : lang === 'es' ? 'varias regiones' : 'several regions';
 };
+
+/* ───────────── lugares de USGS ───────────── */
+
+/** "32 km SSW of Kabare, Indonesia": distancia, rumbo y lugar de referencia. */
+const USGS_PLACE = /^(\d+(?:\.\d+)?) km ([NSEW]{1,3}) of (.+)$/;
+
+/**
+ * Lugar de un sismo de USGS en el idioma de la página: "32 km al SSO de Kabare,
+ * Indonesia". El rumbo pasa W → O (SSW → SSO, WNW → ONO) y el país del final se
+ * traduce si se reconoce. Otros formatos ("central Mid-Atlantic Ridge") quedan como
+ * los publica USGS.
+ */
+export function localPlace(place: string, lang: Lang): string {
+  if (lang === 'en') return place;
+  const m = USGS_PLACE.exec(place.trim());
+  if (!m) return place;
+  const [, km, dir, ref] = m;
+  const parts = ref.split(', ');
+  if (parts.length > 1) parts[parts.length - 1] = countryFromEnglish(parts[parts.length - 1], lang);
+  return `${km.replace('.', ',')} km al ${dir.replace(/W/g, 'O')} de ${parts.join(', ')}`;
+}
 
 /* ───────────── títulos ───────────── */
 
@@ -101,6 +122,7 @@ export function titlePlaces(e: DisasterEvent, lang: Lang): string[] {
  * resumen como "Sequía en Europa · 25 países".
  */
 export function localTitle(e: DisasterEvent, lang: Lang, short = true): string {
+  if (e.type === 'eq' && e.src === 'USGS') return localPlace(e.title, lang);
   const title = clean(e.title);
   const p = parsePlaces(e, lang);
   if (p) {
