@@ -7,7 +7,7 @@ import { Globe, type GlobeHandle, type Layers, type Pickable } from './Globe';
 import { Glyph, TypeDot } from './Glyph';
 import { EventCard } from './EventCard';
 import { T } from '@/lib/i18n';
-import { fmtDay, fmtNum, fmtRel, fmtTime } from '@/lib/format';
+import { fmtDay, fmtHour, fmtNum, fmtRel } from '@/lib/format';
 import { MIN_YEAR, RANGES, rangeInfo } from '@/lib/range';
 import { SHAPE, TYPE_ORDER, alertLevel, lastUpdate, relevance, type FilterType } from '@/lib/symbols';
 import { alertTag, localTitle } from '@/lib/localize';
@@ -48,6 +48,10 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
   const [playing, setPlaying] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const globe = useRef<GlobeHandle>(null);
+  // Hoja inferior de "Más relevantes" en celular: cerrada asoma 2–3 ítems; se arrastra hacia arriba.
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const sheetRef = useRef<HTMLElement>(null);
+  const drag = useRef<{ y: number; h: number; moved: number } | null>(null);
   const selId = useRef<string | null>(null);
 
   const magFloor = rangeInfo(range, year).floor;
@@ -217,6 +221,33 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
     for (let y = new Date().getFullYear(); y >= MIN_YEAR; y--) out.push(y);
     return out;
   }, []);
+  const sheetDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const el = sheetRef.current;
+    if (!el) return;
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* puntero sintético o ya liberado */ }
+    drag.current = { y: e.clientY, h: el.getBoundingClientRect().height, moved: 0 };
+    el.style.transition = 'none';
+  };
+  const sheetMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const el = sheetRef.current, d = drag.current;
+    if (!el || !d) return;
+    const dy = d.y - e.clientY;
+    d.moved = Math.max(d.moved, Math.abs(dy));
+    const max = (el.parentElement?.clientHeight ?? 800) - 150;
+    el.style.height = `${Math.max(120, Math.min(max, d.h + dy))}px`;
+  };
+  const sheetUp = () => {
+    const el = sheetRef.current, d = drag.current;
+    drag.current = null;
+    if (!el || !d) return;
+    const h = el.getBoundingClientRect().height;
+    el.style.transition = '';
+    el.style.height = '';
+    // Toque: alterna. Arrastre: queda del lado más cercano.
+    if (d.moved < 6) setSheetOpen((o) => !o);
+    else setSheetOpen(h > d.h + (sheetOpen ? -80 : 80));
+  };
+
   const onCarto = useCallback((s: SourceStatus) => setSrc((x) => ({ ...x, carto: s })), []);
   const toggleType = (k: FilterType) => setTypes((s) => ({ ...s, [k]: !s[k] }));
   const evSources: SourceKey[] = ['usgs', 'eonet', 'gdacs'];
@@ -241,7 +272,11 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
             ))}
           </div>
           <span className={`live${allOk ? '' : ' degraded'}`} title={t.dataStatus}>
-            <span className="live-dot" /><span className="live-text">{t.live.toUpperCase()} · {fetchedAt ? fmtTime(lang, fetchedAt) : '—'}</span>
+            <span className="live-dot" />
+            <span className="live-text">
+              {t.live.toUpperCase()}
+              {fetchedAt ? <><span className="live-date"> · {fmtDay(lang, fetchedAt)}</span> · {fmtHour(lang, fetchedAt)}</> : ' · —'}
+            </span>
           </span>
           <nav className="map-nav" aria-label={lang === 'es' ? 'Secciones' : 'Sections'}>
             <Link href={`/${lang}/ranking`}>{t.nav2.ranking}</Link>
@@ -321,9 +356,19 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
               </button>
             ))}
           </details>
+
+          {/* En celular el idioma vive acá para dejar lugar en la barra superior. */}
+          <span className="map-lang panel-lang">
+            {(['es', 'en'] as Lang[]).map((l, i) => (
+              <span key={l}>
+                {i > 0 && ' / '}
+                <Link href={`/${l}${qs}`} hrefLang={l} aria-current={l === lang ? 'true' : undefined}>{l.toUpperCase()}</Link>
+              </span>
+            ))}
+          </span>
         </aside>
 
-        <aside className={`panel panel-right${sel ? ' has-sel' : ''}`} aria-live="polite">
+        <aside ref={sheetRef} className={`panel panel-right${sel ? ' has-sel' : ''}${!sel && sheetOpen ? ' sheet-open' : ''}`} aria-live="polite">
           {sel ? (
             <>
               <EventCard lang={lang} e={sel} detail={detail} detailLoading={detailLoading} onClose={() => { setSel(null); setDetail(null); }}
@@ -333,8 +378,14 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
                   <span className="panel-label">{t.nearby}</span>
                   {nearby.map(({ e, d }) => (
                     <button key={e.id} className="ev-row" onClick={() => select(e)}>
-                      <Glyph shape={SHAPE[e.type]} type={e.type} alert={alertLevel(e)} />
-                      <span className="ev-row-body"><span className="ev-row-title">{localTitle(e, lang)}</span><span className="ev-row-meta">{nf(d)} km · {subLine(e)}</span></span>
+                      <span className="ev-row-mag" style={{ color: `var(--type-${e.type})` }}>{e.type === 'eq' && e.mag != null ? nf(e.mag, 1) : ''}</span>
+                      <span className="ev-row-body">
+                        <span className="ev-row-title">{localTitle(e, lang)}</span>
+                        <span className="ev-row-meta">
+                          <Glyph shape={SHAPE[e.type]} type={e.type} alert={alertLevel(e)} size={12} />
+                          {[`${nf(d)} km`, t.T1[e.type], fmtDay(lang, lastUpdate(e))].join(' · ')}
+                        </span>
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -342,6 +393,11 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
             </>
           ) : (
             <div className="stack-4 top-list">
+              {/* Manija de la hoja inferior (solo celular): arrastrar o tocar para abrir/cerrar. */}
+              <button className="sheet-handle" aria-expanded={sheetOpen} aria-label={t.topTitle}
+                onPointerDown={sheetDown} onPointerMove={sheetMove} onPointerUp={sheetUp} onPointerCancel={sheetUp}>
+                <span className="sheet-grip" aria-hidden="true" />
+              </button>
               <span className="panel-label">{t.topTitle}</span>
               <p className="note" style={{ margin: '0 0 6px' }}>{t.topSub}</p>
               {top.map((e) => (

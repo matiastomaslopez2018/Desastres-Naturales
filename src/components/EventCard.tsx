@@ -66,7 +66,8 @@ export function EventCard({ lang, e, detail, detailLoading, onClose, actions, ti
       add(f.utc, fmtTime(lang, e.time, 'UTC'));
       add(f.local, fmtTime(lang, e.time));
       add(f.depth, e.depth != null ? pm(e.depth, d.vErr, 'km', 1) : null);
-      add(f.coords, coords(d.hErr != null ? ` ± ${nf(d.hErr, 1)} km` : ''));
+      // El error horizontal va en una segunda línea para que la coordenada no se parta.
+      rows.push({ label: f.coords, value: d.hErr != null ? <>{coords()}<br /><span className="ev-err">± {nf(d.hErr, 1)} km</span></> : coords() });
       add(f.status, e.status === 'reviewed' ? t.reviewed : e.status === 'automatic' ? t.automatic : e.status === 'deleted' ? t.deleted : e.status);
       if (e.tsunami) add(f.tsunami, t.yes);
       add(f.mmi, d.mmi != null ? nf(d.mmi, 1) : null);

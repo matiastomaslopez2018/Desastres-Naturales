@@ -46,3 +46,8 @@ export function fmtDay(lang: Lang, ms: number) {
   const part = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
   return [part('day'), part('month').replace('.', ''), withYear ? part('year') : ''].filter(Boolean).join(' ');
 }
+
+/** "18:20": hora local de 24 h. */
+export function fmtHour(lang: Lang, ms: number) {
+  return new Intl.DateTimeFormat(locale(lang), { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(ms));
+}
