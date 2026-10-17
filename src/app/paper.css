@@ -170,7 +170,7 @@ button.ed-button { background: none; cursor: pointer; color: inherit; font-famil
   .ed-stat-value { font-size: 36px; }
   .theme-paper .ev-big-num { font-size: 72px; }
   .ed-footer a { margin-left: 0; }
-  .ed-list-meta.row { display: block; white-space: normal; }
+  .ed-list-meta, .ed-list-meta.row { display: block; white-space: normal; overflow-wrap: anywhere; }
   .ed-list-meta .glyph { display: inline-block; vertical-align: -2px; margin-right: 6px; }
   .ed-list-row { gap: 12px; }
   /* Ranking en celular: país, alertas y eventos; el detalle por tipo está en la ficha del país. */
