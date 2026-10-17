@@ -11,9 +11,11 @@
     "backfill": "tsx --conditions=react-server --env-file-if-exists=.env.local scripts/backfill.ts",
     "db:check": "tsx --conditions=react-server --env-file-if-exists=.env.local scripts/db-check.ts",
     "ibtracs": "tsx scripts/ibtracs.ts",
-    "gshap": "tsx scripts/gshap.ts"
+    "gshap": "tsx scripts/gshap.ts",
+    "tectonics": "tsx scripts/tectonics.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.135.0",
     "@fontsource/newsreader": "^5.3.0",
     "@fontsource/source-sans-3": "^5.3.1",
     "@libsql/client": "^0.18.0",

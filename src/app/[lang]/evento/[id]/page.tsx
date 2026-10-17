@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Suspense } from 'react';
+import { QuakeGeology } from '@/components/geology/QuakeGeology';
 import { notFound } from 'next/navigation';
 import { EventCard } from '@/components/EventCard';
 import { getTsunamiMessages } from '@/lib/server/tsunami';
@@ -98,6 +100,12 @@ export default async function EventPage({ params }: Props) {
               </>
             } />
         </div>
+        {/* Contexto geológico: tarda unos segundos la primera vez (después queda en la base). */}
+        {e.type === 'eq' && e.src === 'USGS' && (
+          <Suspense fallback={<p className="ed-note">{t.loading}</p>}>
+            <QuakeGeology lang={lang} e={e} />
+          </Suspense>
+        )}
       </main>
 
       <SiteFooter lang={lang} />
