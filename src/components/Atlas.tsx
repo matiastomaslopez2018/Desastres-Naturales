@@ -10,6 +10,7 @@ import { FeatureCard } from './FeatureCard';
 import { ShareButtons } from './ShareButtons';
 import { eventTitle } from '@/lib/eventText';
 import { T } from '@/lib/i18n';
+import { rewind } from '@/lib/rewind';
 import { fmtDay, fmtHour, fmtNum, fmtRel } from '@/lib/format';
 import { MIN_YEAR, RANGES, rangeInfo } from '@/lib/range';
 import { SHAPE, TYPE_ORDER, alertLevel, isEvent, lastUpdate, relevance, type FilterType } from '@/lib/symbols';
@@ -154,7 +155,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
   // Fase 2 · B: ciclones activos (NHC), volcanes con actividad (GVP) y mensajes de tsunami (NOAA).
   useEffect(() => {
     const get = <J,>(u: string) => fetch(u).then((r) => (r.ok ? (r.json() as Promise<J>) : Promise.reject(r.status)));
-    get<{ storms: NhcStorm[] }>('/api/storms').then((j) => setStorms(j.storms)).catch((e) => console.warn('[atlas] nhc', e));
+    get<{ storms: NhcStorm[] }>('/api/storms').then((j) => setStorms(j.storms.map((st) => ({ ...st, cone: rewind(st.cone), windField: st.windField?.map((w) => ({ ...w, geometry: rewind(w.geometry) })) })))).catch((e) => console.warn('[atlas] nhc', e));
     get<{ volcanoes: VolcanoActivity[] }>('/api/volcanoes').then((j) => setVolcanoes(j.volcanoes)).catch((e) => console.warn('[atlas] volcanes', e));
     const tsu = () => get<{ messages: TsunamiMessage[]; active: TsunamiMessage[] }>('/api/tsunami').then(setTsunami).catch((e) => console.warn('[atlas] tsunami', e));
     tsu();
