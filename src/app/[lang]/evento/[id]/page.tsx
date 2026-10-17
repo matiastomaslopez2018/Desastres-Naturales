@@ -4,6 +4,7 @@ import { Suspense } from 'react';
 import { QuakeGeology } from '@/components/geology/QuakeGeology';
 import { TsunamiContext, wantsTsunami } from '@/components/geology/TsunamiContext';
 import { StormContext } from '@/components/geology/StormContext';
+import { LearnLinks } from '@/components/landing/LearnLinks';
 import { FireContext } from '@/components/geology/FireContext';
 import { DroughtContext, FloodContext } from '@/components/geology/HydroContext';
 import { notFound } from 'next/navigation';
@@ -107,6 +108,7 @@ export default async function EventPage({ params }: Props) {
             } />
         </div>
         {/* Contexto geológico: tarda unos segundos la primera vez (después queda en la base). */}
+        <LearnLinks lang={lang} e={e} />
         {volc && (
           <p className="geo-link"><Link href={routePath(lang, 'volcano', volc.slug)}>{t.volcPage}: {volc.v.title} →</Link></p>
         )}

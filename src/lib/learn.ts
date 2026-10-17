@@ -7,13 +7,18 @@ import type { Lang } from './types';
 
 export const REVIEWED = '2026-10-17';
 
-type Section = { h: string; p?: string[]; list?: string[] };
-type Article = { slug: string; title: string; seoTitle: string; desc: string; lead: string; sections: Section[] };
-export type LearnArticle = { id: string; es: Article; en: Article; sources: { label: string; url: string }[] };
+export type Section = { h: string; p?: string[]; list?: string[]; table?: { head: string[]; rows: string[][] } };
+export type Article = { slug: string; title: string; seoTitle: string; desc: string; lead: string; sections: Section[] };
+/** Tema (para agrupar Aprender por tipo, con el color del mapa) y esquema opcional. */
+export type Topic = 'eq' | 'volcano' | 'tsunami' | 'storm' | 'fire' | 'flood' | 'drought' | 'general';
+export type Figure = 'fault-reverse' | 'fault-normal' | 'fault-ss' | 'volc-subduction' | 'volc-rift' | 'volc-intraplate' | 'saffir' | 'fire-triangle' | 'tsunami-wave' | 'risk' | 'cone';
+export type LearnArticle = { id: string; topic: Topic; figures?: Figure[]; es: Article; en: Article; sources: { label: string; url: string }[] };
 
-export const ARTICLES: LearnArticle[] = [
+import { MORE } from './learnMore';
+
+const BASE: LearnArticle[] = [
   {
-    id: 'what-to-do',
+    id: 'what-to-do', topic: 'eq',
     sources: [
       { label: 'Great ShakeOut · Drop, Cover, and Hold On', url: 'https://www.shakeout.org/dropcoverholdon/' },
       { label: 'Great ShakeOut · en español', url: 'https://www.shakeout.org/espanol/' },
@@ -110,7 +115,7 @@ export const ARTICLES: LearnArticle[] = [
     },
   },
   {
-    id: 'magnitude-intensity',
+    id: 'magnitude-intensity', topic: 'eq',
     sources: [
       { label: 'USGS · Earthquake magnitude, energy release, and shaking intensity', url: 'https://www.usgs.gov/programs/earthquake-hazards/earthquake-magnitude-energy-release-and-shaking-intensity' },
       { label: 'USGS · The Modified Mercalli Intensity Scale', url: 'https://www.usgs.gov/programs/earthquake-hazards/modified-mercalli-intensity-scale' },
@@ -172,7 +177,7 @@ export const ARTICLES: LearnArticle[] = [
     },
   },
   {
-    id: 'how-measured',
+    id: 'how-measured', topic: 'eq',
     sources: [
       { label: 'USGS · Seismographs: keeping track of earthquakes', url: 'https://www.usgs.gov/programs/earthquake-hazards/seismographs-keeping-track-earthquakes' },
       { label: 'USGS · Why so many magnitude scales?', url: 'https://www.usgs.gov/faqs/moment-magnitude-richter-scale-what-are-different-magnitude-scales-and-why-are-there-so-many' },
@@ -234,5 +239,7 @@ export const ARTICLES: LearnArticle[] = [
     },
   },
 ];
+
+export const ARTICLES: LearnArticle[] = [...BASE, ...MORE];
 
 export const articleBySlug = (lang: Lang, slug: string) => ARTICLES.find((a) => a[lang].slug === slug) ?? null;

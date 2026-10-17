@@ -1,4 +1,6 @@
+import Link from 'next/link';
 import { Beachball } from './Beachball';
+import { learnHref } from '@/components/landing/LearnLinks';
 import { CrossSection } from './CrossSection';
 import { FaultDiagram } from './FaultDiagram';
 import { GEO, OAF_WINDOW, compass, plateLabel } from '@/lib/geoText';
@@ -15,6 +17,7 @@ export async function QuakeGeology({ lang, e }: { lang: Lang; e: DisasterEvent }
   const translated = lang === 'es' && geo.summary ? await translateParagraphs(`usgs-summary:${e.id}`, geo.summary) : null;
   const { mechanism: m, plates: p, slab, section, aftershocks: oaf } = geo;
   const kind = m ? g.kind[m.kind] : null;
+  const faultHref = learnHref(lang, 'fault-types');
   const fcst = oaf?.forecast ?? [];
   const mags = fcst[0]?.bins.map((b) => b.mag) ?? [];
 
@@ -30,7 +33,7 @@ export async function QuakeGeology({ lang, e }: { lang: Lang; e: DisasterEvent }
             <FaultDiagram kind={m.kind} label={kind.name} />
             <div className="stack-2">
               <p className="geo-kind"><strong>{kind.name}</strong> <span className="geo-tag">{g.interp}</span></p>
-              <p>{kind.text}</p>
+              <p>{kind.text} {faultHref && <Link href={faultHref}>{g.whatIs(kind.name.toLowerCase())} →</Link>}</p>
               <p className="ed-note">
                 {g.planes}: {g.plane(1)} {nf(m.np1.strike)}° / {nf(m.np1.dip)}° / {nf(m.np1.rake)}°
                 {m.np2 && <> · {g.plane(2)} {nf(m.np2.strike)}° / {nf(m.np2.dip)}° / {nf(m.np2.rake)}°</>}

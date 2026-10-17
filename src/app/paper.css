@@ -331,3 +331,35 @@ button.ed-button { background: none; cursor: pointer; color: inherit; font-famil
 .cbar-ticks { position: relative; height: 16px; font-size: 11px; color: var(--faint); }
 .cbar-ticks span { position: absolute; transform: translateX(-50%); }
 .hydro-over { opacity: .8; }
+
+/* Aprender por tipo (con el color del mapa) */
+.t-eq { --tc: #e8642a; } .t-tsunami { --tc: #1f9e93; } .t-volcano { --tc: #d6335f; } .t-storm { --tc: #2f8fd0; }
+.t-fire { --tc: #d98a00; } .t-flood { --tc: #3d6bd4; } .t-drought { --tc: #a0794a; } .t-general { --tc: #555; }
+.learn-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 28px; }
+.learn-tab { padding: 6px 12px; border: 1px solid var(--rule-strong); border-bottom: 3px solid var(--tc); text-decoration: none; font-size: 15px; }
+.learn-tab:hover { background: rgba(26,26,26,.04); }
+.learn-topic { display: flex; flex-direction: column; gap: 12px; padding: 18px 0 28px 16px; border-left: 4px solid var(--tc); margin-bottom: 18px; }
+.learn-topic .seo-card:hover { border-color: var(--tc); }
+.learn-chip { color: var(--tc); font-weight: 600; }
+.learn-figs { display: flex; flex-wrap: wrap; gap: 24px; margin: 0 0 24px; }
+.lf { margin: 0; display: flex; flex-direction: column; gap: 6px; max-width: 340px; }
+.lf-svg { width: 100%; max-width: 320px; height: auto; }
+.lf-t { font-family: var(--font-ui); font-size: 14px; fill: #1a1a1a; }
+.lf-t.small { font-size: 12px; } .lf-t.strong { font-weight: 700; font-size: 15px; }
+.lf-tri { fill: none; stroke: #1a1a1a; stroke-width: 2.5; }
+.lf-flame { fill: #e2571b; }
+.lf-wave { fill: none; stroke: #2f8fd0; stroke-width: 3; }
+.lf-ground { fill: #d3c7ad; }
+.lf-c1 { fill: rgba(200,16,46,.18); stroke: #c8102e; } .lf-c2 { fill: rgba(47,143,208,.18); stroke: #2f8fd0; } .lf-c3 { fill: rgba(160,121,74,.2); stroke: #a0794a; }
+.lf-cone { fill: rgba(47,143,208,.12); stroke: #2f8fd0; stroke-dasharray: 5 4; }
+.lf-track { fill: none; stroke: #1a1a1a; stroke-width: 1.5; stroke-dasharray: 3 3; }
+.lf-pt { fill: #fff; stroke: #1a1a1a; stroke-width: 1.5; }
+.lf-wind { fill: rgba(255,143,32,.25); stroke: #ff8f20; }
+.lf-ss { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); font-size: 11px; text-align: center; border: 1px solid var(--rule); }
+.lf-ss span { display: flex; flex-direction: column; padding: 6px 2px; color: #1a1a1a; }
+.lf-ss strong { font-size: 16px; }
+.learn-table td, .learn-table th { white-space: normal; text-align: left; }
+.learn-table tbody th { font-family: var(--font-ui); font-size: 15px; font-weight: 600; }
+@media (max-width: 600px) { .lf-ss { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.learn-links { margin: 32px 0 0; padding: 14px 16px; border: 1px solid var(--rule-strong); display: flex; flex-direction: column; gap: 6px; max-width: 760px; }
+.learn-links ul { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px 22px; font-size: 15px; }

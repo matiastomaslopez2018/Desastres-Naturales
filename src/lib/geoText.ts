@@ -35,6 +35,7 @@ type G = {
   summary: string; summaryAuto: string; summaryOriginal: string; summaryTranslate: string;
   section: string; sectionNote: (az: string) => string; sectionAxis: { dist: string; depth: string }; sectionLegend: { slab: string; quake: string; aft: (n: string) => string };
   oaf: string; oafNote: string; oafWindow: string; oafMag: (m: string) => string; oafRange: (lo: string, hi: string) => string; oafModel: string;
+  whatIs: (k: string) => string;
   history: string; historyNote: string; historyNone: string; deaths: string; death: string; learnMore: string; oafIssued: (d: string) => string;
 };
 
@@ -72,6 +73,7 @@ export const GEO: Record<Lang, G> = {
     oaf: 'Pronóstico de réplicas (USGS)', oafNote: 'Probabilidad de que haya al menos una réplica de esa magnitud o mayor en cada período, según el pronóstico operativo del USGS. Se muestra tal como lo publica el USGS.',
     oafWindow: 'Período', oafMag: (m) => `M ${m}+`, oafRange: (lo, hi) => `${lo}–${hi} sismos`, oafModel: 'Modelo',
     history: 'Sismos grandes en la zona (300 km)', historyNote: 'Sismos significativos desde 1900 según NOAA NCEI, ordenados por víctimas.', historyNone: 'NCEI no registra sismos significativos a menos de 300 km desde 1900.',
+    whatIs: (k) => `¿Qué es una ${k}?`,
     deaths: 'muertes', death: 'muerte', learnMore: 'Aprender más', oafIssued: (d) => `Pronóstico emitido el ${d}.`,
   },
   en: {
@@ -107,6 +109,7 @@ export const GEO: Record<Lang, G> = {
     oaf: 'Aftershock forecast (USGS)', oafNote: 'Probability of at least one aftershock of that magnitude or larger in each period, according to the USGS operational forecast. Shown as published by the USGS.',
     oafWindow: 'Period', oafMag: (m) => `M ${m}+`, oafRange: (lo, hi) => `${lo}–${hi} quakes`, oafModel: 'Model',
     history: 'Large earthquakes in the area (300 km)', historyNote: 'Significant earthquakes since 1900 according to NOAA NCEI, sorted by deaths.', historyNone: 'NCEI records no significant earthquakes within 300 km since 1900.',
+    whatIs: (k) => `What is a ${k}?`,
     deaths: 'deaths', death: 'death', learnMore: 'Learn more', oafIssued: (d) => `Forecast issued ${d}.`,
   },
 };

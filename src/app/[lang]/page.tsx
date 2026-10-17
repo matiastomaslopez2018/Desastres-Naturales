@@ -14,7 +14,7 @@ export const maxDuration = 60;
 
 type Props = {
   params: Promise<{ lang: string }>;
-  searchParams: Promise<{ range?: string; year?: string; e?: string }>;
+  searchParams: Promise<{ range?: string; year?: string; e?: string; tipo?: string }>;
 };
 
 /** El resumen de la semana se transmite aparte para no demorar el globo. */
@@ -30,7 +30,7 @@ export default async function Home({ params, searchParams }: Props) {
   const sp = await searchParams;
   return (
     <>
-      <Atlas lang={lang} initialRange={parseRange(sp.range)} initialYear={parseYear(sp.year)} initialSel={sp.e} />
+      <Atlas lang={lang} initialRange={parseRange(sp.range)} initialYear={parseYear(sp.year)} initialSel={sp.e} initialType={sp.tipo} />
       <div className="dusk" aria-hidden="true" />
       <Suspense fallback={null}>
         <Week lang={lang} />

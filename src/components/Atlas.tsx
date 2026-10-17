@@ -35,7 +35,8 @@ const toTrack = (s: IbtracsStorm): HistTrack => {
 const NOW_LAYERS = new Set(['nhc', 'wvolc', 'firms']);
 type FirmsState = 'idle' | 'wait' | 'ok' | 'needsKey' | 'err';
 
-type Props = { lang: Lang; initialRange: RangeKey; initialYear: number; initialSel?: string };
+/** initialType: ?tipo=eq|volcano|… desde Aprender, para abrir el mapa filtrado por un tipo. */
+type Props = { lang: Lang; initialRange: RangeKey; initialYear: number; initialSel?: string; initialType?: string };
 
 const LAYER_KEYS = ['nhc', 'wvolc', 'firms', 'ibtracs', 'borders', 'plates', 'ring', 'gvp', 'hazard'] as const;
 const SRC_NAME: Record<SourceKey, string> = { usgs: 'USGS', eonet: 'EONET', gdacs: 'GDACS', gvp: 'GVP', carto: 'PB2002' };
@@ -45,7 +46,7 @@ const PLAY_MS = 900;
 const LONG_TYPES = new Set(['drought']);
 
 /** 2a "Satélite nocturno": globo a pantalla completa con paneles flotantes y línea de tiempo. */
-export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
+export function Atlas({ lang, initialRange, initialYear, initialSel, initialType }: Props) {
   const t = T[lang];
   const nf = useCallback((x: number, d = 0) => fmtNum(lang, x, d), [lang]);
 
@@ -53,7 +54,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
   const [year, setYear] = useState(initialYear);
   const [minMag, setMinMag] = useState(2.5);
   const [types, setTypes] = useState<Record<FilterType, boolean>>(
-    () => Object.fromEntries(TYPE_ORDER.map((k) => [k, true])) as Record<FilterType, boolean>,
+    () => Object.fromEntries(TYPE_ORDER.map((k) => [k, !initialType || !(TYPE_ORDER as string[]).includes(initialType) || k === initialType])) as Record<FilterType, boolean>,
   );
   const [layers, setLayers] = useState<Layers>({
     nhc: true, wvolc: true, firms: false, ibtracs: true, borders: true, plates: true, ring: true, gvp: false, hazard: false,

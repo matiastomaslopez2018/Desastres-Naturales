@@ -5,7 +5,7 @@ import { translateParagraphs } from '@/lib/server/translate';
 import type { GvpVolcano, Lang } from '@/lib/types';
 
 /** Esquema simple de cada tipo de vulcanismo (ilustrativo). */
-function SettingSketch({ kind, label }: { kind: Setting; label: string }) {
+export function SettingSketch({ kind, label }: { kind: Setting; label: string }) {
   return (
     <svg className="vsk" viewBox="0 0 240 120" role="img" aria-label={label}>
       <rect x="0" y="80" width="240" height="40" className="vsk-mantle" />

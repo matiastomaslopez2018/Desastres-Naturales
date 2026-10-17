@@ -4,7 +4,16 @@ import { notFound } from 'next/navigation';
 import { SiteFooter, SiteHeader } from '@/components/SiteHeader';
 import { SeoLinks, seoMeta } from '@/components/landing/Landing';
 import { T } from '@/lib/i18n';
-import { ARTICLES, REVIEWED, articleBySlug } from '@/lib/learn';
+import { ARTICLES, REVIEWED, articleBySlug, type Topic } from '@/lib/learn';
+import { LearnFigure } from '@/components/landing/LearnFigure';
+
+const TOPICS: Topic[] = ['eq', 'tsunami', 'volcano', 'storm', 'fire', 'flood', 'drought', 'general'];
+const TOPIC_NAME: Record<Lang, Record<Topic, string>> = {
+  es: { eq: 'Sismos', tsunami: 'Tsunamis', volcano: 'Volcanes', storm: 'Ciclones', fire: 'Incendios', flood: 'Inundaciones', drought: 'Sequías', general: 'General' },
+  en: { eq: 'Earthquakes', tsunami: 'Tsunamis', volcano: 'Volcanoes', storm: 'Cyclones', fire: 'Wildfires', flood: 'Floods', drought: 'Droughts', general: 'General' },
+};
+/** Mapa filtrado por el tipo del tema (?tipo= del globo). */
+const mapFor = (lang: Lang, topic: Topic) => (topic === 'general' ? `/${lang}` : `/${lang}?tipo=${topic}`);
 import { jsonLd, routePath } from '@/lib/seo';
 import { SITE_URL } from '@/lib/site';
 import type { Lang } from '@/lib/types';
@@ -24,14 +33,25 @@ export function LearnIndex({ lang }: { lang: Lang }) {
           <h1 className="ed-headline">{t.h1}</h1>
           <p className="ed-lead">{t.desc}</p>
         </div>
-        <div className="seo-grid">
-          {ARTICLES.map((a) => (
-            <Link key={a.id} href={routePath(lang, 'learn', a[lang].slug)} className="seo-card">
-              <strong>{a[lang].title}</strong>
-              <span className="ed-note">{a[lang].desc}</span>
-            </Link>
-          ))}
-        </div>
+        <nav className="learn-tabs" aria-label={t.title}>
+          {TOPICS.map((k) => <a key={k} href={`#${k}`} className={`learn-tab t-${k}`}>{TOPIC_NAME[lang][k]}</a>)}
+        </nav>
+        {TOPICS.map((k) => (
+          <section key={k} id={k} className={`learn-topic t-${k}`} aria-labelledby={`h-${k}`}>
+            <div className="row-between">
+              <h2 id={`h-${k}`} className="ed-h3">{TOPIC_NAME[lang][k]}</h2>
+              {k !== 'general' && <Link href={mapFor(lang, k)} className="ed-more">{t.onMap} →</Link>}
+            </div>
+            <div className="seo-grid">
+              {ARTICLES.filter((a) => a.topic === k).map((a) => (
+                <Link key={a.id} href={routePath(lang, 'learn', a[lang].slug)} className="seo-card">
+                  <strong>{a[lang].title}</strong>
+                  <span className="ed-note">{a[lang].desc}</span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        ))}
         <SeoLinks lang={lang} current="learn" />
       </main>
       <SiteFooter lang={lang} />
@@ -71,14 +91,23 @@ export function LearnArticle({ lang, slug }: { lang: Lang; slug: string }) {
           <Link href={routePath(lang, 'learn')} className="ed-back">← {t.title}</Link>
           <h1 className="ed-headline">{art.title}</h1>
           <p className="ed-lead">{art.lead}</p>
-          <p className="ed-note">{t.reviewed} {reviewed(lang)}</p>
+          <p className="ed-note">{t.reviewed} {reviewed(lang)} · <span className={`learn-chip t-${a.topic}`}>{TOPIC_NAME[lang][a.topic]}</span>{a.topic !== 'general' && <> · <Link href={mapFor(lang, a.topic)}>{t.onMap} →</Link></>}</p>
         </div>
+        {a.figures?.length ? <div className="learn-figs">{a.figures.map((f) => <LearnFigure key={f} lang={lang} f={f} />)}</div> : null}
         <article className="ed-prose">
           {art.sections.map((s) => (
             <section key={s.h}>
               <h2>{s.h}</h2>
               {s.p?.map((p) => <p key={p}>{p}</p>)}
               {s.list && <ul className="ed-list">{s.list.map((li) => <li key={li}>{li}</li>)}</ul>}
+              {s.table && (
+                <div className="ed-table-wrap">
+                  <table className="ed-table learn-table">
+                    <thead><tr>{s.table.head.map((h) => <th key={h} scope="col">{h}</th>)}</tr></thead>
+                    <tbody>{s.table.rows.map((r) => <tr key={r[0]}>{r.map((c, i) => (i === 0 ? <th key={i} scope="row">{c}</th> : <td key={i}>{c}</td>))}</tr>)}</tbody>
+                  </table>
+                </div>
+              )}
             </section>
           ))}
           <section>
