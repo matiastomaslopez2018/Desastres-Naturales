@@ -174,3 +174,12 @@ button.ed-button { background: none; cursor: pointer; color: inherit; font-famil
 
 /* Total del ranking con su desglose al pasar el mouse (tooltip). */
 .composition { border-bottom: 1px dotted var(--faint); cursor: help; }
+
+/* Fase 2 · B: historia NCEI y fuentes nacionales en la ficha de país */
+.hist { display: flex; flex-direction: column; gap: 12px; margin-top: 48px; }
+.hist-table tbody th.hist-place { font-family: var(--font-ui); font-size: 14px; white-space: normal; min-width: 220px; }
+.hist-tsu { color: var(--accent); }
+.hist-more summary { cursor: pointer; font-size: 14px; color: var(--accent); padding: 8px 0; }
+.ed-ext { color: var(--text); font-size: 15px; text-decoration-color: var(--rule-strong); }
+.ed-ext:hover { text-decoration-color: var(--accent); }
+.hist + .stack { margin-top: 32px; }

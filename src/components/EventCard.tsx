@@ -1,24 +1,26 @@
 'use client';
 
 import NextLink from 'next/link';
+import { EventExtras } from './EventExtras';
 import { Glyph } from './Glyph';
-import type { Pickable } from './Globe';
 import { countryName, countryPath } from '@/lib/countries';
 import { T } from '@/lib/i18n';
 import { MULTI_COUNTRY_MIN, localPlace, localSeverity, localTitle, titlePlaces } from '@/lib/localize';
 import { fmtCoords, fmtNum, fmtTime } from '@/lib/format';
 import { SHAPE, alertLevel } from '@/lib/symbols';
-import type { EqDetail, Lang, Link } from '@/lib/types';
+import type { DisasterEvent, EqDetail, GvpVolcano, Lang, Link, TsunamiMessage } from '@/lib/types';
 
 type Props = {
-  lang: Lang; e: Pickable; detail: EqDetail | null; detailLoading?: boolean;
+  lang: Lang; e: DisasterEvent | GvpVolcano; detail: EqDetail | null; detailLoading?: boolean;
   /** Sin `onClose` no se muestra "Cerrar" (ficha permalink). */
   onClose?(): void;
   actions?: React.ReactNode;
+  /** Mensajes NOAA de tsunami: con esto se muestran las segundas fuentes (EMSC, tsunami, ReliefWeb). undefined = no mostrarlas. */
+  tsunami?: TsunamiMessage[] | null;
   titleAs?: 'h1' | 'h2';
 };
 
-export function EventCard({ lang, e, detail, detailLoading, onClose, actions, titleAs: Title = 'h2' }: Props) {
+export function EventCard({ lang, e, detail, detailLoading, onClose, actions, tsunami, titleAs: Title = 'h2' }: Props) {
   const t = T[lang], f = t.f, d: Partial<EqDetail> = detail ?? {};
   const nf = (x: number, dg = 0) => fmtNum(lang, x, dg);
   const rows: { label: string; value: React.ReactNode }[] = [];
@@ -132,6 +134,7 @@ export function EventCard({ lang, e, detail, detailLoading, onClose, actions, ti
         ))}
       </dl>
       {detailLoading && <span className="ev-loading">{t.loadingDetail}</span>}
+      {tsunami !== undefined && e.type !== 'gvp' && <EventExtras lang={lang} e={e} tsunami={tsunami} />}
       <div className="ev-sources">
         <span className="ev-sources-title">{t.sources}</span>
         {links.filter((l) => l.url).map((l) => (

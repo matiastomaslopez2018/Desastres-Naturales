@@ -39,6 +39,7 @@ export function mergeGdacs(base: DisasterEvent[], gdacs: DisasterEvent[]): Disas
       m.severity = a.severity;
       m.country = m.country || a.country;
       m.iso3 = m.iso3 || a.iso3;
+      m.glide = m.glide || a.glide;
     } else out.push(a);
   }
   return out;

@@ -3,24 +3,40 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { geoDistance } from 'd3-geo';
-import { Globe, type GlobeHandle, type Layers, type Pickable } from './Globe';
+import { Globe, type GlobeHandle, type Layers, type Overlays, type Pickable } from './Globe';
 import { Glyph, TypeDot } from './Glyph';
 import { EventCard } from './EventCard';
+import { FeatureCard } from './FeatureCard';
 import { ShareButtons } from './ShareButtons';
 import { eventTitle } from '@/lib/eventText';
 import { T } from '@/lib/i18n';
 import { fmtDay, fmtHour, fmtNum, fmtRel } from '@/lib/format';
 import { MIN_YEAR, RANGES, rangeInfo } from '@/lib/range';
-import { SHAPE, TYPE_ORDER, alertLevel, lastUpdate, relevance, type FilterType } from '@/lib/symbols';
+import { SHAPE, TYPE_ORDER, alertLevel, isEvent, lastUpdate, relevance, type FilterType } from '@/lib/symbols';
 import { alertTag, localTitle } from '@/lib/localize';
 import { bucketOf, buckets } from '@/lib/timeline';
 import type {
-  DisasterEvent, EqDetail, EventsResponse, GvpVolcano, Lang, RangeKey, SourceKey, SourceStatus,
+  DisasterEvent, EqDetail, EventsResponse, GvpVolcano, HeatBin, HistTrack, Lang, NhcStorm, RangeKey, SourceKey, SourceStatus,
+  TsunamiMessage, VolcanoActivity,
 } from '@/lib/types';
+
+/** Formato de public/data/ibtracs/<temporada>.json (scripts/ibtracs.ts). */
+type IbtracsStorm = { sid: string; name: string; basin: string; season: number; wind: number | null; pres: number | null; start: number; end: number; pts: [number, number, number | null][] };
+const toTrack = (s: IbtracsStorm): HistTrack => {
+  // Se ubica en el punto de viento máximo (o el primero si no hay viento).
+  let best = s.pts[0];
+  for (const p of s.pts) if (p[2] != null && (best[2] == null || p[2] > best[2])) best = p;
+  return {
+    id: 'ibtracs-' + s.sid, type: 'ibtracs', src: 'IBTrACS', title: s.name, name: s.name, basin: s.basin, season: s.season,
+    windKt: s.wind, pressureMb: s.pres, start: s.start, end: s.end, lon: best[0], lat: best[1], points: s.pts,
+  };
+};
+const NOW_LAYERS = new Set(['nhc', 'wvolc', 'firms']);
+type FirmsState = 'idle' | 'wait' | 'ok' | 'needsKey' | 'err';
 
 type Props = { lang: Lang; initialRange: RangeKey; initialYear: number; initialSel?: string };
 
-const LAYER_KEYS = ['borders', 'plates', 'ring', 'gvp', 'hazard'] as const;
+const LAYER_KEYS = ['nhc', 'wvolc', 'firms', 'ibtracs', 'borders', 'plates', 'ring', 'gvp', 'hazard'] as const;
 const SRC_NAME: Record<SourceKey, string> = { usgs: 'USGS', eonet: 'EONET', gdacs: 'GDACS', gvp: 'GVP', carto: 'PB2002' };
 /** Un tramo de la línea de tiempo por cuadro de reproducción, a 1×. */
 const PLAY_MS = 900;
@@ -38,7 +54,15 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
   const [types, setTypes] = useState<Record<FilterType, boolean>>(
     () => Object.fromEntries(TYPE_ORDER.map((k) => [k, true])) as Record<FilterType, boolean>,
   );
-  const [layers, setLayers] = useState<Layers>({ borders: true, plates: true, ring: true, gvp: false, hazard: false });
+  const [layers, setLayers] = useState<Layers>({
+    nhc: true, wvolc: true, firms: false, ibtracs: true, borders: true, plates: true, ring: true, gvp: false, hazard: false,
+  });
+  const [storms, setStorms] = useState<NhcStorm[]>([]);
+  const [volcanoes, setVolcanoes] = useState<VolcanoActivity[]>([]);
+  const [heat, setHeat] = useState<HeatBin[]>([]);
+  const [firmsState, setFirmsState] = useState<FirmsState>('idle');
+  const [tracks, setTracks] = useState<HistTrack[]>([]);
+  const [tsunami, setTsunami] = useState<{ messages: TsunamiMessage[]; active: TsunamiMessage[] } | null>(null);
   const [events, setEvents] = useState<DisasterEvent[]>([]);
   const [win, setWin] = useState<{ s: number; e: number } | null>(null);
   const [gvp, setGvp] = useState<GvpVolcano[]>([]);
@@ -66,7 +90,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
   const magFloor = rangeInfo(range, year).floor;
 
   // Período y evento seleccionado en la URL (compartible).
-  const selParam = sel && sel.type !== 'gvp' ? sel.id : null;
+  const selParam = sel && isEvent(sel) ? sel.id : null;
   const qs = useMemo(() => {
     const p = new URLSearchParams();
     if (range !== '7d') p.set('range', range);
@@ -124,6 +148,49 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
       .catch(() => setSrc((s) => ({ ...s, gvp: { state: 'err' } })));
   }, []);
 
+  // Fase 2 · B: ciclones activos (NHC), volcanes con actividad (GVP) y mensajes de tsunami (NOAA).
+  useEffect(() => {
+    const get = <J,>(u: string) => fetch(u).then((r) => (r.ok ? (r.json() as Promise<J>) : Promise.reject(r.status)));
+    get<{ storms: NhcStorm[] }>('/api/storms').then((j) => setStorms(j.storms)).catch((e) => console.warn('[atlas] nhc', e));
+    get<{ volcanoes: VolcanoActivity[] }>('/api/volcanoes').then((j) => setVolcanoes(j.volcanoes)).catch((e) => console.warn('[atlas] volcanes', e));
+    const tsu = () => get<{ messages: TsunamiMessage[]; active: TsunamiMessage[] }>('/api/tsunami').then(setTsunami).catch((e) => console.warn('[atlas] tsunami', e));
+    tsu();
+    const id = setInterval(tsu, 5 * 6e4);
+    return () => clearInterval(id);
+  }, []);
+
+  // NHC, volcanes y FIRMS son "ahora": en un año pasado no se mezclan con ese año.
+  const isNow = range !== 'year' || year === new Date().getUTCFullYear();
+  const drawLayers = useMemo<Layers>(() => (isNow ? layers : { ...layers, nhc: false, wvolc: false, firms: false }), [layers, isNow]);
+  // FIRMS pesa: solo se pide al encender la capa.
+  useEffect(() => {
+    if (!drawLayers.firms || firmsState !== 'idle') return;
+    setFirmsState('wait');
+    fetch('/api/firms')
+      .then(async (r) => {
+        if (r.status === 503) { setFirmsState('needsKey'); return; }
+        if (!r.ok) throw new Error(String(r.status));
+        const j = (await r.json()) as { bins: HeatBin[] };
+        setHeat(j.bins); setFirmsState('ok');
+      })
+      .catch(() => setFirmsState('err'));
+  }, [drawLayers.firms, firmsState]);
+
+  // IBTrACS: trayectorias históricas de la temporada, solo en modo Año.
+  const ibtracsOn = layers.ibtracs && range === 'year';
+  useEffect(() => {
+    setTracks([]);
+    if (!ibtracsOn) return;
+    const ctrl = new AbortController();
+    fetch(`/data/ibtracs/${year}.json`, { signal: ctrl.signal })
+      .then((r) => (r.ok ? (r.json() as Promise<IbtracsStorm[]>) : Promise.reject(r.status)))
+      .then((j) => setTracks(j.filter((s) => s.pts.length).map(toTrack)))
+      .catch(() => {});
+    return () => ctrl.abort();
+  }, [ibtracsOn, year]);
+
+  const overlays = useMemo<Overlays>(() => ({ storms, heat, volcanoes, tracks }), [storms, heat, volcanoes, tracks]);
+
   const passesFilters = useCallback((e: DisasterEvent) => {
     if (e.type === 'eq') {
       if (e.mag != null && e.mag < minMag) return false;
@@ -150,10 +217,14 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
   }, [filtered, focus, bs]);
 
   // Un evento abierto por enlace puede quedar fuera del período: se dibuja igual.
-  const drawn = useMemo(
-    () => (sel && sel.type !== 'gvp' && !visible.some((e) => e.id === sel.id) ? [...visible, sel] : visible),
-    [visible, sel],
-  );
+  // Con la capa NHC encendida, el mismo ciclón de EONET/GDACS no se dibuja dos veces
+  // (mismo nombre, a menos de 1000 km): sigue en las listas y en "Eventos cercanos".
+  const drawn = useMemo(() => {
+    const dupOfNhc = (e: DisasterEvent) => drawLayers.nhc && e.type === 'storm' && storms.some((s) =>
+      new RegExp(`\\b${s.name}\\b`, 'i').test(e.title) && geoDistance([s.lon, s.lat], [e.lon, e.lat]) * 6371 < 1000);
+    const v = storms.length ? visible.filter((e) => !dupOfNhc(e)) : visible;
+    return sel && isEvent(sel) && !v.some((e) => e.id === sel.id) ? [...v, sel] : v;
+  }, [visible, sel, storms, drawLayers.nhc]);
 
   const counts = useMemo(() => {
     const c = Object.fromEntries(TYPE_ORDER.map((k) => [k, 0])) as Record<FilterType, number>;
@@ -180,6 +251,10 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
 
   const subLine = (e: Pickable) => {
     if (e.type === 'gvp') return [e.country, e.vtype].filter(Boolean).join(' · ');
+    if (e.type === 'nhc') return [t.nhcClass[e.classification] ?? e.classification, e.windKt != null ? `${nf(e.windKt)} kt` : '', 'NOAA NHC'].filter(Boolean).join(' · ');
+    if (e.type === 'heat') return [t.heatUnit(e.count), `FRP ${nf(e.frpMax, 1)} MW`, 'NASA FIRMS'].join(' · ');
+    if (e.type === 'wvolc') return [e.country, t.volcStatus[e.status], 'GVP'].filter(Boolean).join(' · ');
+    if (e.type === 'ibtracs') return [t.basins[e.basin] ?? e.basin, e.windKt != null ? `${nf(e.windKt)} kt` : '', 'IBTrACS'].filter(Boolean).join(' · ');
     const parts = [t.T1[e.type]];
     if (e.type === 'eq' && e.mag != null) parts.unshift('M ' + nf(e.mag, 1));
     if (e.time) parts.push(fmtRel(lang, lastUpdate(e)));
@@ -294,6 +369,20 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
     if (s0 && !s0.moved && s0.prev === s0.startI) setFocus(null);
   };
 
+  const featureTitle = (e: Pickable) =>
+    e.type === 'nhc' ? `${t.nhcClass[e.classification] ?? e.classification} ${e.name}`
+      : e.type === 'heat' ? t.heatKicker
+      : e.type === 'ibtracs' ? `${e.name || t.unnamed} (${e.season})` : e.title;
+  const layerNote = (k: (typeof LAYER_KEYS)[number]) => {
+    if (k === 'gvp' && src.gvp?.state === 'err') return ` · ${t.err}`;
+    if (!isNow && NOW_LAYERS.has(k)) return ` · ${t.onlyNow}`;
+    if (k === 'firms') return firmsState === 'needsKey' ? ` · ${t.needsKey('FIRMS_MAP_KEY')}` : firmsState === 'wait' ? ` · ${t.loadingLayer}` : firmsState === 'err' ? ` · ${t.err}` : firmsState === 'ok' ? ` · ${nf(heat.length)}` : '';
+    if (k === 'nhc') return storms.length ? ` · ${nf(storms.length)}` : '';
+    if (k === 'wvolc') return volcanoes.length ? ` · ${nf(volcanoes.length)}` : '';
+    if (k === 'ibtracs') return range === 'year' && tracks.length ? ` · ${nf(tracks.length)}` : '';
+    return '';
+  };
+
   const onCarto = useCallback((s: SourceStatus) => setSrc((x) => ({ ...x, carto: s })), []);
   const toggleType = (k: FilterType) => setTypes((s) => ({ ...s, [k]: !s[k] }));
   const evSources: SourceKey[] = ['usgs', 'eonet', 'gdacs'];
@@ -304,9 +393,19 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
       <section className="map-stage" aria-label={t.brand}>
         {/* El globo vive entre la barra superior y la línea de tiempo: nada lo tapa. */}
         <div className="globe-area">
-          <Globe ref={globe} events={drawn} gvp={gvp} layers={layers} selected={sel} showTsunami={types.tsunami}
+          <Globe ref={globe} events={drawn} gvp={gvp} layers={drawLayers} overlays={overlays} selected={sel} showTsunami={types.tsunami}
             onSelect={select} onHover={setHover} onCarto={onCarto} />
         </div>
+
+        {tsunami && tsunami.active.length > 0 && (
+          <div className="tsunami-banner" role="alert">
+            {tsunami.active.map((m) => (
+              <a key={m.id} href={m.url} target="_blank" rel="noopener noreferrer">
+                <strong>{t.tsunamiLevel[m.level]}</strong> · {t.tsunamiCenterName[m.center] ?? m.center} · {m.region} · {fmtHour(lang, m.issued)} <span aria-hidden="true">↗</span>
+              </a>
+            ))}
+          </div>
+        )}
 
         <header className="map-top">
           <Link href={`/${lang}`} className="map-brand">{t.brand}</Link>
@@ -392,12 +491,12 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
           <details className="layers">
             <summary className="panel-label">{t.layers}</summary>
             {LAYER_KEYS.map((k) => (
-              <button key={k} className="layer-row" disabled={k === 'hazard'} aria-pressed={layers[k]}
+              <button key={k} className="layer-row" disabled={k === 'hazard' || (k === 'firms' && firmsState === 'needsKey') || (!isNow && NOW_LAYERS.has(k))} aria-pressed={layers[k]}
                 onClick={() => setLayers((s) => ({ ...s, [k]: !s[k] }))}>
                 <span className="check" aria-hidden="true" />
                 <span className="stack-2">
                   <span>{t.L[k]}</span>
-                  <span className="faint small">{t.N[k]}{k === 'gvp' && src.gvp?.state === 'err' ? ` · ${t.err}` : ''}</span>
+                  <span className="faint small">{t.N[k]}{layerNote(k)}</span>
                 </span>
               </button>
             ))}
@@ -417,13 +516,16 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
         <aside ref={sheetRef} className={`panel panel-right${sel ? ' has-sel' : ''}${!sel && sheetOpen ? ' sheet-open' : ''}`} aria-live="polite">
           {sel ? (
             <>
+              {isEvent(sel) || sel.type === 'gvp' ? (
               <EventCard lang={lang} e={sel} detail={detail} detailLoading={detailLoading} onClose={() => { setSel(null); setDetail(null); }}
-                actions={sel.type !== 'gvp' && (
+                tsunami={tsunami?.messages ?? null}
+                actions={isEvent(sel) && (
                   <>
                     <Link href={`/${lang}/evento/${encodeURIComponent(sel.id)}`} className="ev-link">{t.permalink} →</Link>
                     <ShareButtons lang={lang} path={`/${lang}/evento/${encodeURIComponent(sel.id)}`} text={t.shareEvent(eventTitle(lang, sel))} />
                   </>
                 )} />
+              ) : <FeatureCard lang={lang} f={sel} onClose={() => setSel(null)} />}
               {nearby.length > 0 && (
                 <div className="stack-4">
                   <span className="panel-label">{t.nearby}</span>
@@ -528,7 +630,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
 
         {hover && (
           <div className="tooltip" style={{ left: hover.x, top: hover.y }}>
-            <div className="tooltip-title">{hover.e.type === 'gvp' ? hover.e.title : localTitle(hover.e, lang)}</div>
+            <div className="tooltip-title">{isEvent(hover.e) ? localTitle(hover.e, lang) : featureTitle(hover.e)}</div>
             <div className="faint small">{subLine(hover.e)}</div>
           </div>
         )}

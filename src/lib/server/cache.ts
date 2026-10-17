@@ -34,14 +34,22 @@ export class HttpError extends Error {
 const transient = (err: unknown) =>
   err instanceof HttpError ? err.status === 429 || err.status >= 502 : err instanceof TypeError || (err as Error)?.name === 'TimeoutError';
 
-/** GET JSON con timeout; reintenta errores de red, 429 y 502–504 con espera creciente. */
-export async function fetchJson<T = unknown>(url: string, timeoutMs = 25000, retries = 2): Promise<T> {
+/**
+ * JSON con timeout (GET, o POST si se pasa `body`); reintenta errores de red, 429 y
+ * 502–504 con espera creciente.
+ */
+export async function fetchJson<T = unknown>(url: string, timeoutMs = 25000, retries = 2, body?: unknown): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     try {
       const res = await fetch(url, {
         cache: 'no-store',
         signal: AbortSignal.timeout(timeoutMs),
-        headers: { 'User-Agent': 'AtlasDeDesastres/0.1 (+https://github.com/)', Accept: 'application/json' },
+        method: body === undefined ? 'GET' : 'POST',
+        headers: {
+          'User-Agent': 'AtlasDeDesastres/0.1 (+https://github.com/)', Accept: 'application/json',
+          ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
       });
       if (!res.ok) throw new HttpError(res.status, `${res.status} ${res.statusText} — ${url}`);
       const text = await res.text();

@@ -204,3 +204,9 @@
   .play-group { gap: 4px; margin-bottom: 14px; }
   .speed { min-width: 30px; height: 24px; padding: 0 5px; font-size: 10px; }
 }
+
+/* Fase 2 · B: aviso de tsunami vigente (NTWC/PTWC), reemplaza al indicador USGS como señal principal */
+.tsunami-banner { position: absolute; top: 66px; left: 50%; transform: translateX(-50%); z-index: 6; display: flex; flex-direction: column; gap: 4px; max-width: min(720px, calc(100% - 32px)); }
+.tsunami-banner a { display: block; padding: 9px 16px; border-radius: 999px; background: var(--alert-red); color: #fff; font-size: 13px; line-height: 1.35; text-decoration: none; box-shadow: 0 4px 24px rgba(255, 61, 61, .35); }
+.tsunami-banner a:hover { text-decoration: underline; }
+@media (max-width: 760px) { .tsunami-banner { top: 56px; } .tsunami-banner a { border-radius: 12px; font-size: 12px; } }

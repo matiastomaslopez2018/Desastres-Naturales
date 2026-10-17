@@ -7,15 +7,27 @@ import { feature, mesh } from 'topojson-client';
 import type { Topology, GeometryCollection } from 'topojson-specification';
 import world from 'world-atlas/countries-110m.json';
 import { NIGHT, RING, SHAPE, alertLevel, drawShape, isHighlighted, sizeFor } from '@/lib/symbols';
-import type { DisasterEvent, GvpVolcano, SourceStatus } from '@/lib/types';
+import type { DisasterEvent, GvpVolcano, HeatBin, HistTrack, NhcStorm, SourceStatus, VolcanoActivity } from '@/lib/types';
 
-export type Pickable = DisasterEvent | GvpVolcano;
-export type Layers = { borders: boolean; plates: boolean; ring: boolean; gvp: boolean; hazard: boolean };
+export type Pickable = DisasterEvent | GvpVolcano | NhcStorm | HeatBin | VolcanoActivity | HistTrack;
+export type Layers = {
+  borders: boolean; plates: boolean; ring: boolean; gvp: boolean; hazard: boolean;
+  /** Fase 2: ciclones NHC, focos FIRMS, volcanes con actividad, trayectorias IBTrACS. */
+  nhc: boolean; firms: boolean; wvolc: boolean; ibtracs: boolean;
+};
+/** Capas de otras fuentes (bloque B) que dibuja el globo además de los eventos. */
+export type Overlays = { storms: NhcStorm[]; heat: HeatBin[]; volcanoes: VolcanoActivity[]; tracks: HistTrack[] };
+const NO_OVERLAYS: Overlays = { storms: [], heat: [], volcanoes: [], tracks: [] };
+
+/** Color de un tramo de trayectoria por viento (kt), escala Saffir-Simpson simplificada. */
+const windColor = (kt: number | null) =>
+  kt == null ? 'rgba(159,176,195,.5)' : kt >= 96 ? '#ff3d6e' : kt >= 64 ? '#ffb547' : kt >= 34 ? '#6ec8ff' : 'rgba(159,176,195,.7)';
 export interface GlobeHandle { flyTo(lon: number, lat: number, k?: number): void; zoomBy(f: number): void; reset(): void }
 
 type Props = {
   events: DisasterEvent[];
   gvp: GvpVolcano[];
+  overlays?: Overlays;
   layers: Layers;
   selected: Pickable | null;
   showTsunami: boolean;
@@ -68,6 +80,7 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
     const { rot, k, W, H, dpr } = cam.current;
     if (!c || !ctx || !W) return;
     const { events, gvp, layers, selected, showTsunami } = propsRef.current;
+    const ov = propsRef.current.overlays ?? NO_OVERLAYS;
     const proj = projRef.current;
     const path = geoPath(proj, ctx);
 
@@ -110,6 +123,78 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
         if (!front(v.lon, v.lat)) continue;
         const [x, y] = proj([v.lon, v.lat])!;
         drawShape(ctx, 'triangle', x, y, r); ctx.stroke();
+        pts.push({ e: v, x, y, r });
+      }
+    }
+
+    // ── Capas de otras fuentes (bloque B) ──
+    // IBTrACS: trayectorias históricas del año, coloreadas por intensidad.
+    if (layers.ibtracs && ov.tracks.length) {
+      ctx.lineWidth = 1.1; ctx.globalAlpha = 0.75;
+      for (const tr of ov.tracks) {
+        for (let i = 1; i < tr.points.length; i++) {
+          const a = tr.points[i - 1], b = tr.points[i];
+          ctx.beginPath(); path({ type: 'LineString', coordinates: [[a[0], a[1]], [b[0], b[1]]] });
+          ctx.strokeStyle = windColor(b[2]); ctx.stroke();
+        }
+      }
+      ctx.globalAlpha = 1;
+      for (const tr of ov.tracks) {
+        if (!front(tr.lon, tr.lat)) continue;
+        const [x, y] = proj([tr.lon, tr.lat])!;
+        ctx.beginPath(); ctx.arc(x, y, 2.5, 0, TAU); ctx.fillStyle = windColor(tr.windKt); ctx.fill();
+        pts.push({ e: tr, x, y, r: 3 });
+      }
+    }
+    // FIRMS: mapa de calor de focos (halos aditivos, tamaño por cantidad de focos).
+    if (layers.firms && ov.heat.length) {
+      ctx.globalCompositeOperation = 'lighter';
+      for (const h of ov.heat) {
+        if (!front(h.lon, h.lat)) continue;
+        const [x, y] = proj([h.lon, h.lat])!;
+        const r = Math.min(14, 1.5 + Math.sqrt(h.count) * 0.9) * Math.pow(k, 0.3);
+        const sprite = halo(h.frpMax >= 100 ? '#ff3d3d' : '#ff7a1f', r, h.frpMax >= 100);
+        ctx.drawImage(sprite, x - sprite.width / 2 / HALO_DPR, y - sprite.height / 2 / HALO_DPR, sprite.width / HALO_DPR, sprite.height / HALO_DPR);
+        pts.push({ e: h, x, y, r: Math.max(4, r * 0.6) });
+      }
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    // NHC: cono de pronóstico, trayectoria pasada y pronosticada.
+    if (layers.nhc && ov.storms.length) {
+      for (const st of ov.storms) {
+        if (st.cone) {
+          ctx.beginPath(); path(st.cone as GeoPermissibleObjects);
+          ctx.fillStyle = 'rgba(255,255,255,.08)'; ctx.fill();
+          ctx.setLineDash([4, 3]); ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
+        }
+        ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 1.4;
+        for (const line of st.pastTrack ?? []) { ctx.beginPath(); path({ type: 'LineString', coordinates: line }); ctx.stroke(); }
+        if (st.forecastTrack?.length) {
+          ctx.setLineDash([2, 3]); ctx.beginPath(); path({ type: 'LineString', coordinates: st.forecastTrack }); ctx.stroke(); ctx.setLineDash([]);
+        }
+        for (const p of st.forecastPoints ?? []) {
+          if (!front(p.lon, p.lat)) continue;
+          const [x, y] = proj([p.lon, p.lat])!;
+          ctx.beginPath(); ctx.arc(x, y, 3, 0, TAU); ctx.fillStyle = '#06080c'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+          if (k >= 2 && p.cat) { ctx.fillStyle = '#fff'; ctx.font = '600 9px var(--font-plex-mono), monospace'; ctx.fillText(p.cat, x + 5, y - 4); }
+        }
+        if (front(st.lon, st.lat)) {
+          const [x, y] = proj([st.lon, st.lat])!;
+          const r = 6 * Math.pow(k, 0.22);
+          drawShape(ctx, 'square', x, y, r); ctx.fillStyle = NIGHT.type.storm; ctx.fill();
+          ctx.beginPath(); ctx.arc(x, y, r + 5, 0, TAU); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.2; ctx.stroke();
+          pts.push({ e: st, x, y, r: r + 2 });
+        }
+      }
+    }
+    // Volcanes con actividad (reporte semanal o erupción en curso).
+    if (layers.wvolc && ov.volcanoes.length) {
+      for (const v of ov.volcanoes) {
+        if (!front(v.lon, v.lat)) continue;
+        const [x, y] = proj([v.lon, v.lat])!;
+        const r = 4.5 * Math.pow(k, 0.22);
+        drawShape(ctx, 'triangle', x, y, r); ctx.fillStyle = NIGHT.type.volcano; ctx.globalAlpha = 0.85; ctx.fill(); ctx.globalAlpha = 1;
+        if (v.status === 'new') { ctx.beginPath(); ctx.arc(x, y, r + 4, 0, TAU); ctx.strokeStyle = NIGHT.alertOrange; ctx.lineWidth = 1.1; ctx.stroke(); }
         pts.push({ e: v, x, y, r });
       }
     }
@@ -174,7 +259,7 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
     // Selección: dos anillos concéntricos (2a).
     if (selected && front(selected.lon, selected.lat)) {
       const [x, y] = proj([selected.lon, selected.lat])!;
-      const r = (selected.type === 'gvp' ? 4 : sizeFor(selected, k)) + 8;
+      const r = (selected.type === 'gvp' || selected.type === 'ibtracs' ? 4 : selected.type === 'heat' || selected.type === 'wvolc' || selected.type === 'nhc' ? 6 : sizeFor(selected, k)) + 8;
       ctx.strokeStyle = NIGHT.select; ctx.lineWidth = 1;
       ctx.globalAlpha = 0.95; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke();
       ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.arc(x, y, r + 10, 0, TAU); ctx.stroke();

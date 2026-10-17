@@ -137,7 +137,7 @@ type GdacsFeature = {
   geometry?: { type: string; coordinates: [number, number] };
   properties: {
     eventtype: string; eventid: number; name?: string; description?: string; country?: string;
-    fromdate: string; todate: string; alertlevel?: string; url?: { report?: string }; iso3?: string;
+    fromdate: string; todate: string; alertlevel?: string; url?: { report?: string }; iso3?: string; glide?: string;
     severitydata?: { severity?: number | string; severitytext?: string };
   };
 };
@@ -166,6 +166,7 @@ function mapGdacs(f: GdacsFeature): DisasterEvent | null {
     country: p.country || undefined, iso3: /^[A-Z]{3}$/.test(p.iso3 ?? '') ? p.iso3 : undefined,
     alert: asAlert(p.alertlevel), severity: p.severitydata?.severitytext,
     url: p.url?.report, mag: type === 'eq' ? gdacsEqMag(p.severitydata) : null,
+    glide: p.glide?.trim() || undefined,
   };
 }
 

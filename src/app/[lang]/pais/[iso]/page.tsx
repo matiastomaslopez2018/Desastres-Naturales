@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
+import { Suspense } from 'react';
 import { CountryGlobe } from '@/components/CountryGlobe';
+import { CountryHistory, NationalSources } from '@/components/CountryHistory';
 import { Glyph } from '@/components/Glyph';
 import { PeriodNav, parseStatRange, periodLabel, periodPhrase } from '@/components/PeriodNav';
 import { SiteFooter, SiteHeader } from '@/components/SiteHeader';
@@ -142,6 +144,12 @@ export default async function CountryPage({ params, searchParams }: Props) {
             ))}
           </section>
         </div>
+
+        {/* NCEI tarda unos segundos la primera vez (después queda en la base 7 días): se transmite aparte. */}
+        <Suspense fallback={<p className="ed-note">{t.loading}</p>}>
+          <CountryHistory lang={lang} iso3={iso3} />
+        </Suspense>
+        <NationalSources lang={lang} iso3={iso3} />
       </main>
       <SiteFooter lang={lang} />
     </div>

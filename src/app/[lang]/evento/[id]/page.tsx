@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { EventCard } from '@/components/EventCard';
+import { getTsunamiMessages } from '@/lib/server/tsunami';
 import { SiteFooter, SiteHeader } from '@/components/SiteHeader';
 import { ShareButtons } from '@/components/ShareButtons';
 import { StaticGlobe } from '@/components/StaticGlobe';
@@ -47,7 +48,7 @@ export default async function EventPage({ params }: Props) {
   if (!found) notFound();
   const { event: e, detail } = found;
   const t = T[lang];
-  const plates = await getPlates().catch(() => undefined);
+  const [plates, tsu] = await Promise.all([getPlates().catch(() => undefined), getTsunamiMessages().catch(() => null)]);
   const mapHref = `/${lang}?e=${encodeURIComponent(e.id)}`;
 
   return (
@@ -61,7 +62,7 @@ export default async function EventPage({ params }: Props) {
             <StaticGlobe e={e} plates={plates} label={`${t.mapAlt}: ${localTitle(e, lang)}`} />
             <figcaption className="tabular">{eventDescription(lang, e)}</figcaption>
           </figure>
-          <EventCard lang={lang} e={e} detail={detail} titleAs="h1"
+          <EventCard lang={lang} e={e} detail={detail} titleAs="h1" tsunami={tsu?.messages ?? null}
             actions={
               <>
                 <ShareButtons lang={lang} path={`/${lang}/evento/${encodeURIComponent(e.id)}`} text={t.shareEvent(eventTitle(lang, e))} />

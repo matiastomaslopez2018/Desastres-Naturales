@@ -86,3 +86,8 @@ export const RING: GeoJSON.MultiLineString = {
     [[178, -16], [-175, -18], [-173, -21], [-175, -25], [-177, -30], [-178.5, -34], [178, -37.5], [176, -40], [173, -43], [167, -47]],
   ],
 };
+
+/** Tipos de evento del catálogo principal (USGS, EONET, GDACS). */
+const EVENT_TYPES = new Set(['eq', 'volcano', 'fire', 'storm', 'flood', 'drought']);
+/** ¿Es un evento del catálogo (y no un volcán de referencia, un foco FIRMS, etc.)? */
+export const isEvent = (p: { type: string }): p is DisasterEvent => EVENT_TYPES.has(p.type);
