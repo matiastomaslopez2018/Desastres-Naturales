@@ -363,3 +363,13 @@ button.ed-button { background: none; cursor: pointer; color: inherit; font-famil
 @media (max-width: 600px) { .lf-ss { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .learn-links { margin: 32px 0 0; padding: 14px 16px; border: 1px solid var(--rule-strong); display: flex; flex-direction: column; gap: 6px; max-width: 760px; }
 .learn-links ul { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px 22px; font-size: 15px; }
+
+/* Metodología · fuentes en detalle (Fase 3 · G) */
+.src-group h3 { margin-top: 1.6em; }
+.src-card { border-top: 1px solid var(--rule, currentColor); padding: .7em 0 .4em; }
+.src-card h4 { margin: 0 0 .35em; font-size: 1rem; }
+.src-card dl { display: grid; grid-template-columns: 9.5em 1fr; gap: .25em 1em; margin: 0; font-size: .92rem; }
+.src-card dt { font-weight: 600; opacity: .75; }
+.src-card dd { margin: 0; }
+.src-interp h3 { font-size: 1.02rem; margin: 1.1em 0 .2em; }
+@media (max-width: 600px) { .src-card dl { grid-template-columns: 1fr; } .src-card dd { margin-bottom: .4em; } }
