@@ -1,6 +1,7 @@
 'use client';
 
 import { Glyph } from './Glyph';
+import { MediaFigure } from './MediaFigure';
 import { T } from '@/lib/i18n';
 import { fmtCoords, fmtNum, fmtTime } from '@/lib/format';
 import type { HeatBin, HistTrack, Lang, Link, NhcStorm, VolcanoActivity } from '@/lib/types';
@@ -87,6 +88,8 @@ export function FeatureCard({ lang, f, onClose, actions }: Props) {
 
   return (
     <article className="ev-card">
+      {f.type === 'nhc' && <MediaFigure lang={lang} q={{ storm: f.id }} />}
+      {f.type === 'wvolc' && /^erupt-\d+$/.test(f.id) && <MediaFigure lang={lang} q={{ volcano: +f.id.slice(6) }} />}
       <div className="ev-kicker">
         <Glyph shape={shape} type={glyph} alert={lvl} /> <span>{kicker}</span>
         {onClose && <button className="ev-close" onClick={onClose}>{t.close} ✕</button>}

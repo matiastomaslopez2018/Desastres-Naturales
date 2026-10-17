@@ -2,6 +2,7 @@
 
 import NextLink from 'next/link';
 import { EventExtras } from './EventExtras';
+import { MediaFigure } from './MediaFigure';
 import { Glyph } from './Glyph';
 import { countryName, countryPath } from '@/lib/countries';
 import { T } from '@/lib/i18n';
@@ -108,6 +109,7 @@ export function EventCard({ lang, e, detail, detailLoading, onClose, actions, ts
 
   return (
     <article className="ev-card">
+      <MediaFigure lang={lang} q={e.type === 'gvp' ? { volcano: e.num } : { event: e.id }} />
       <div className="ev-kicker">
         <Glyph shape={shape} type={glyphType} alert={lvl} /> <span>{kicker}</span>
         {onClose && <button className="ev-close" onClick={onClose}>{t.close} ✕</button>}

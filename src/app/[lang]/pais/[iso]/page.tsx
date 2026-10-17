@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { CountryGlobe } from '@/components/CountryGlobe';
+import { MediaFigure } from '@/components/MediaFigure';
 import { CountryHistory, NationalSources } from '@/components/CountryHistory';
 import { Glyph } from '@/components/Glyph';
 import { PeriodNav, parseStatRange, periodLabel, periodPhrase } from '@/components/PeriodNav';
@@ -112,6 +113,7 @@ export default async function CountryPage({ params, searchParams }: Props) {
 
         <div className="ed-grid">
           <div className="stack">
+            <MediaFigure lang={lang} q={{ country: iso3 }} />
             {shape && <CountryGlobe shapes={shape.features} centroid={shape.centroid} events={events} label={name} />}
             <div>
               {RANK_TYPES.map((k) => (

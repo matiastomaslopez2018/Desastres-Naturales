@@ -146,3 +146,29 @@ button, input, select { font: inherit; color: inherit; }
 .ev-relief { display: flex; flex-direction: column; gap: 2px; color: inherit; text-decoration: none; }
 .ev-relief:hover span:first-child { text-decoration: underline; }
 .theme-paper .ev-extra-title { font-family: var(--font-ui); font-weight: 600; letter-spacing: .08em; font-size: 13px; }
+
+/* Imagen de la ficha: crédito y licencia siempre visibles debajo */
+.media { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.media-wait { aspect-ratio: 16 / 9; border-radius: 8px; background: color-mix(in srgb, var(--text) 6%, transparent); }
+.media-frame { position: relative; width: 100%; max-height: 420px; overflow: hidden; border-radius: 8px; background: #05070b; }
+.media-frame img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.media-frame.media-goes, .media-frame.media-shakemap, .media-frame.media-commons { aspect-ratio: auto; }
+.media-frame.media-goes img, .media-frame.media-shakemap img, .media-frame.media-commons img { max-height: 420px; object-fit: contain; }
+.media-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+.media-tab { font-size: 11px; padding: 4px 9px; border-radius: 999px; border: 1px solid var(--rule); background: none; color: var(--muted); cursor: pointer; }
+.media-tab[aria-selected='true'] { color: var(--text); border-color: var(--accent); }
+.media-credit { display: flex; flex-direction: column; gap: 2px; font-size: 11px; line-height: 1.45; color: var(--faint); overflow-wrap: anywhere; }
+.media-cap { color: var(--muted); }
+.media-credit a { color: inherit; text-decoration: underline; text-decoration-color: var(--rule); }
+.media-credit a:hover { color: var(--accent); }
+.ba { position: relative; width: 100%; height: 100%; }
+.ba img { position: absolute; inset: 0; }
+.ba img:first-child { position: relative; }
+.ba-line { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #fff; box-shadow: 0 0 6px rgba(0,0,0,.6); pointer-events: none; }
+.ba-tag { position: absolute; top: 8px; padding: 2px 7px; border-radius: 4px; background: rgba(0,0,0,.6); color: #fff; font-size: 11px; pointer-events: none; }
+.ba-l { left: 8px; } .ba-r { right: 8px; }
+.ba-range { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: ew-resize; touch-action: pan-y; }
+.ba-range:focus-visible { opacity: .01; outline: none; }
+.ba:has(.ba-range:focus-visible) .ba-line { background: var(--accent); }
+.theme-paper .media-frame { border-radius: 0; }
+.theme-paper .media-tab { border-radius: 0; }

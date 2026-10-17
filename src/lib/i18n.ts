@@ -126,6 +126,17 @@ const es = {
   historyMore: (n: number) => `Ver los ${n} por fecha`,
   historyTop: (n: number) => `Los ${n} con más muertes según NCEI`,
   nationalTitle: 'Fuentes oficiales nacionales',
+  media: {
+    tab: { eo: 'Earth Observatory', shakemap: 'Intensidad', commons: 'Foto', goes: 'GOES', gibs: 'Satélite' } as Record<string, string>,
+    label: 'Imágenes',
+    image: 'Imagen', photo: 'Foto', license: 'Licencia', source: 'Ver en la fuente',
+    lic: { nasa: 'NASA: sin derechos de autor, uso libre con crédito', noaa: 'NOAA: dominio público', usgs: 'USGS: dominio público' } as Record<string, string>,
+    gibs: (instr: string, date: string) => `Color real · ${instr} · ${date}`,
+    fires: 'focos de calor VIIRS en rojo',
+    goesLive: 'Imagen más reciente del satélite GOES (se actualiza cada pocos minutos)',
+    shakemap: 'Intensidad del sacudimiento estimada por USGS (escala MMI)',
+    before: 'Antes', after: 'Después', slider: 'Deslizá para comparar antes y después',
+  },
 };
 
 type Dict = typeof es;
@@ -248,6 +259,17 @@ const en: Dict = {
   historyMore: (n: number) => `Show all ${n} by date`,
   historyTop: (n: number) => `The ${n} deadliest according to NCEI`,
   nationalTitle: 'National official sources',
+  media: {
+    tab: { eo: 'Earth Observatory', shakemap: 'Intensity', commons: 'Photo', goes: 'GOES', gibs: 'Satellite' },
+    label: 'Images',
+    image: 'Image', photo: 'Photo', license: 'License', source: 'View at source',
+    lic: { nasa: 'NASA: not copyrighted, free to use with credit', noaa: 'NOAA: public domain', usgs: 'USGS: public domain' },
+    gibs: (instr: string, date: string) => `True color · ${instr} · ${date}`,
+    fires: 'VIIRS hotspots in red',
+    goesLive: 'Latest GOES satellite image (refreshes every few minutes)',
+    shakemap: 'Shaking intensity estimated by USGS (MMI scale)',
+    before: 'Before', after: 'After', slider: 'Drag to compare before and after',
+  },
 };
 
 export const T: Record<Lang, Dict> = { es, en };
@@ -266,6 +288,9 @@ export const METHOD: Record<Lang, { h: string; p: string }[]> = {
     { h: 'País', p: 'El país de cada evento se calcula por punto-en-polígono contra Natural Earth 1:110M. Los eventos en el mar quedan sin país salvo que GDACS lo informe. Los códigos siguen ISO 3166-1: Chipre del Norte y Somalilandia se cuentan en Chipre y Somalia, y Kosovo usa el código provisorio XK.' },
     { h: 'Ranking de países', p: 'Cuenta eventos por país en el período elegido, con sismos desde M4,5 (umbral de completitud del catálogo global de USGS). "Alertas" son las alertas oficiales naranja o roja de GDACS o USGS PAGER. Un ranking alto refleja más eventos registrados, no necesariamente más daño: la cobertura de cada fuente varía según el país.' },
     { h: 'Horarios', p: 'Cada evento se muestra en UTC y en la hora local de tu dispositivo.' },
+    { h: 'Imágenes de las fichas', p: 'Cada ficha de evento, volcán, ciclón y país muestra arriba una imagen de una fuente pública u oficial, siempre con autor y licencia debajo y un enlace a la fuente. Nunca se usan buscadores de imágenes ni fotos de prensa con derechos de autor; si una imagen no trae autor y licencia, no se muestra. Si hay varias, se elige con pestañas, en este orden: (1) para eventos grandes (alerta naranja o roja, sismos M6+, ciclones y volcanes), un artículo de NASA Earth Observatory cuyo título nombre al evento, al volcán o al país con el tipo de desastre, publicado desde 2 días antes hasta 45 después; se descartan los que usan imágenes de satélites comerciales o de la ESA, porque su licencia no es la de NASA; (2) la imagen propia del tipo: en sismos, el mapa de intensidad ShakeMap de USGS (dominio público); en volcanes, la foto de Wikimedia Commons enlazada en Wikidata al número del volcán en el Smithsonian GVP (P1886 → P18), con autor y licencia tal como los publica Commons; en ciclones activos de NHC, la imagen GeoColor más reciente del satélite GOES (NOAA, dominio público); en países, la foto de Wikidata (P18) desde Commons; (3) siempre, la imagen satelital en color real de NASA GIBS (servicio WMS, sin clave) recortada alrededor de las coordenadas.' },
+    { h: 'Imagen satelital (NASA GIBS)', p: 'Se prueban MODIS Terra, MODIS Aqua y VIIRS Suomi NPP del día del evento y del día siguiente. Para elegir, se descarga una miniatura de cada una y se cuenta qué parte está tapada por nubes (píxeles claros y sin color) o sin datos (franjas entre pasadas): se usa el día del evento salvo que el siguiente esté claramente más despejado. Ese cálculo solo sirve para elegir la imagen; no se publica como dato. La nieve puede confundirse con nubes. En incendios se suma la capa de focos de calor VIIRS (375 m). En incendios, inundaciones, volcanes, ciclones y sequías se busca además una imagen de 1 a 3 semanas antes del inicio y, si está despejada, se muestra un deslizador antes/después; en sismos no, porque a 250–375 m por píxel no se ve el daño. La resolución es la de MODIS/VIIRS: sirve para ver humo, nubes, cicatrices de incendio o agua, no edificios. Para países se usa el relieve Blue Marble de NASA, sin fecha, porque una sola pasada casi siempre tiene nubes.' },
+    { h: 'Licencias y caché de imágenes', p: 'NASA (GIBS, Earth Observatory): sin derechos de autor en EE. UU., uso libre con crédito. NOAA (GOES) y USGS (ShakeMap): dominio público. Wikimedia Commons: la licencia de cada archivo (por ejemplo CC BY-SA 4.0 o dominio público), con su autor. El resultado de cada búsqueda se guarda en la base (Turso): 3 horas si el evento tiene menos de 3 días (las imágenes satelitales del día pueden completarse después), 30 días si es más viejo, 7 días para volcanes y países, y 1 hora para ciclones activos. Las imágenes se cargan de forma diferida (lazy) y en dos tamaños, 640 px para el celular y 960 px para pantallas grandes.' },
   ],
   en: [
     { h: 'What is shown', p: 'Only events published by official or scientific bodies. No data is added, estimated or corrected: each card shows its source, status and uncertainty when the source publishes it.' },
@@ -280,5 +305,8 @@ export const METHOD: Record<Lang, { h: string; p: string }[]> = {
     { h: 'Country', p: 'Each event\'s country is computed by point-in-polygon against Natural Earth 1:110M. Offshore events have no country unless GDACS reports one. Codes follow ISO 3166-1: Northern Cyprus and Somaliland count under Cyprus and Somalia, and Kosovo uses the provisional code XK.' },
     { h: 'Country ranking', p: 'Counts events per country in the selected period, with earthquakes from M4.5 (completeness threshold of the USGS global catalog). "Alerts" are official orange or red alerts from GDACS or USGS PAGER. A high rank reflects more recorded events, not necessarily more damage: the coverage of each source varies by country.' },
     { h: 'Times', p: 'Each event is shown in UTC and in your device\'s local time.' },
+    { h: 'Images on each page', p: 'Every event, volcano, cyclone and country page shows an image from a public or official source at the top, always with its author and license underneath and a link to the source. Image search engines and copyrighted news photos are never used; an image without author and license is not shown. When there are several, tabs switch between them, in this order: (1) for major events (orange or red alert, M6+ earthquakes, cyclones and volcanoes), a NASA Earth Observatory article whose title names the event, the volcano, or the country together with the hazard, published from 2 days before to 45 days after; articles that use commercial-satellite or ESA imagery are skipped because their license is not NASA\'s; (2) the image specific to the type: for earthquakes, the USGS ShakeMap intensity map (public domain); for volcanoes, the Wikimedia Commons photo linked in Wikidata to the volcano\'s Smithsonian GVP number (P1886 → P18), with author and license exactly as Commons publishes them; for active NHC cyclones, the latest GOES GeoColor satellite image (NOAA, public domain); for countries, the Wikidata photo (P18) from Commons; (3) always, NASA GIBS true-color satellite imagery (WMS service, no key) cropped around the coordinates.' },
+    { h: 'Satellite imagery (NASA GIBS)', p: 'MODIS Terra, MODIS Aqua and VIIRS Suomi NPP are tried for the event day and the following day. To choose, a thumbnail of each is downloaded and the share covered by clouds (bright, colorless pixels) or missing data (gaps between swaths) is counted: the event day is used unless the next one is clearly clearer. That calculation only picks the image; it is never published as data. Snow can be mistaken for clouds. For wildfires the VIIRS hotspot layer (375 m) is added. For wildfires, floods, volcanoes, cyclones and droughts an image from 1 to 3 weeks before the start is also searched for and, if clear, a before/after slider is shown; not for earthquakes, since damage is not visible at 250–375 m per pixel. Resolution is that of MODIS/VIIRS: good for smoke, clouds, burn scars or water, not buildings. Countries use NASA\'s undated Blue Marble relief, because a single pass is almost always cloudy.' },
+    { h: 'Image licenses and caching', p: 'NASA (GIBS, Earth Observatory): not copyrighted in the US, free to use with credit. NOAA (GOES) and USGS (ShakeMap): public domain. Wikimedia Commons: each file\'s own license (for example CC BY-SA 4.0 or public domain), with its author. Each lookup is stored in the database (Turso): 3 hours if the event is less than 3 days old (same-day satellite imagery may fill in later), 30 days if older, 7 days for volcanoes and countries, and 1 hour for active cyclones. Images load lazily and in two sizes, 640 px for phones and 960 px for large screens.' },
   ],
 };

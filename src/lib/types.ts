@@ -200,3 +200,34 @@ export interface HistoricEvent {
   maxWaterHeight?: number | null;
   url: string;
 }
+
+/* ───────────── Imágenes de las fichas ───────────── */
+
+/** Imagen pública u oficial con su crédito y licencia (nunca se muestra una sin ambos). */
+export interface MediaImage {
+  kind: 'eo' | 'shakemap' | 'commons' | 'goes' | 'gibs';
+  src: string;
+  /** Versión liviana para celular (srcset). */
+  srcSmall?: string;
+  width?: number;
+  height?: number;
+  alt: string;
+  /** Autor o agencia, tal como lo publica la fuente. */
+  credit: string;
+  /** Licencia: de una agencia (se traduce) o el texto de Commons tal como viene. */
+  licenseKind?: 'nasa' | 'noaa' | 'usgs';
+  license?: string;
+  licenseUrl?: string;
+  sourceUrl: string;
+  sourceLabel: string;
+  /** Fecha de la imagen (AAAA-MM-DD) o de publicación. */
+  date?: string;
+  /** Satélite/instrumento (GIBS) o título del artículo (Earth Observatory). */
+  detail?: string;
+  /** GIBS: imagen anterior para el deslizador antes/después. */
+  before?: { src: string; srcSmall?: string; date: string; detail: string };
+  /** GIBS: incluye la capa de focos de calor VIIRS. */
+  fires?: boolean;
+  /** GOES: imagen "más reciente", se actualiza sola. */
+  live?: boolean;
+}
