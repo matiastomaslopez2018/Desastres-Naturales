@@ -2,6 +2,7 @@ import 'server-only';
 import { geoCentroid } from 'd3-geo';
 import type { Geometry } from 'geojson';
 import { HttpError, fetchJson } from './cache';
+import { rewind } from '../rewind';
 import type { AlertLevel, DisasterEvent, EqDetail, EventType, GvpVolcano } from '../types';
 
 /*
@@ -104,7 +105,8 @@ function mapEonet(ev: EonetEvent): DisasterEvent | null {
   const gs = ev.geometry ?? [];
   if (!type || !gs.length) return null;
   const pts = gs.map((g) =>
-    g.type === 'Point' ? (g.coordinates as [number, number]) : (geoCentroid({ type: g.type, coordinates: g.coordinates } as Geometry) as [number, number]),
+    // Polígonos de EONET vienen en el sentido de RFC 7946: sin corregirlo, d3 calcula el centroide del resto del planeta (el antípoda).
+    g.type === 'Point' ? (g.coordinates as [number, number]) : (geoCentroid(rewind({ type: g.type, coordinates: g.coordinates } as Geometry)) as [number, number]),
   );
   const last = pts[pts.length - 1];
   const lg = gs[gs.length - 1];

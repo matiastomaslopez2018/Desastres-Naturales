@@ -316,3 +316,4 @@ button.ed-button { background: none; cursor: pointer; color: inherit; font-famil
 .fs-key i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
 .fs-key-perim { border-radius: 0 !important; border: 1.5px solid #c8102e; background: rgba(200,16,46,.08); }
 .theme-paper .anim-btn { padding: 6px 12px; border: 1px solid var(--rule-strong); background: none; cursor: pointer; font-size: 13px; }
+.fs-controls input[type=range] { accent-color: #c8102e; }

@@ -179,7 +179,22 @@ export function migrateData(): Promise<void> {
     }
     await kvSet('migr:iso3:v1', { n });
     console.log(`[migr] iso3: ${n} eventos actualizados`);
-  })().catch((err) => {
+  })().then(async () => {
+    // v2: inundaciones de EONET guardadas en el antípoda (polígono con el sentido invertido).
+    if (await kvGet('migr:eonet-antipode:v1')) return;
+    let n = 0;
+    for await (const page of allEvents()) {
+      const fixed = page
+        .filter((e) => e.src === 'NASA EONET' && e.type === 'flood' && !e.iso3)
+        .map((e) => ({ ...e, lat: -e.lat, lon: e.lon > 0 ? e.lon - 180 : e.lon + 180, country: undefined }))
+        .map(withCountry)
+        .filter((e) => e.iso3);
+      await upsertEvents(fixed);
+      n += fixed.length;
+    }
+    await kvSet('migr:eonet-antipode:v1', { n });
+    console.log(`[migr] eonet antípoda: ${n} inundaciones corregidas`);
+  }).catch((err) => {
     migrated = null;
     throw err;
   });
