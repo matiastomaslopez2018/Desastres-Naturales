@@ -14,7 +14,7 @@ import type { HeatBin, HistTrack, Lang, Link, NhcStorm, VolcanoActivity } from '
 
 export type Feature = NhcStorm | HeatBin | VolcanoActivity | HistTrack;
 
-type Props = { lang: Lang; f: Feature; onClose?(): void; actions?: React.ReactNode };
+type Props = { lang: Lang; f: Feature; onClose?(): void; actions?: React.ReactNode; onAnimate?(): void; animating?: boolean };
 
 /** Escala Saffir-Simpson (definición oficial de NHC, viento sostenido 1 min en nudos). */
 export const saffirSimpson = (kt: number | null) =>
@@ -23,7 +23,7 @@ export const saffirSimpson = (kt: number | null) =>
 const KT_KMH = 1.852, MPH_KMH = 1.609344;
 const ymd = (s: string | undefined) => (s && /^\d{8}$/.test(s) ? Date.UTC(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8)) : null);
 
-export function FeatureCard({ lang, f, onClose, actions }: Props) {
+export function FeatureCard({ lang, f, onClose, actions, onAnimate, animating }: Props) {
   const t = T[lang], nf = (x: number, dg = 0) => fmtNum(lang, x, dg);
   const rows: { label: string; value: string }[] = [];
   const links: Link[] = [];
@@ -35,11 +35,15 @@ export function FeatureCard({ lang, f, onClose, actions }: Props) {
   let shape: 'square' | 'diamond' | 'triangle' = 'square', glyph = 'storm', lvl = 0;
 
   if (f.type === 'nhc') {
-    kicker = t.nhcKicker;
-    const cls = t.nhcClass[f.classification] ?? f.classification;
+    const agency = f.agency ?? 'NHC';
+    kicker = `${t.stormKicker} · ${agency === 'NHC' ? 'NOAA NHC' : `${agency} ${t.via} GDACS`}`;
+    // Nombre según la región: huracán (Atlántico/Pacífico NE), tifón (Pacífico NO), ciclón (Índico/hemisferio sur).
+    const strong = f.classification === 'HU' || f.classification === 'TY' || f.classification === 'TC';
+    const cls = strong && f.basinWord ? t.basinWords[f.basinWord] : t.nhcClass[f.classification] ?? f.classification;
     title = `${cls} ${f.name}`;
-    if (f.windKt != null) { big = nf(Math.round(f.windKt * KT_KMH)); bigUnit = `km/h · ${nf(f.windKt)} kt`; }
-    const cat = f.classification === 'HU' ? saffirSimpson(f.windKt) : null;
+    if (f.windKt != null) { big = nf(Math.round(f.windKt * KT_KMH)); bigUnit = `km/h · ${nf(f.windKt)} kt${agency === 'NHC' ? '' : ` · ${t.maxWindEvent}`}`; }
+    const cat = agency === 'NHC' && f.classification === 'HU' ? saffirSimpson(f.windKt) : null;
+    if (f.severityText) add(t.gdacsSeverity, f.severityText);
     if (cat) { add(t.nhcRows.cat, cat); lvl = cat >= 3 ? 3 : 2; }
     add(t.nhcRows.pressure, f.pressureMb != null ? `${nf(f.pressureMb)} hPa` : null);
     add(t.nhcRows.movement, f.movementDir != null && f.movementSpeedMph != null
@@ -48,8 +52,14 @@ export function FeatureCard({ lang, f, onClose, actions }: Props) {
     add(t.nhcRows.coords, fmtCoords(lang, f.lat, f.lon));
     if (f.advisoryUrl) links.push({ label: t.nhcLinks.advisory, url: f.advisoryUrl });
     if (f.discussionUrl) links.push({ label: t.nhcLinks.discussion, url: f.discussionUrl });
-    links.push({ label: 'NOAA · National Hurricane Center', url: 'https://www.nhc.noaa.gov/' });
-    note = t.nhcNote;
+    if (agency === 'NHC') links.push({ label: 'NOAA · National Hurricane Center', url: 'https://www.nhc.noaa.gov/' });
+    if (f.reportUrl) links.push({ label: 'GDACS · report', url: f.reportUrl });
+    if (agency === 'JTWC') links.push({ label: 'JTWC · Joint Typhoon Warning Center', url: 'https://www.metoc.navy.mil/jtwc/jtwc.html' });
+    // Centro oficial de la OMM para la región (RSMC).
+    if (f.basinWord === 'typhoon') links.push({ label: t.rsmc('JMA (RSMC Tokio)'), url: 'https://www.jma.go.jp/bosai/map.html#contents=typhoon' });
+    if (f.basinWord === 'cyclone' && f.lat < 0 && f.lon > 90 && f.lon < 160) links.push({ label: t.rsmc('Bureau of Meteorology (Australia)'), url: 'https://www.bom.gov.au/cyclone/' });
+    if (f.basinWord === 'cyclone' && f.lat < 0 && (f.lon >= 160 || f.lon < -120)) links.push({ label: t.rsmc('MetService / Fiji Met (Pacífico Sur)'), url: 'https://www.metservice.com/warnings/tropical-cyclone-activity' });
+    note = `${t.nhcNote} ${agency === 'NHC' ? '' : t.agencyNote(agency)}`;
   } else if (f.type === 'heat') {
     kicker = t.heatKicker; shape = 'diamond'; glyph = 'fire';
     big = nf(f.count); bigUnit = t.heatUnit(f.count).replace(/^\S+\s/, '');
@@ -89,7 +99,7 @@ export function FeatureCard({ lang, f, onClose, actions }: Props) {
 
   return (
     <article className="ev-card">
-      {f.type === 'nhc' && <MediaFigure lang={lang} q={{ storm: f.id }} />}
+      {f.type === 'nhc' && f.agency === 'NHC' && <MediaFigure lang={lang} q={{ storm: f.id }} />}
       {f.type === 'wvolc' && /^erupt-\d+$/.test(f.id) && <MediaFigure lang={lang} q={{ volcano: +f.id.slice(6) }} />}
       <div className="ev-kicker">
         <Glyph shape={shape} type={glyph} alert={lvl} /> <span>{kicker}</span>
@@ -110,6 +120,9 @@ export function FeatureCard({ lang, f, onClose, actions }: Props) {
           </div>
         ))}
       </dl>
+      {f.type === 'nhc' && onAnimate && ((f.pastPoints?.length ?? 0) > 1) && (
+        <button className="anim-btn" onClick={onAnimate} aria-pressed={!!animating}>{animating ? t.animStop : t.animTrack}</button>
+      )}
       {note && <p className="ev-note">{note}</p>}
       <div className="ev-sources">
         <span className="ev-sources-title">{t.sources}</span>

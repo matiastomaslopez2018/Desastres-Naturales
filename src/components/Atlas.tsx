@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { geoDistance } from 'd3-geo';
-import { Globe, HAZARD_LEVELS, type GlobeHandle, type Layers, type Overlays, type Pickable } from './Globe';
+import { Globe, HAZARD_LEVELS, SS_SCALE, type GlobeHandle, type Layers, type Overlays, type Pickable } from './Globe';
 import { Glyph, TypeDot } from './Glyph';
 import { EventCard } from './EventCard';
 import { FeatureCard } from './FeatureCard';
@@ -199,7 +199,24 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
     fetch('/data/gshap.json').then((r) => r.json()).then(setHazard).catch(() => {});
   }, [layers.hazard, hazard]);
 
-  const overlays = useMemo<Overlays>(() => ({ storms, heat, volcanoes, tracks, hazard }), [storms, heat, volcanoes, tracks, hazard]);
+  // Animación de la trayectoria de un ciclón (observada y pronosticada), unos 8 segundos.
+  const [stormAnim, setStormAnim] = useState<{ id: string; t: number } | null>(null);
+  const animateStorm = useCallback((st: NhcStorm) => {
+    const times = [...(st.pastPoints ?? []).map((p) => p.time), ...(st.forecastPoints ?? []).map((p) => p.time ?? NaN)].filter(Number.isFinite);
+    if (times.length < 2) return;
+    const t0 = Math.min(...times), t1 = Math.max(...times), start = performance.now(), DUR = 8000;
+    let raf = 0;
+    const step = (now: number) => {
+      const k = Math.min(1, (now - start) / DUR);
+      setStormAnim({ id: st.id, t: t0 + (t1 - t0) * k });
+      if (k < 1) raf = requestAnimationFrame(step); else setTimeout(() => setStormAnim(null), 1200);
+    };
+    raf = requestAnimationFrame(step);
+    animStop.current = () => { cancelAnimationFrame(raf); setStormAnim(null); };
+  }, []);
+  const animStop = useRef<() => void>(() => {});
+
+  const overlays = useMemo<Overlays>(() => ({ storms, heat, volcanoes, tracks, hazard, stormAnim }), [storms, heat, volcanoes, tracks, hazard, stormAnim]);
 
   const passesFilters = useCallback((e: DisasterEvent) => {
     if (e.type === 'eq') {
@@ -520,6 +537,12 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
                 ))}
               </div>
             )}
+            {layers.nhc && storms.length > 0 && (
+              <div className="ss-legend" aria-label={t.ssLegend}>
+                <span className="faint small">{t.ssLegend}</span>
+                <div className="ss-scale">{SS_SCALE.map(([, c, k]) => <span key={k} style={{ background: c }}>{t.ssCats[k]}</span>)}</div>
+              </div>
+            )}
             {layers.hazard && (
               <div className="hazard-legend">
                 <div className="hazard-scale" role="img" aria-label={t.hazardLegend}>
@@ -556,7 +579,9 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
                     <ShareButtons lang={lang} path={`/${lang}/evento/${encodeURIComponent(sel.id)}`} text={t.shareEvent(eventTitle(lang, sel))} />
                   </>
                 )} />
-              ) : <FeatureCard lang={lang} f={sel} onClose={() => setSel(null)} />}
+              ) : <FeatureCard lang={lang} f={sel} onClose={() => { animStop.current(); setSel(null); }}
+                animating={!!stormAnim && stormAnim.id === sel.id}
+                onAnimate={sel.type === 'nhc' ? () => (stormAnim ? animStop.current() : animateStorm(sel)) : undefined} />}
               {nearby.length > 0 && (
                 <div className="stack-4">
                   <span className="panel-label">{t.nearby}</span>

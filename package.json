@@ -12,7 +12,8 @@
     "db:check": "tsx --conditions=react-server --env-file-if-exists=.env.local scripts/db-check.ts",
     "ibtracs": "tsx scripts/ibtracs.ts",
     "gshap": "tsx scripts/gshap.ts",
-    "tectonics": "tsx scripts/tectonics.ts"
+    "tectonics": "tsx scripts/tectonics.ts",
+    "ibtracs-grid": "tsx scripts/ibtracs-grid.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",

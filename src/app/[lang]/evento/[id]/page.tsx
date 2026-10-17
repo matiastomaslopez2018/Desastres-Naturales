@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import { QuakeGeology } from '@/components/geology/QuakeGeology';
 import { TsunamiContext, wantsTsunami } from '@/components/geology/TsunamiContext';
+import { StormContext } from '@/components/geology/StormContext';
+import { FireContext } from '@/components/geology/FireContext';
 import { notFound } from 'next/navigation';
 import { EventCard } from '@/components/EventCard';
 import { getTsunamiMessages } from '@/lib/server/tsunami';
@@ -110,6 +112,12 @@ export default async function EventPage({ params }: Props) {
         {e.type === 'eq' && e.src === 'USGS' && (
           <Suspense fallback={<p className="ed-note">{t.loading}</p>}>
             <QuakeGeology lang={lang} e={e} />
+          </Suspense>
+        )}
+        {e.type === 'storm' && <StormContext lang={lang} e={e} />}
+        {e.type === 'fire' && (
+          <Suspense fallback={<p className="ed-note">{t.loading}</p>}>
+            <FireContext lang={lang} e={e} />
           </Suspense>
         )}
         {wantsTsunami(e) && (

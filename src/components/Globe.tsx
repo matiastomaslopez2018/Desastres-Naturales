@@ -16,7 +16,11 @@ export type Layers = {
   nhc: boolean; firms: boolean; wvolc: boolean; ibtracs: boolean;
 };
 /** Capas de otras fuentes (bloque B) que dibuja el globo además de los eventos. */
-export type Overlays = { storms: NhcStorm[]; heat: HeatBin[]; volcanoes: VolcanoActivity[]; tracks: HistTrack[]; hazard?: GeoJSON.FeatureCollection | null };
+export type Overlays = {
+  storms: NhcStorm[]; heat: HeatBin[]; volcanoes: VolcanoActivity[]; tracks: HistTrack[]; hazard?: GeoJSON.FeatureCollection | null;
+  /** Animación de la trayectoria de un ciclón: se dibuja hasta el instante t (ms). */
+  stormAnim?: { id: string; t: number } | null;
+};
 const NO_OVERLAYS: Overlays = { storms: [], heat: [], volcanoes: [], tracks: [] };
 
 /** Amenaza sísmica GSHAP: niveles de PGA (m/s²) y su color, de menor a mayor (se apilan). */
@@ -26,9 +30,11 @@ export const HAZARD_LEVELS: [number, string][] = [
 ];
 const hazardColor = (pga: number) => HAZARD_LEVELS.find(([v]) => Math.abs(v - pga) < 1e-6)?.[1] ?? 'rgba(255,255,255,.1)';
 
-/** Color de un tramo de trayectoria por viento (kt), escala Saffir-Simpson simplificada. */
-const windColor = (kt: number | null) =>
-  kt == null ? 'rgba(159,176,195,.5)' : kt >= 96 ? '#ff3d6e' : kt >= 64 ? '#ffb547' : kt >= 34 ? '#6ec8ff' : 'rgba(159,176,195,.7)';
+/** Escala Saffir-Simpson (viento sostenido en kt) con los colores habituales de los mapas de ciclones. */
+export const SS_SCALE: [number, string, string][] = [
+  [0, '#5ebaff', 'TD'], [34, '#00faf4', 'TS'], [64, '#ffffcc', '1'], [83, '#ffe775', '2'], [96, '#ffc140', '3'], [113, '#ff8f20', '4'], [137, '#ff6060', '5'],
+];
+export const ssColor = (kt: number | null) => (kt == null ? 'rgba(255,255,255,.85)' : [...SS_SCALE].reverse().find(([v]) => kt >= v)![1]);
 export interface GlobeHandle { flyTo(lon: number, lat: number, k?: number): void; zoomBy(f: number): void; reset(): void }
 
 type Props = {
@@ -148,14 +154,14 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
         for (let i = 1; i < tr.points.length; i++) {
           const a = tr.points[i - 1], b = tr.points[i];
           ctx.beginPath(); path({ type: 'LineString', coordinates: [[a[0], a[1]], [b[0], b[1]]] });
-          ctx.strokeStyle = windColor(b[2]); ctx.stroke();
+          ctx.strokeStyle = ssColor(b[2]); ctx.stroke();
         }
       }
       ctx.globalAlpha = 1;
       for (const tr of ov.tracks) {
         if (!front(tr.lon, tr.lat)) continue;
         const [x, y] = proj([tr.lon, tr.lat])!;
-        ctx.beginPath(); ctx.arc(x, y, 2.5, 0, TAU); ctx.fillStyle = windColor(tr.windKt); ctx.fill();
+        ctx.beginPath(); ctx.arc(x, y, 2.5, 0, TAU); ctx.fillStyle = ssColor(tr.windKt); ctx.fill();
         pts.push({ e: tr, x, y, r: 3 });
       }
     }
@@ -174,29 +180,59 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
     }
     // NHC: cono de pronóstico, trayectoria pasada y pronosticada.
     if (layers.nhc && ov.storms.length) {
+      const anim = ov.stormAnim ?? null;
       for (const st of ov.storms) {
+        const playing = anim && anim.id === st.id ? anim.t : null;
+        // Radios de viento (34/50/64 kt): áreas con vientos de esa intensidad o más, ahora.
+        if (playing == null) {
+          for (const w of st.windField ?? []) {
+            ctx.beginPath(); path(w.geometry as GeoPermissibleObjects);
+            ctx.fillStyle = w.kt >= 64 ? 'rgba(255,96,96,.22)' : w.kt >= 50 ? 'rgba(255,143,32,.16)' : 'rgba(255,231,117,.12)'; ctx.fill();
+          }
+        }
         if (st.cone) {
           ctx.beginPath(); path(st.cone as GeoPermissibleObjects);
           ctx.fillStyle = 'rgba(255,255,255,.08)'; ctx.fill();
           ctx.setLineDash([4, 3]); ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
         }
-        ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 1.4;
-        for (const line of st.pastTrack ?? []) { ctx.beginPath(); path({ type: 'LineString', coordinates: line }); ctx.stroke(); }
-        if (st.forecastTrack?.length) {
-          ctx.setLineDash([2, 3]); ctx.beginPath(); path({ type: 'LineString', coordinates: st.forecastTrack }); ctx.stroke(); ctx.setLineDash([]);
+        // Trayectoria observada coloreada por Saffir-Simpson (si hay intensidad por punto).
+        const pp = (st.pastPoints ?? []).filter((p) => playing == null || p.time <= playing);
+        if (pp.length > 1 && pp.some((p) => p.kt != null)) {
+          ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+          for (let i = 1; i < pp.length; i++) {
+            ctx.beginPath(); path({ type: 'LineString', coordinates: [[pp[i - 1].lon, pp[i - 1].lat], [pp[i].lon, pp[i].lat]] });
+            ctx.strokeStyle = ssColor(pp[i].kt); ctx.stroke();
+          }
+        } else {
+          ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 1.4;
+          if (playing == null) for (const line of st.pastTrack ?? []) { ctx.beginPath(); path({ type: 'LineString', coordinates: line }); ctx.stroke(); }
+          else if (pp.length > 1) { ctx.beginPath(); path({ type: 'LineString', coordinates: pp.map((p) => [p.lon, p.lat]) }); ctx.stroke(); }
         }
-        for (const p of st.forecastPoints ?? []) {
+        const fp = (st.forecastPoints ?? []).filter((p) => playing == null || (p.time ?? 0) <= playing);
+        if (st.forecastTrack?.length && (playing == null || fp.length)) {
+          const coords = playing == null ? st.forecastTrack : [[st.lon, st.lat], ...fp.map((p) => [p.lon, p.lat])];
+          ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 1.4;
+          ctx.setLineDash([2, 3]); ctx.beginPath(); path({ type: 'LineString', coordinates: coords }); ctx.stroke(); ctx.setLineDash([]);
+        }
+        for (const p of fp) {
           if (!front(p.lon, p.lat)) continue;
           const [x, y] = proj([p.lon, p.lat])!;
-          ctx.beginPath(); ctx.arc(x, y, 3, 0, TAU); ctx.fillStyle = '#06080c'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+          ctx.beginPath(); ctx.arc(x, y, 3, 0, TAU); ctx.fillStyle = p.windKt != null ? ssColor(p.windKt) : '#06080c'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
           if (k >= 2 && p.cat) { ctx.fillStyle = '#fff'; ctx.font = '600 9px var(--font-plex-mono), monospace'; ctx.fillText(p.cat, x + 5, y - 4); }
         }
-        if (front(st.lon, st.lat)) {
-          const [x, y] = proj([st.lon, st.lat])!;
+        // Marcador: posición actual, o la del momento de la animación.
+        let mx = st.lon, my = st.lat;
+        if (playing != null) {
+          const seq = [...(st.pastPoints ?? []).map((p) => ({ lon: p.lon, lat: p.lat, t: p.time })), ...(st.forecastPoints ?? []).filter((p) => p.time != null).map((p) => ({ lon: p.lon, lat: p.lat, t: p.time! }))];
+          const last = seq.filter((p) => p.t <= playing).pop();
+          if (last) { mx = last.lon; my = last.lat; }
+        }
+        if (front(mx, my)) {
+          const [x, y] = proj([mx, my])!;
           const r = 6 * Math.pow(k, 0.22);
           drawShape(ctx, 'square', x, y, r); ctx.fillStyle = NIGHT.type.storm; ctx.fill();
           ctx.beginPath(); ctx.arc(x, y, r + 5, 0, TAU); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.2; ctx.stroke();
-          pts.push({ e: st, x, y, r: r + 2 });
+          if (playing == null) pts.push({ e: st, x, y, r: r + 2 });
         }
       }
     }

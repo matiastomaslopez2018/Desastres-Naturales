@@ -101,7 +101,18 @@ export interface NhcStorm {
   cone?: GeoJSON.Geometry | null;
   pastTrack?: [number, number][][];
   forecastTrack?: [number, number][];
-  forecastPoints?: { lon: number; lat: number; label: string; windKt: number | null; cat: string }[];
+  forecastPoints?: { lon: number; lat: number; label: string; windKt: number | null; cat: string; tau?: number | null; time?: number | null }[];
+  /** Fase 3 · C: agencia que hizo el pronóstico (NHC; JTWC u otra vía GDACS). */
+  agency?: string;
+  /** Palabra según la cuenca: huracán (Atlántico/Pacífico NE), tifón (Pacífico NO), ciclón (Índico/hemisferio sur). */
+  basinWord?: 'hurricane' | 'typhoon' | 'cyclone';
+  /** Puntos observados con intensidad (kt) y hora, para colorear por Saffir-Simpson y animar. */
+  pastPoints?: { lon: number; lat: number; kt: number | null; time: number }[];
+  /** Radios de viento actuales: 34, 50 y 64 kt (NHC) o zonas de viento de GDACS. */
+  windField?: { kt: number; geometry: GeoJSON.Geometry }[];
+  alert?: 'green' | 'orange' | 'red' | null;
+  reportUrl?: string;
+  severityText?: string;
 }
 
 /** Agregado de focos de calor NASA FIRMS (VIIRS) en una celda de la grilla. */
