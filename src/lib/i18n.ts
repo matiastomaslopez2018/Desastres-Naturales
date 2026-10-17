@@ -46,7 +46,8 @@ const es = {
   // 2a mapa
   live: 'En vivo', filters: 'Filtros', srcShort: 'Fuentes', play: 'Reproducir', pause: 'Pausar', allPeriod: 'Todo el período',
   weekBelow: 'Resumen de la semana', zoomIn: 'Acercar', zoomOut: 'Alejar', resetView: 'Volver a la vista inicial',
-  nav2: { map: 'Mapa', ranking: 'Ranking', countries: 'Países', method: 'Metodología' },
+  nav2: { map: 'Mapa', ranking: 'Ranking', countries: 'Países', learn: 'Aprender', method: 'Metodología' },
+  learn: { title: 'Aprender', h1: 'Aprender sobre sismos y desastres', seoTitle: 'Aprender: qué hacer en un sismo, magnitud e intensidad', desc: 'Guías breves basadas en fuentes oficiales: qué hacer en un sismo, la diferencia entre magnitud e intensidad y cómo se mide un terremoto.', reviewed: 'Revisado el', sources: 'Fuentes', more: 'Seguir leyendo', related: 'Más páginas' },
   // 2b resumen semanal
   weekKicker: 'Esta semana en el planeta',
   weekHeadline: (n: string, one: boolean) => (one ? 'La Tierra tembló una vez en siete días' : `La Tierra tembló ${n} veces en siete días`),
@@ -183,7 +184,8 @@ const en: Dict = {
   Tshort: { eq: 'Quakes', tsunami: 'Tsunami', volcano: 'Volcanoes', fire: 'Wildfires', storm: 'Cyclones', flood: 'Floods', drought: 'Droughts' },
   live: 'Live', filters: 'Filters', srcShort: 'Sources', play: 'Play', pause: 'Pause', allPeriod: 'Whole period',
   weekBelow: 'This week', zoomIn: 'Zoom in', zoomOut: 'Zoom out', resetView: 'Reset view',
-  nav2: { map: 'Map', ranking: 'Ranking', countries: 'Countries', method: 'Methodology' },
+  nav2: { map: 'Map', ranking: 'Ranking', countries: 'Countries', learn: 'Learn', method: 'Methodology' },
+  learn: { title: 'Learn', h1: 'Learn about earthquakes and disasters', seoTitle: 'Learn: what to do in an earthquake, magnitude and intensity', desc: 'Short guides based on official sources: what to do in an earthquake, the difference between magnitude and intensity, and how earthquakes are measured.', reviewed: 'Reviewed on', sources: 'Sources', more: 'Keep reading', related: 'More pages' },
   weekKicker: 'This week on the planet',
   weekHeadline: (n: string, one: boolean) => (one ? 'The Earth shook once in seven days' : `The Earth shook ${n} times in seven days`),
   weekDek: (mag: string, place: string) => `The strongest was magnitude ${mag}: ${place}.`,

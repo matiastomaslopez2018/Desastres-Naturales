@@ -17,6 +17,23 @@ export function eventTitle(lang: Lang, e: DisasterEvent): string {
   return m ? `${m} — ${title}` : title;
 }
 
+/**
+ * Título para buscadores: "Sismo de magnitud 6,8 en Japón, 14 oct 2026",
+ * "Incendio forestal en Australia, 17 sept 2026", "Huracán Trudy, 13 oct 2026".
+ */
+export function seoEventTitle(lang: Lang, e: DisasterEvent): string {
+  const day = fmtTime(lang, e.start ?? e.time, 'UTC').split(' · ')[0];
+  const where = e.iso3 ? countryName(e.iso3, lang) : e.country ?? '';
+  if (e.type === 'eq' && e.mag != null) {
+    const m = fmtNum(lang, e.mag, 1);
+    const place = where || localTitle(e, lang);
+    return lang === 'es' ? `Sismo de magnitud ${m} ${where ? 'en ' : ': '}${place}, ${day}` : `Magnitude ${m} earthquake ${where ? 'in ' : '— '}${place}, ${day}`;
+  }
+  const title = localTitle(e, lang);
+  const inWhere = where && !title.toLowerCase().includes(where.toLowerCase()) ? (lang === 'es' ? ` en ${where}` : ` in ${where}`) : '';
+  return `${title}${inWhere}, ${day}`;
+}
+
 /** Una línea factual para meta description y OG: tipo, fecha UTC, estado, alerta y fuente. */
 export function eventDescription(lang: Lang, e: DisasterEvent): string {
   const t = T[lang];

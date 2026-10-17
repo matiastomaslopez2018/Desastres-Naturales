@@ -7,7 +7,10 @@ import { SiteFooter, SiteHeader } from '@/components/SiteHeader';
 import { ShareButtons } from '@/components/ShareButtons';
 import { StaticGlobe } from '@/components/StaticGlobe';
 import { T, isLang } from '@/lib/i18n';
-import { eventDescription, eventTitle } from '@/lib/eventText';
+import { eventDescription, eventTitle, seoEventTitle } from '@/lib/eventText';
+import { jsonLd } from '@/lib/seo';
+import { SITE_URL } from '@/lib/site';
+import { countryName } from '@/lib/countries';
 import { getPlates } from '@/lib/server/ingest';
 import { loadEvent } from './data';
 import { localTitle } from '@/lib/localize';
@@ -25,11 +28,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const found = await loadEvent(id).catch(() => null);
   if (!found) return { title: `${t.notFoundTitle} · ${t.brand}`, robots: { index: false } };
   const { event: e } = found;
-  const title = `${eventTitle(lang, e)} · ${t.brand}`;
+  const title = `${seoEventTitle(lang, e)} | ${t.brand}`;
   const description = eventDescription(lang, e);
   const path = (l: string) => `/${l}/evento/${encodeURIComponent(e.id)}`;
   return {
-    title,
+    title: { absolute: title },
     description,
     alternates: { canonical: path(lang), languages: { es: path('es'), en: path('en') } },
     openGraph: {
@@ -38,6 +41,30 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       publishedTime: new Date(e.start ?? e.time).toISOString(),
     },
     twitter: { card: 'summary_large_image', title, description },
+  };
+}
+
+/** schema.org Event + Place: qué pasó, cuándo y dónde, con la fuente oficial. */
+function eventLd(lang: 'es' | 'en', e: Parameters<typeof seoEventTitle>[1]) {
+  const url = `${SITE_URL}/${lang}/evento/${encodeURIComponent(e.id)}`;
+  const where = e.iso3 ? countryName(e.iso3, lang) : e.country;
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Event',
+    name: seoEventTitle(lang, e),
+    description: eventDescription(lang, e),
+    startDate: new Date(e.start ?? e.time).toISOString(),
+    endDate: new Date(Math.max(e.time, e.end ?? 0, e.start ?? 0)).toISOString(),
+    inLanguage: lang,
+    url,
+    image: `${url}/opengraph-image`,
+    location: {
+      '@type': 'Place',
+      name: localTitle(e, lang),
+      geo: { '@type': 'GeoCoordinates', latitude: e.lat, longitude: e.lon },
+      ...(where ? { address: { '@type': 'PostalAddress', addressCountry: where } } : {}),
+    },
+    ...(e.url || e.apiUrl ? { sameAs: [e.url ?? e.apiUrl] } : {}),
   };
 }
 
@@ -55,6 +82,7 @@ export default async function EventPage({ params }: Props) {
     <div className="theme-paper ed-page">
       <SiteHeader lang={lang} langHrefs={{ es: `/es/evento/${encodeURIComponent(e.id)}`, en: `/en/evento/${encodeURIComponent(e.id)}` }} />
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(eventLd(lang, e))} />
       <main className="ed-main">
         <Link href={mapHref} className="ed-back">{t.backToMap}</Link>
         <div className="ed-event">

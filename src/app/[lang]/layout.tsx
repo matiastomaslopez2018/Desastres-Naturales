@@ -34,6 +34,8 @@ export async function generateMetadata({ params }: { params: Promise<{ lang: str
     description: t.brandSub,
     alternates: { languages: { es: '/es', en: '/en' } },
     openGraph: { title: t.brand, description: t.brandSub, type: 'website', locale: lang === 'es' ? 'es_AR' : 'en_US' },
+    // Google Search Console (método "etiqueta HTML"): el código va en GOOGLE_SITE_VERIFICATION.
+    ...(process.env.GOOGLE_SITE_VERIFICATION ? { verification: { google: process.env.GOOGLE_SITE_VERIFICATION } } : {}),
   };
 }
 

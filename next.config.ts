@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Google Search Console (método "archivo HTML"): /google<código>.html lo sirve una ruta de API.
+  async rewrites() {
+    return [{ source: "/:file(google[0-9a-f]+\\.html)", destination: "/api/google-verification?file=:file" }];
+  },
   // Cliente libSQL con binarios nativos: no empaquetarlo.
   serverExternalPackages: ["@libsql/client", "libsql"],
   // La imagen OG lee las fuentes con fs: incluirlas en el bundle serverless (Vercel).

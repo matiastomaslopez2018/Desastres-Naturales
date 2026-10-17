@@ -3,6 +3,10 @@ import { LANGS } from '@/lib/i18n';
 import { SITE_URL } from '@/lib/site';
 import { ALERT_RANK, relevance } from '@/lib/symbols';
 import { comparable, getRanking } from '@/lib/server/stats';
+import { recentEvents, volcanoIndex } from '@/lib/server/landing';
+import { ARTICLES } from '@/lib/learn';
+import { QUAKE_COUNTRIES, routePath, type RouteKey } from '@/lib/seo';
+import type { Lang } from '@/lib/types';
 import type { DisasterEvent } from '@/lib/types';
 
 // Sale de la base: se arma por pedido, no en el build.
@@ -16,6 +20,8 @@ const MAX_EVENTS = 2000;
 const FEATURED_MAG = 6;
 
 /** Eventos destacados: alerta oficial naranja/roja o sismo desde M6, los más relevantes primero. */
+const dedupe = (xs: DisasterEvent[]) => [...new Map(xs.map((e) => [e.id, e])).values()];
+
 function featured(events: DisasterEvent[]): DisasterEvent[] {
   return events
     .filter((e) => {
@@ -26,6 +32,9 @@ function featured(events: DisasterEvent[]): DisasterEvent[] {
     .slice(0, MAX_EVENTS);
 }
 
+/** Eventos nuevos (últimos 7 días): sismos desde M5 y cualquier evento con alerta oficial. */
+const fresh = (events: DisasterEvent[]) => events.filter((e) => (e.type === 'eq' && (e.mag ?? 0) >= 5) || (e.alert ? ALERT_RANK[e.alert] : 0) >= 1 || (e.pager ? ALERT_RANK[e.pager] : 0) >= 1);
+
 /** Una entrada por URL, con su par en el otro idioma (hreflang). */
 function entries(path: (lang: string) => string, extra: Omit<MetadataRoute.Sitemap[number], 'url'>): MetadataRoute.Sitemap {
   const languages = Object.fromEntries(LANGS.map((l) => [l, SITE_URL + path(l)]));
@@ -33,7 +42,11 @@ function entries(path: (lang: string) => string, extra: Omit<MetadataRoute.Sitem
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const { events, stats, fetchedAt } = await getRanking('1y', new Date().getUTCFullYear());
+  const [{ events, stats, fetchedAt }, week, volcanoes] = await Promise.all([
+    getRanking('1y', new Date().getUTCFullYear()),
+    recentEvents('7d'),
+    volcanoIndex().catch(() => null),
+  ]);
   const updated = new Date(fetchedAt);
 
   // Último evento por país, para lastModified.
@@ -53,7 +66,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         lastModified: new Date(lastByCountry.get(iso3) ?? +updated), changeFrequency: 'daily', priority: 0.6,
       }),
     ),
-    ...featured(events).flatMap((e) =>
+    // Búsquedas frecuentes: se actualizan solas.
+    ...(['quakesToday', 'volcanoesNow', 'fires', 'hurricanes', 'tsunami'] as RouteKey[]).flatMap((k) =>
+      entries((l) => routePath(l as Lang, k), { lastModified: updated, changeFrequency: 'hourly', priority: 0.9 })),
+    ...QUAKE_COUNTRIES.flatMap((c) =>
+      entries((l) => routePath(l as Lang, 'quakesIn', c[l as Lang]), { lastModified: updated, changeFrequency: 'hourly', priority: 0.8 })),
+    ...entries((l) => routePath(l as Lang, 'learn'), { changeFrequency: 'monthly', priority: 0.6 }),
+    ...ARTICLES.flatMap((a) => entries((l) => routePath(l as Lang, 'learn', a[l as Lang].slug), { changeFrequency: 'monthly', priority: 0.7 })),
+    ...[...(volcanoes?.bySlug.keys() ?? [])].sort().flatMap((slug) =>
+      entries((l) => routePath(l as Lang, 'volcano', slug), { changeFrequency: 'weekly', priority: 0.4 })),
+    ...dedupe([...fresh(week.events), ...featured(events)]).flatMap((e) =>
       entries((l) => `/${l}/evento/${encodeURIComponent(e.id)}`, {
         lastModified: new Date(Math.max(e.time, e.end ?? 0)),
         changeFrequency: e.closed === false || e.status === 'automatic' ? 'daily' : 'monthly',

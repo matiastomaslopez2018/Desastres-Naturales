@@ -185,3 +185,20 @@ button.ed-button { background: none; cursor: pointer; color: inherit; font-famil
 .ed-ext { color: var(--text); font-size: 15px; text-decoration-color: var(--rule-strong); }
 .ed-ext:hover { text-decoration-color: var(--accent); }
 .hist + .stack { margin-top: 32px; }
+
+/* Páginas de búsquedas frecuentes y Aprender */
+.ed-lead { font-size: 19px; line-height: 1.55; max-width: 760px; color: #333; }
+.ed-lead p { margin: 0 0 8px; }
+.ed-more { font-size: 15px; }
+.seo-chips { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 15px; }
+.seo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 12px; }
+.seo-card { display: flex; flex-direction: column; gap: 4px; padding: 14px; border: 1px solid var(--rule); text-decoration: none; color: var(--text); }
+.seo-card:hover { border-color: var(--accent); }
+.seo-card strong { font-family: var(--font-display); font-size: 19px; font-weight: 600; }
+.seo-links { display: flex; flex-wrap: wrap; gap: 8px 18px; padding-top: 18px; margin-top: 24px; border-top: 1px solid var(--rule-strong); font-size: 15px; }
+.seo-alert { padding: 10px 14px; border-left: 3px solid var(--accent); background: var(--highlight, rgba(200,16,46,.08)); }
+.seo-ok { padding: 10px 14px; border-left: 3px solid #2e7d32; background: rgba(46,125,50,.07); }
+.seo-storm { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 760px) { .seo-storm { grid-template-columns: minmax(0, 1fr); } .ed-lead { font-size: 17px; } }
+.ed-list { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; font-size: 17px; line-height: 1.6; color: #333; }
+.ed-footer-links { display: flex; flex-wrap: wrap; gap: 6px 14px; }

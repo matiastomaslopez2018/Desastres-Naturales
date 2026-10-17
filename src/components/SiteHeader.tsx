@@ -1,9 +1,11 @@
 import Link from 'next/link';
 import { T } from '@/lib/i18n';
 import { fmtTime } from '@/lib/format';
+import { routePath, type RouteKey } from '@/lib/seo';
+import { SEO } from '@/lib/seoText';
 import type { Lang } from '@/lib/types';
 
-export type Section = 'map' | 'ranking' | 'countries' | 'method';
+export type Section = 'map' | 'ranking' | 'countries' | 'learn' | 'method';
 
 type Props = {
   lang: Lang;
@@ -20,6 +22,7 @@ export function SiteHeader({ lang, langHrefs, current, updatedAt }: Props) {
     { k: 'map', href: `/${lang}`, label: t.nav2.map },
     { k: 'ranking', href: `/${lang}/ranking`, label: t.nav2.ranking },
     { k: 'countries', href: `/${lang}/paises`, label: t.nav2.countries },
+    { k: 'learn', href: routePath(lang, 'learn'), label: t.nav2.learn },
     { k: 'method', href: `/${lang}/metodologia`, label: t.nav2.method },
   ];
   return (
@@ -45,6 +48,11 @@ export function SiteHeader({ lang, langHrefs, current, updatedAt }: Props) {
   );
 }
 
+const FOOTER_LINKS: [RouteKey, (l: Lang) => string][] = [
+  ['quakesToday', (l) => SEO[l].quakesToday.h1], ['volcanoesNow', (l) => SEO[l].volcanoesNow.h1], ['fires', (l) => SEO[l].fires.h1],
+  ['hurricanes', (l) => SEO[l].hurricanes.h1], ['tsunami', (l) => SEO[l].tsunami.h1], ['learn', (l) => T[l].learn.title],
+];
+
 export function SiteFooter({ lang }: { lang: Lang }) {
   const t = T[lang];
   return (
@@ -53,6 +61,9 @@ export function SiteFooter({ lang }: { lang: Lang }) {
       <span>{t.footerAbout}</span>
       <span>{t.carto}</span>
       <Link href={`/${lang}/metodologia`}>{t.readMethod}</Link>
+      <nav className="ed-footer-links" aria-label={t.learn.related}>
+        {FOOTER_LINKS.map(([k, label]) => <Link key={k} href={routePath(lang, k)}>{label(lang)}</Link>)}
+      </nav>
     </footer>
   );
 }
