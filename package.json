@@ -10,7 +10,8 @@
     "ingest": "tsx --conditions=react-server --env-file-if-exists=.env.local scripts/ingest.ts",
     "backfill": "tsx --conditions=react-server --env-file-if-exists=.env.local scripts/backfill.ts",
     "db:check": "tsx --conditions=react-server --env-file-if-exists=.env.local scripts/db-check.ts",
-    "ibtracs": "tsx scripts/ibtracs.ts"
+    "ibtracs": "tsx scripts/ibtracs.ts",
+    "gshap": "tsx scripts/gshap.ts"
   },
   "dependencies": {
     "@fontsource/newsreader": "^5.3.0",
@@ -28,6 +29,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@types/d3-contour": "^3.0.6",
     "@types/d3-ease": "^3.0.2",
     "@types/d3-geo": "^3.1.1",
     "@types/geojson": "^7946.0.16",
@@ -35,6 +37,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/topojson-client": "^3.1.5",
+    "d3-contour": "^4.0.2",
     "eslint": "^9",
     "eslint-config-next": "15.5.28",
     "tsx": "^4.23.15",

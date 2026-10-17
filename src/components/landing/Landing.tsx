@@ -6,9 +6,9 @@ import { MediaFigure } from '@/components/MediaFigure';
 import { NATIONAL } from '@/components/CountryHistory';
 import { SiteFooter, SiteHeader } from '@/components/SiteHeader';
 import { countryName } from '@/lib/countries';
-import { fmtCoords, fmtNum, fmtTime } from '@/lib/format';
+import { fmtCoords, fmtNum, fmtRel, fmtTime } from '@/lib/format';
 import { T, isLang } from '@/lib/i18n';
-import { alertTag, countryFromEnglish, localTitle, localVolcanoType } from '@/lib/localize';
+import { alertTag, countryFromEnglish, localTitle, localTsunamiRegion, localVolcanoType } from '@/lib/localize';
 import { QUAKE_COUNTRIES, ROUTES, jsonLd, quakeCountryByIso, quakeCountryBySlug, routePath, type RouteKey } from '@/lib/seo';
 import { SEO } from '@/lib/seoText';
 import { SITE_URL } from '@/lib/site';
@@ -189,9 +189,16 @@ export async function QuakesIn({ lang, slug }: { lang: Lang; slug: string }) {
   const n24 = list.filter((e) => e.time >= Date.now() - DAY).length;
   const max = biggest(list);
   const agency = NATIONAL[c.iso3]?.[0];
+  // Sin sismos en 24 h: arriba de todo, el último registrado y hace cuánto (buscando hasta un año atrás).
+  const last = n24 ? null : list[0] ?? quakes((await recentEvents('1y')).events).filter((e) => e.iso3 === c.iso3).sort((a, b) => b.time - a.time)[0] ?? null;
   return (
     <Shell lang={lang} routeKey="quakesIn" sub={{ es: c.es, en: c.en }} kicker={`${s.kicker} · ${name}`} h1={s.h1(name)} updatedAt={data.fetchedAt}
       lead={<>
+        {!n24 && (
+          <p className="seo-last">
+            {last ? <>{s.lastLabel}: <Link href={`/${lang}/evento/${encodeURIComponent(last.id)}`}>M {nf(last.mag ?? 0, 1)} · {localTitle(last, lang)}</Link>, {fmtRel(lang, last.time)} ({fmtTime(lang, last.time, 'UTC')})</> : s.lastNone}
+          </p>
+        )}
         <p>{n24 ? s.lead(name, nf(n24), nf(list.length)) : s.leadNone(name, nf(list.length))}{' '}
           {max && max.mag != null ? s.biggest(nf(max.mag, 1), localTitle(max, lang), fmtTime(lang, max.time, 'UTC')) : ''}</p>
         <p className="ed-note">
@@ -340,7 +347,8 @@ export async function Tsunami({ lang }: { lang: Lang }) {
           <a key={m.id} href={m.url} target="_blank" rel="noopener noreferrer" className="ed-list-row">
             <span className="ev-row-body">
               <span className="ed-list-title">{t.tsunamiLevel[m.level]} · {t.tsunamiCenterName[m.center] ?? m.center}</span>
-              <span className="ed-list-meta">{m.region} · {fmtTime(lang, m.issued, 'UTC')}{m.magnitude != null ? ` · M ${fmtNum(lang, m.magnitude, 1)}` : ''} ↗</span>
+              <span className="ed-list-meta">{localTsunamiRegion(m.region, lang)} · {fmtTime(lang, m.issued, 'UTC')}{m.magnitude != null ? ` · M ${fmtNum(lang, m.magnitude, 1)}` : ''} ↗</span>
+              {localTsunamiRegion(m.region, lang) !== m.region && <span className="ed-list-meta orig">{t.original}: {m.region}</span>}
             </span>
           </a>
         ))}
@@ -388,10 +396,13 @@ export async function VolcanoPage({ lang, slug }: { lang: Lang; slug: string }) 
   };
   return (
     <Shell lang={lang} routeKey="volcano" sub={{ es: slug, en: slug }} kicker={[s.kicker, country].filter(Boolean).join(' · ')} h1={v.title}
-      lead={<p className={now ? 'seo-alert' : undefined}>
-        <strong>{s.statusNow}: </strong>
-        {now ? (now.status === 'new' ? s.statusNew : s.statusOngoing(gvpDate(lang, now.since))) : s.statusNone}
-      </p>} ld={ld}>
+      lead={<>
+        <p><strong>{s.lastByGvp}:</strong> {last} · {events.length ? s.reportsYear(nf(events.length)) : s.reportsNone}</p>
+        <p className={now ? 'seo-alert' : undefined}>
+          <strong>{s.statusNow}: </strong>
+          {now ? (now.status === 'new' ? s.statusNew : s.statusOngoing(gvpDate(lang, now.since))) : s.statusNone}
+        </p>
+      </>} ld={ld}>
       <div className="ed-grid">
         <MediaFigure lang={lang} q={{ volcano: v.num }} />
         <dl className="ev-facts">

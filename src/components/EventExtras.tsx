@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { geoDistance } from 'd3-geo';
 import { T } from '@/lib/i18n';
 import { fmtNum, fmtTime } from '@/lib/format';
+import { localTsunamiRegion } from '@/lib/localize';
 import { alertLevel } from '@/lib/symbols';
 import type { DisasterEvent, EmscMatch, Lang, TsunamiMessage } from '@/lib/types';
 
@@ -64,7 +65,8 @@ export function EventExtras({ lang, e, tsunami }: { lang: Lang; e: DisasterEvent
           {msgs.map((m) => (
             <div key={m.id} className={`ev-extra-row${['warning', 'advisory', 'watch'].includes(m.level) ? ' hot' : ''}`}>
               <strong>{t.tsunamiLevel[m.level]}</strong> · {t.tsunamiCenterName[m.center] ?? m.center}
-              <br /><span className="faint small">{m.region} · {fmtTime(lang, m.issued, 'UTC')}</span>
+              <br /><span className="faint small">{localTsunamiRegion(m.region, lang)} · {fmtTime(lang, m.issued, 'UTC')}</span>
+              {localTsunamiRegion(m.region, lang) !== m.region && <><br /><span className="faint small">{t.original}: {m.region}</span></>}
               <br /><a href={m.url} target="_blank" rel="noopener noreferrer" className="ev-link">{t.tsunamiBulletin} <span aria-hidden="true">↗</span></a>
             </div>
           ))}

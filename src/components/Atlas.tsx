@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { geoDistance } from 'd3-geo';
-import { Globe, type GlobeHandle, type Layers, type Overlays, type Pickable } from './Globe';
+import { Globe, HAZARD_LEVELS, type GlobeHandle, type Layers, type Overlays, type Pickable } from './Globe';
 import { Glyph, TypeDot } from './Glyph';
 import { EventCard } from './EventCard';
 import { FeatureCard } from './FeatureCard';
@@ -13,7 +13,7 @@ import { T } from '@/lib/i18n';
 import { fmtDay, fmtHour, fmtNum, fmtRel } from '@/lib/format';
 import { MIN_YEAR, RANGES, rangeInfo } from '@/lib/range';
 import { SHAPE, TYPE_ORDER, alertLevel, isEvent, lastUpdate, relevance, type FilterType } from '@/lib/symbols';
-import { alertTag, localTitle } from '@/lib/localize';
+import { alertTag, localTitle, localTsunamiRegion } from '@/lib/localize';
 import { bucketOf, buckets } from '@/lib/timeline';
 import type {
   DisasterEvent, EqDetail, EventsResponse, GvpVolcano, HeatBin, HistTrack, Lang, NhcStorm, RangeKey, SourceKey, SourceStatus,
@@ -189,7 +189,14 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
     return () => ctrl.abort();
   }, [ibtracsOn, year]);
 
-  const overlays = useMemo<Overlays>(() => ({ storms, heat, volcanoes, tracks }), [storms, heat, volcanoes, tracks]);
+  // Amenaza sísmica GSHAP (~750 kB): se baja recién al encender la capa.
+  const [hazard, setHazard] = useState<GeoJSON.FeatureCollection | null>(null);
+  useEffect(() => {
+    if (!layers.hazard || hazard) return;
+    fetch('/data/gshap.json').then((r) => r.json()).then(setHazard).catch(() => {});
+  }, [layers.hazard, hazard]);
+
+  const overlays = useMemo<Overlays>(() => ({ storms, heat, volcanoes, tracks, hazard }), [storms, heat, volcanoes, tracks, hazard]);
 
   const passesFilters = useCallback((e: DisasterEvent) => {
     if (e.type === 'eq') {
@@ -401,7 +408,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
           <div className="tsunami-banner" role="alert">
             {tsunami.active.map((m) => (
               <a key={m.id} href={m.url} target="_blank" rel="noopener noreferrer">
-                <strong>{t.tsunamiLevel[m.level]}</strong> · {t.tsunamiCenterName[m.center] ?? m.center} · {m.region} · {fmtHour(lang, m.issued)} <span aria-hidden="true">↗</span>
+                <strong>{t.tsunamiLevel[m.level]}</strong> · {t.tsunamiCenterName[m.center] ?? m.center} · {localTsunamiRegion(m.region, lang)} · {fmtHour(lang, m.issued)} <span aria-hidden="true">↗</span>
               </a>
             ))}
           </div>
@@ -491,7 +498,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
           <details className="layers">
             <summary className="panel-label">{t.layers}</summary>
             {LAYER_KEYS.map((k) => (
-              <button key={k} className="layer-row" disabled={k === 'hazard' || (k === 'firms' && firmsState === 'needsKey') || (!isNow && NOW_LAYERS.has(k))} aria-pressed={layers[k]}
+              <button key={k} className="layer-row" disabled={(k === 'firms' && firmsState === 'needsKey') || (!isNow && NOW_LAYERS.has(k))} aria-pressed={layers[k]}
                 onClick={() => setLayers((s) => ({ ...s, [k]: !s[k] }))}>
                 <span className="check" aria-hidden="true" />
                 <span className="stack-2">
@@ -500,6 +507,17 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
                 </span>
               </button>
             ))}
+            {layers.hazard && (
+              <div className="hazard-legend">
+                <div className="hazard-scale" role="img" aria-label={t.hazardLegend}>
+                  {HAZARD_LEVELS.map(([v, c]) => (
+                    <span key={v} style={{ background: c }}><span className="mono">{nf(v, 1)}</span></span>
+                  ))}
+                </div>
+                <span className="faint small">{t.hazardUnit}</span>
+                <p className="note">{t.hazardHelp}</p>
+              </div>
+            )}
           </details>
 
           {/* En celular el idioma vive acá para dejar lugar en la barra superior. */}

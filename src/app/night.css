@@ -210,3 +210,8 @@
 .tsunami-banner a { display: block; padding: 9px 16px; border-radius: 999px; background: var(--alert-red); color: #fff; font-size: 13px; line-height: 1.35; text-decoration: none; box-shadow: 0 4px 24px rgba(255, 61, 61, .35); }
 .tsunami-banner a:hover { text-decoration: underline; }
 @media (max-width: 760px) { .tsunami-banner { top: 56px; } .tsunami-banner a { border-radius: 12px; font-size: 12px; } }
+
+/* Leyenda de amenaza sísmica (GSHAP) */
+.hazard-legend { display: flex; flex-direction: column; gap: 6px; padding: 8px 0 4px; }
+.hazard-scale { display: grid; grid-template-columns: repeat(8, 1fr); border-radius: 4px; overflow: hidden; }
+.hazard-scale > span { display: flex; justify-content: center; padding: 3px 0; font-size: 10px; color: #fff; text-shadow: 0 0 3px #000; }

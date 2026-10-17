@@ -15,7 +15,7 @@ export type SeoText = {
   quakesIn: {
     title: Fn<[c: string]>; h1: Fn<[c: string]>; kicker: string; desc: Fn<[c: string]>;
     lead: Fn<[c: string, n24: string, n30: string]>; biggest: Fn<[mag: string, place: string, when: string]>; leadNone: Fn<[c: string, n30: string]>;
-    listTitle: string; small: string; smallGeneric: string; history: Fn<[c: string]>; other: string;
+    listTitle: string; lastLabel: string; lastNone: string; small: string; smallGeneric: string; history: Fn<[c: string]>; other: string;
   };
   volcanoesNow: { title: string; h1: string; kicker: string; desc: string; lead: Fn<[n: string, alerts: string]>; ongoing: string; recent: string; since: string };
   fires: { title: string; h1: string; kicker: string; desc: string; lead: Fn<[n: string]>; firms: Fn<[n: string, cells: string]>; listTitle: string; mapLink: string };
@@ -27,7 +27,7 @@ export type SeoText = {
   volcano: {
     title: Fn<[name: string, country: string]>; desc: Fn<[name: string, country: string]>; kicker: string;
     facts: { country: string; type: string; last: string; coords: string; elevation: string; number: string };
-    statusNow: string; statusOngoing: Fn<[since: string]>; statusNew: string; statusNone: string;
+    statusNow: string; statusOngoing: Fn<[since: string]>; statusNew: string; statusNone: string; lastByGvp: string; reportsYear: Fn<[n: string]>; reportsNone: string;
     recent: string; recentNone: string; bce: string; unknown: string; allActive: string;
   };
   more: string;
@@ -57,6 +57,8 @@ export const SEO: Record<Lang, SeoText> = {
       biggest: (mag, place, when) => `El mayor del mes fue de magnitud ${mag}, ${place}, el ${when}.`,
       leadNone: (c, n30) => `En las últimas 24 horas no se registraron sismos de magnitud 2,5 o más en ${c}. En los últimos 30 días: ${n30}.`,
       listTitle: 'Sismos de los últimos 30 días',
+      lastLabel: 'Último sismo registrado',
+      lastNone: 'El USGS no registró sismos en este país en los últimos 30 días (desde M2,5) ni en el último año (desde M4,5).',
       small: 'El catálogo global del USGS puede no incluir todos los sismos chicos. Para temblores menores, consultá a ',
       smallGeneric: 'El catálogo global del USGS puede no incluir todos los sismos chicos de este país; para temblores menores, consultá al servicio sismológico nacional.',
       history: (c) => `Historia y estadísticas de ${c}`,
@@ -111,11 +113,14 @@ export const SEO: Record<Lang, SeoText> = {
       title: (n, c) => `Volcán ${n}${c ? ` (${c})` : ''}: actividad, erupciones y datos`,
       desc: (n, c) => `Volcán ${n}${c ? `, ${c}` : ''}: estado de actividad, última erupción, tipo de volcán, ubicación e imágenes según el Smithsonian Global Volcanism Program.`,
       kicker: 'Volcán',
-      facts: { country: 'País', type: 'Tipo de volcán', last: 'Última erupción conocida', coords: 'Coordenadas', elevation: 'Altura', number: 'Número GVP' },
-      statusNow: 'Actividad ahora',
+      facts: { country: 'País', type: 'Tipo de volcán', last: 'Última erupción según GVP', coords: 'Coordenadas', elevation: 'Altura', number: 'Número GVP' },
+      statusNow: 'Erupción en curso según GVP',
+      lastByGvp: 'Última erupción según GVP',
+      reportsYear: (n) => `${n} reportes en GDACS/EONET en el último año`,
+      reportsNone: 'sin reportes en GDACS/EONET en el último año',
       statusOngoing: (s) => `En erupción desde ${s} según el Smithsonian GVP.`,
       statusNew: 'Con actividad nueva informada esta semana (reporte semanal GVP/USGS).',
-      statusNone: 'El Smithsonian GVP no lo registra hoy entre las erupciones en curso.',
+      statusNone: 'No figura hoy en la lista de erupciones en curso del GVP (puede haber terminado o ser intermitente).',
       recent: 'Actividad informada en el último año (GDACS / NASA EONET)',
       recentNone: 'GDACS y NASA EONET no informaron actividad de este volcán en el último año.',
       bce: 'a. C.', unknown: 'Sin dato', allActive: 'Ver todos los volcanes activos ahora',
@@ -145,6 +150,8 @@ export const SEO: Record<Lang, SeoText> = {
       biggest: (mag, place, when) => `The largest this month was magnitude ${mag}, ${place}, on ${when}.`,
       leadNone: (c, n30) => `No earthquakes of magnitude 2.5 or greater were recorded in ${c} in the last 24 hours. In the last 30 days: ${n30}.`,
       listTitle: 'Earthquakes in the last 30 days',
+      lastLabel: 'Latest recorded earthquake',
+      lastNone: 'The USGS recorded no earthquakes in this country in the last 30 days (from M2.5) or in the last year (from M4.5).',
       small: 'The USGS global catalog may miss some small earthquakes. For minor tremors, check ',
       smallGeneric: 'The USGS global catalog may miss some small earthquakes in this country; for minor tremors, check the national seismological service.',
       history: (c) => `History and statistics for ${c}`,
@@ -199,11 +206,14 @@ export const SEO: Record<Lang, SeoText> = {
       title: (n, c) => `${n} volcano${c ? ` (${c})` : ''}: activity, eruptions and facts`,
       desc: (n, c) => `${n} volcano${c ? `, ${c}` : ''}: activity status, last eruption, volcano type, location and images according to the Smithsonian Global Volcanism Program.`,
       kicker: 'Volcano',
-      facts: { country: 'Country', type: 'Volcano type', last: 'Last known eruption', coords: 'Coordinates', elevation: 'Elevation', number: 'GVP number' },
-      statusNow: 'Activity now',
+      facts: { country: 'Country', type: 'Volcano type', last: 'Last eruption according to GVP', coords: 'Coordinates', elevation: 'Elevation', number: 'GVP number' },
+      statusNow: 'Ongoing eruption according to GVP',
+      lastByGvp: 'Last eruption according to GVP',
+      reportsYear: (n) => `${n} GDACS/EONET reports in the last year`,
+      reportsNone: 'no GDACS/EONET reports in the last year',
       statusOngoing: (s) => `Erupting since ${s} according to the Smithsonian GVP.`,
       statusNew: 'New activity reported this week (GVP/USGS weekly report).',
-      statusNone: 'The Smithsonian GVP does not list it today among ongoing eruptions.',
+      statusNone: 'Not on the GVP list of ongoing eruptions today (it may have ended or be intermittent).',
       recent: 'Activity reported in the last year (GDACS / NASA EONET)',
       recentNone: 'GDACS and NASA EONET reported no activity for this volcano in the last year.',
       bce: 'BCE', unknown: 'No data', allActive: 'See all active volcanoes now',

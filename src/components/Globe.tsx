@@ -16,8 +16,15 @@ export type Layers = {
   nhc: boolean; firms: boolean; wvolc: boolean; ibtracs: boolean;
 };
 /** Capas de otras fuentes (bloque B) que dibuja el globo además de los eventos. */
-export type Overlays = { storms: NhcStorm[]; heat: HeatBin[]; volcanoes: VolcanoActivity[]; tracks: HistTrack[] };
+export type Overlays = { storms: NhcStorm[]; heat: HeatBin[]; volcanoes: VolcanoActivity[]; tracks: HistTrack[]; hazard?: GeoJSON.FeatureCollection | null };
 const NO_OVERLAYS: Overlays = { storms: [], heat: [], volcanoes: [], tracks: [] };
+
+/** Amenaza sísmica GSHAP: niveles de PGA (m/s²) y su color, de menor a mayor (se apilan). */
+export const HAZARD_LEVELS: [number, string][] = [
+  [0.2, 'rgba(46,160,67,.30)'], [0.4, 'rgba(124,179,66,.32)'], [0.8, 'rgba(205,220,57,.34)'], [1.6, 'rgba(255,193,7,.38)'],
+  [2.4, 'rgba(255,152,0,.42)'], [3.2, 'rgba(244,81,30,.46)'], [4.0, 'rgba(211,47,47,.50)'], [4.8, 'rgba(136,14,79,.58)'],
+];
+const hazardColor = (pga: number) => HAZARD_LEVELS.find(([v]) => Math.abs(v - pga) < 1e-6)?.[1] ?? 'rgba(255,255,255,.1)';
 
 /** Color de un tramo de trayectoria por viento (kt), escala Saffir-Simpson simplificada. */
 const windColor = (kt: number | null) =>
@@ -102,6 +109,12 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
     ctx.beginPath(); path({ type: 'Sphere' }); ctx.fillStyle = NIGHT.sphere; ctx.fill();
     ctx.beginPath(); path(GRAT); ctx.strokeStyle = NIGHT.grat; ctx.lineWidth = 0.6; ctx.stroke();
     ctx.beginPath(); path(LAND); ctx.fillStyle = NIGHT.land; ctx.fill();
+    // Amenaza sísmica (GSHAP): curvas de nivel rellenas, debajo de fronteras y placas.
+    if (layers.hazard && ov.hazard) {
+      for (const f of ov.hazard.features) {
+        ctx.beginPath(); path(f); ctx.fillStyle = hazardColor((f.properties as { pga: number }).pga); ctx.fill();
+      }
+    }
     if (layers.borders) { ctx.beginPath(); path(BORDERS); ctx.strokeStyle = NIGHT.borders; ctx.lineWidth = 0.5; ctx.stroke(); }
     if (layers.ring) {
       ctx.beginPath(); path(RING); ctx.strokeStyle = NIGHT.ring; ctx.lineWidth = Math.max(8, 0.02 * R);

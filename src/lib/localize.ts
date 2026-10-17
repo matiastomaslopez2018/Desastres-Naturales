@@ -193,10 +193,14 @@ const VTYPE_ES: Record<string, [string, string]> = {
   'pyroclastic cone': ['Cono piroclástico', 'Conos piroclásticos'], 'lava dome': ['Domo de lava', 'Domos de lava'], compound: ['Volcán compuesto', 'Volcanes compuestos'],
   maar: ['Maar', 'Maares'], 'crater rows': ['Hileras de cráteres', 'Hileras de cráteres'], 'tuff cone': ['Cono de toba', 'Conos de toba'], cone: ['Cono', 'Conos'],
   'shield(pyroclastic)': ['Escudo piroclástico', 'Escudos piroclásticos'], 'lava cone': ['Cono de lava', 'Conos de lava'], 'explosion crater': ['Cráter de explosión', 'Cráteres de explosión'],
-  'tuff ring': ['Anillo de toba', 'Anillos de toba'],
+  'tuff ring': ['Anillo de toba', 'Anillos de toba'], submarine: ['Volcán submarino', 'Volcanes submarinos'], subglacial: ['Volcán subglacial', 'Volcanes subglaciales'],
+  'pyroclastic shield': ['Escudo piroclástico', 'Escudos piroclásticos'], 'lava field': ['Campo de lava', 'Campos de lava'],
 };
 
-/** "Stratovolcano(es)" → "Estratovolcanes"; en inglés se deja como lo publica el GVP. */
+/**
+ * "Stratovolcano(es)" → "Estratovolcán". Siempre en singular: describe el tipo de este volcán
+ * (el "(es)" del GVP indica que el edificio tiene varios conos del mismo tipo). En inglés, tal cual.
+ */
 export function localVolcanoType(type: string | null | undefined, lang: Lang): string {
   if (!type) return '';
   if (lang === 'en') return type;
@@ -204,5 +208,68 @@ export function localVolcanoType(type: string | null | undefined, lang: Lang): s
   const plural = /\((s|es)\)$/.test(t.replace(/\?$/, ''));
   const base = t.replace(/\?$/, '').replace(/\((s|es)\)$/, '').trim();
   const hit = VTYPE_ES[base];
-  return hit ? hit[plural ? 1 : 0] + (doubt ? ' (?)' : '') : type;
+  void plural;
+  return hit ? hit[0] + (doubt ? ' (?)' : '') : type;
 }
+
+/* ───────────── ubicaciones de NTWC/PTWC (tsunami.gov) ───────────── */
+
+const DIR_ES: Record<string, string> = { east: 'este', west: 'oeste', north: 'norte', south: 'sur' };
+const ADJ_ES: Record<string, string> = { central: 'centro de', northern: 'norte de', southern: 'sur de', eastern: 'este de', western: 'oeste de' };
+const COAST_ES: Record<string, string> = { central: 'central', northern: 'norte', southern: 'sur' };
+const MI_KM = 1.609344;
+const titleCase = (s: string) => (s === s.toUpperCase() ? s.toLowerCase().replace(/\b\p{L}/gu, (c) => c.toUpperCase()) : s);
+
+/** "Kamchatka Russia" → "Kamchatka, Rusia" si la última palabra (o las dos últimas) es un país. */
+function placeWithCountry(x: string, lang: Lang): string {
+  const w = x.trim().split(/\s+/);
+  for (const n of [2, 1]) {
+    if (w.length <= n) continue;
+    const c = countryOrNull(w.slice(-n).join(' '), lang);
+    if (!c) continue;
+    const pre = w.slice(0, -n).join(' ').replace(/,$/, '');
+    const adj = ADJ_ES[pre.toLowerCase()];
+    return lang === 'es' && adj ? `${adj} ${c}` : `${pre}, ${c}`;
+  }
+  return countryOrNull(x, lang) ?? x.replace(/\b(\p{L}[\p{L} ]*?) I\./u, lang === 'es' ? 'isla $1' : '$1 Island');
+}
+
+/**
+ * Traduce la ubicación que publican NTWC/PTWC ("415 miles SW of Bering I., Komandorski",
+ * "NEAR THE EAST COAST OF KAMCHATKA RUSSIA") y agrega kilómetros. Si no reconoce el
+ * formato, devuelve el texto original; la ficha muestra siempre el original debajo.
+ */
+export function localTsunamiRegion(region: string, lang: Lang): string {
+  const out = tsunamiRegion(region.trim(), lang);
+  return out.charAt(0).toUpperCase() + out.slice(1);
+}
+
+function tsunamiRegion(raw: string, lang: Lang): string {
+  const mi = /^(\d+(?:\.\d+)?)\s+miles?\s+([NSEW]{1,3})\s+of\s+(.+)$/i.exec(raw);
+  if (mi) {
+    const km = Math.round(+mi[1] * MI_KM), place = placeWithCountry(titleCase(mi[3]), lang);
+    return lang === 'es'
+      ? `${fmtKm(km, lang)} km (${mi[1]} millas) al ${mi[2].toUpperCase().replace(/W/g, 'O')} de ${place}`
+      : `${mi[1]} miles (${fmtKm(km, lang)} km) ${mi[2].toUpperCase()} of ${place}`;
+  }
+  if (lang === 'en') return raw;
+  const s = titleCase(raw).replace(/\s+/g, ' ');
+  const viaFe = localPlace(s, lang);
+  if (viaFe !== s) return viaFe;
+  let m = /^near (?:the )?(east|west|north|south) coast of (.+)$/i.exec(s);
+  if (m) return `Cerca de la costa ${DIR_ES[m[1].toLowerCase()]} de ${placeWithCountry(m[2], lang)}`;
+  // 'Off coast of Central Chile' → 'Frente a la costa central de Chile'
+  m = /^(off|near) (?:the )?coast of (central|northern|southern) (.+)$/i.exec(s);
+  if (m) return `${m[1].toLowerCase() === 'off' ? 'Frente a' : 'Cerca de'} la costa ${COAST_ES[m[2].toLowerCase()]} de ${placeWithCountry(m[3], lang)}`;
+  m = /^off (?:the )?(?:(east|west|north|south) )?coast of (.+)$/i.exec(s);
+  if (m) return `Frente a la costa${m[1] ? ` ${DIR_ES[m[1].toLowerCase()]}` : ''} de ${placeWithCountry(m[2], lang)}`;
+  m = /^near (?:the )?coast of (.+)$/i.exec(s);
+  if (m) return `Cerca de la costa de ${placeWithCountry(m[1], lang)}`;
+  m = /^(central|northern|southern|eastern|western) (.+)$/i.exec(s);
+  if (m) return `${ADJ_ES[m[1].toLowerCase()].replace(/^./, (c) => c.toUpperCase())} ${placeWithCountry(m[2], lang)}`;
+  m = /^(.+) islands? region$/i.exec(s);
+  if (m) return `Región de las islas ${m[1]}`;
+  return raw;
+}
+
+const fmtKm = (km: number, lang: Lang) => new Intl.NumberFormat(lang === 'es' ? 'es-AR' : 'en-US').format(km);
