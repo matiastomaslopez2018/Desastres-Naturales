@@ -5,6 +5,7 @@ import { QuakeGeology } from '@/components/geology/QuakeGeology';
 import { TsunamiContext, wantsTsunami } from '@/components/geology/TsunamiContext';
 import { StormContext } from '@/components/geology/StormContext';
 import { FireContext } from '@/components/geology/FireContext';
+import { DroughtContext, FloodContext } from '@/components/geology/HydroContext';
 import { notFound } from 'next/navigation';
 import { EventCard } from '@/components/EventCard';
 import { getTsunamiMessages } from '@/lib/server/tsunami';
@@ -115,6 +116,11 @@ export default async function EventPage({ params }: Props) {
           </Suspense>
         )}
         {e.type === 'storm' && <StormContext lang={lang} e={e} />}
+        {(e.type === 'flood' || e.type === 'drought') && (
+          <Suspense fallback={<p className="ed-note">{t.loading}</p>}>
+            {e.type === 'flood' ? <FloodContext lang={lang} e={e} /> : <DroughtContext lang={lang} e={e} />}
+          </Suspense>
+        )}
         {e.type === 'fire' && (
           <Suspense fallback={<p className="ed-note">{t.loading}</p>}>
             <FireContext lang={lang} e={e} />

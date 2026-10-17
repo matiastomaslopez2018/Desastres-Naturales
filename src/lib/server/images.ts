@@ -70,7 +70,7 @@ const worldview = (layers: string, b: Box, date?: string) =>
   `https://worldview.earthdata.nasa.gov/?v=${b.w.toFixed(2)},${b.s.toFixed(2)},${b.e.toFixed(2)},${b.n.toFixed(2)}&l=${layers}${date ? `&t=${date}-T12:00:00Z` : ''}`;
 
 /** Decodifica un PNG RGB/RGBA de 8 bits (solo lo necesario para contar píxeles). */
-function pngPixels(buf: Buffer): { px: Buffer; bpp: number; n: number } | null {
+export function pngPixels(buf: Buffer): { px: Buffer; bpp: number; n: number } | null {
   if (buf.length < 33 || buf.readUInt32BE(0) !== 0x89504e47) return null;
   let pos = 8, w = 0, h = 0, depth = 0, ctype = 0, interlace = 0;
   const idat: Buffer[] = [];
