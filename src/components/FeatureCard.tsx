@@ -4,6 +4,7 @@ import { Glyph } from './Glyph';
 import { MediaFigure } from './MediaFigure';
 import { T } from '@/lib/i18n';
 import { fmtCoords, fmtNum, fmtTime } from '@/lib/format';
+import type { DartBuoy } from './Globe';
 import type { HeatBin, HistTrack, Lang, Link, NhcStorm, VolcanoActivity } from '@/lib/types';
 
 /*
@@ -12,7 +13,7 @@ import type { HeatBin, HistTrack, Lang, Link, NhcStorm, VolcanoActivity } from '
  * Mismo marcado que EventCard (ev-card) para que se vean igual.
  */
 
-export type Feature = NhcStorm | HeatBin | VolcanoActivity | HistTrack;
+export type Feature = NhcStorm | HeatBin | VolcanoActivity | HistTrack | DartBuoy;
 
 type Props = { lang: Lang; f: Feature; onClose?(): void; actions?: React.ReactNode; onAnimate?(): void; animating?: boolean };
 
@@ -84,6 +85,15 @@ export function FeatureCard({ lang, f, onClose, actions, onAnimate, animating }:
     links.push({ label: t.volcLinks.gvp, url: f.gvpUrl });
     if (f.origin === 'weekly') links.push({ label: t.volcLinks.weekly, url: 'https://volcano.si.edu/reports_weekly.cfm' });
     note = f.report ?? '';
+  } else if (f.type === 'dart') {
+    kicker = t.dartKicker; shape = 'diamond'; glyph = 'tsunami';
+    title = f.title || `DART ${f.id}`;
+    add(t.dartRows.station, f.id);
+    add(t.dartRows.status, f.reporting ? t.dartOn : t.dartOff);
+    add(t.dartRows.owner, f.owner);
+    add(t.f.coords, fmtCoords(lang, f.lat, f.lon));
+    links.push({ label: t.dartLink, url: `https://www.ndbc.noaa.gov/station_page.php?station=${f.id}` });
+    note = t.dartNote;
   } else {
     kicker = t.trackKicker;
     title = f.name ? `${f.name} (${f.season})` : `${t.unnamed} (${f.season})`;

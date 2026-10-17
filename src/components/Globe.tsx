@@ -9,17 +9,26 @@ import world from 'world-atlas/countries-110m.json';
 import { NIGHT, RING, SHAPE, alertLevel, drawShape, isHighlighted, sizeFor } from '@/lib/symbols';
 import type { DisasterEvent, GvpVolcano, HeatBin, HistTrack, NhcStorm, SourceStatus, VolcanoActivity } from '@/lib/types';
 
-export type Pickable = DisasterEvent | GvpVolcano | NhcStorm | HeatBin | VolcanoActivity | HistTrack;
+export type Pickable = DisasterEvent | GvpVolcano | NhcStorm | HeatBin | VolcanoActivity | HistTrack | DartBuoy;
 export type Layers = {
   borders: boolean; plates: boolean; ring: boolean; gvp: boolean; hazard: boolean;
   /** Fase 2: ciclones NHC, focos FIRMS, volcanes con actividad, trayectorias IBTrACS. */
   nhc: boolean; firms: boolean; wvolc: boolean; ibtracs: boolean;
+  /** Fase 3 · F: losas Slab2, vectores de placas, boyas DART, peligro de incendio FWI y viento GFS. */
+  slab: boolean; platevec: boolean; dart: boolean; fwi: boolean; wind: boolean;
 };
+export type DartBuoy = { id: string; type: 'dart'; title: string; lon: number; lat: number; reporting: boolean; owner: string };
+type Raster = { w: number; h: number; data: Uint8ClampedArray };
 /** Capas de otras fuentes (bloque B) que dibuja el globo además de los eventos. */
 export type Overlays = {
   storms: NhcStorm[]; heat: HeatBin[]; volcanoes: VolcanoActivity[]; tracks: HistTrack[]; hazard?: GeoJSON.FeatureCollection | null;
   /** Animación de la trayectoria de un ciclón: se dibuja hasta el instante t (ms). */
   stormAnim?: { id: string; t: number } | null;
+  slab?: [string, number, number[][][]][] | null;
+  vectors?: [number, number, number, number, string][] | null;
+  darts?: DartBuoy[];
+  fwi?: Raster | null;
+  wind?: { points: [number, number, number, number][] } | null;
 };
 const NO_OVERLAYS: Overlays = { storms: [], heat: [], volcanoes: [], tracks: [] };
 
@@ -47,6 +56,8 @@ type Props = {
   onSelect(e: Pickable): void;
   onHover(h: { e: Pickable; x: number; y: number } | null): void;
   onCarto(s: SourceStatus): void;
+  /** Vista del globo al quedar quieto (centro y zoom), para pedir datos de la zona visible. */
+  onView?(v: { lon: number; lat: number; k: number }): void;
 };
 
 const INITIAL_ROT: [number, number, number] = [70, 8, 0];
@@ -115,6 +126,23 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
     ctx.beginPath(); path({ type: 'Sphere' }); ctx.fillStyle = NIGHT.sphere; ctx.fill();
     ctx.beginPath(); path(GRAT); ctx.strokeStyle = NIGHT.grat; ctx.lineWidth = 0.6; ctx.stroke();
     ctx.beginPath(); path(LAND); ctx.fillStyle = NIGHT.land; ctx.fill();
+    const center0: [number, number] = [-rot[0], -rot[1]];
+    // Peligro de incendio FWI (GWIS): ráster global reproyectado píxel a píxel; en movimiento no se dibuja.
+    if (layers.fwi && ov.fwi && !moving.current) {
+      const { w: rw, h: rh, data } = ov.fwi;
+      const step = 4;
+      for (let y = Math.max(0, cy - R); y < Math.min(H, cy + R); y += step) {
+        for (let x = Math.max(0, cx - R); x < Math.min(W, cx + R); x += step) {
+          const ll = proj.invert!([x, y]);
+          if (!ll || geoDistance(ll, center0) > 1.57) continue;
+          const px = Math.floor(((ll[0] + 180) / 360) * rw), py = Math.floor(((90 - ll[1]) / 180) * rh);
+          const k4 = (Math.min(rh - 1, Math.max(0, py)) * rw + Math.min(rw - 1, Math.max(0, px))) * 4;
+          if (data[k4 + 3] < 40) continue;
+          ctx.fillStyle = `rgba(${data[k4]},${data[k4 + 1]},${data[k4 + 2]},.55)`;
+          ctx.fillRect(x, y, step, step);
+        }
+      }
+    }
     // Amenaza sísmica (GSHAP): curvas de nivel rellenas, debajo de fronteras y placas.
     if (layers.hazard && ov.hazard) {
       for (const f of ov.hazard.features) {
@@ -128,6 +156,44 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
     }
     if (layers.plates && plates.current) {
       ctx.beginPath(); path(plates.current); ctx.strokeStyle = NIGHT.plates; ctx.lineWidth = 0.8; ctx.stroke();
+    }
+    // Losas de subducción (Slab2): curvas cada 20 km, más oscuras cuanto más profundas.
+    if (layers.slab && ov.slab) {
+      ctx.lineWidth = 1;
+      for (const [, depth, lines] of ov.slab) {
+        const t = Math.min(1, depth / 600);
+        ctx.strokeStyle = `rgba(${Math.round(255 - 120 * t)},${Math.round(170 - 120 * t)},${Math.round(90 + 140 * t)},${depth % 100 === 0 ? 0.9 : 0.45})`;
+        ctx.beginPath(); path({ type: 'MultiLineString', coordinates: lines }); ctx.stroke();
+      }
+      if (k >= 3 && !moving.current) {
+        ctx.font = '600 9px var(--font-plex-mono), monospace'; ctx.fillStyle = 'rgba(230,237,245,.85)';
+        for (const [, depth, lines] of ov.slab) {
+          if (depth % 100 !== 0) continue;
+          const p = lines[0]?.[Math.floor(lines[0].length / 2)];
+          if (!p || geoDistance(p as [number, number], center0) > 1.5) continue;
+          const xy = proj(p as [number, number]);
+          if (xy) ctx.fillText(`${depth} km`, xy[0] + 3, xy[1] - 3);
+        }
+      }
+    }
+    // Movimiento de placas (NNR-MORVEL56): flecha proporcional a la velocidad.
+    if (layers.platevec && ov.vectors) {
+      ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 1.2;
+      const s = 0.22 * Math.pow(k, 0.5);
+      for (const [lon, lat, ve, vn] of ov.vectors) {
+        if (geoDistance([lon, lat], center0) > 1.45) continue;
+        const a = proj([lon, lat]);
+        // Punta: un paso pequeño en la dirección del movimiento, proyectado.
+        const d = 0.02;
+        const b = proj([lon + (ve * d) / Math.max(0.2, Math.cos((lat * Math.PI) / 180)), lat + vn * d]);
+        if (!a || !b) continue;
+        const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1;
+        const L2 = Math.hypot(ve, vn) * s;
+        const ux = dx / len, uy = dy / len;
+        const tx = a[0] + ux * L2, ty = a[1] + uy * L2;
+        ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(tx, ty); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(tx - ux * 5 - uy * 3, ty - uy * 5 + ux * 3); ctx.lineTo(tx - ux * 5 + uy * 3, ty - uy * 5 - ux * 3); ctx.closePath(); ctx.fill();
+      }
     }
     ctx.beginPath(); path({ type: 'Sphere' }); ctx.strokeStyle = NIGHT.rim; ctx.lineWidth = 1; ctx.stroke();
 
@@ -234,6 +300,31 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
           ctx.beginPath(); ctx.arc(x, y, r + 5, 0, TAU); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.2; ctx.stroke();
           if (playing == null) pts.push({ e: st, x, y, r: r + 2 });
         }
+      }
+    }
+    // Boyas DART (NOAA NDBC): rombos celestes; apagados si no transmiten.
+    if (layers.dart && ov.darts?.length) {
+      for (const b of ov.darts) {
+        if (!front(b.lon, b.lat)) continue;
+        const [x, y] = proj([b.lon, b.lat])!;
+        const r = 3.4 * Math.pow(k, 0.2);
+        drawShape(ctx, 'diamond', x, y, r);
+        ctx.fillStyle = b.reporting ? '#7af0e0' : 'rgba(122,240,224,.25)'; ctx.fill();
+        ctx.strokeStyle = '#06080c'; ctx.lineWidth = 0.8; ctx.stroke();
+        pts.push({ e: b, x, y, r: r + 2 });
+      }
+    }
+    // Viento GFS (solo con zoom): flecha hacia donde sopla, color por velocidad.
+    if (layers.wind && ov.wind && k >= 3) {
+      ctx.lineWidth = 1.3;
+      for (const [lon, lat, kmh, to] of ov.wind.points) {
+        if (!front(lon, lat)) continue;
+        const [x, y] = proj([lon, lat])!;
+        const a = (to * Math.PI) / 180, L = 6 + Math.min(14, kmh / 4);
+        const ux = Math.sin(a), uy = -Math.cos(a);
+        ctx.strokeStyle = kmh >= 60 ? '#ff6060' : kmh >= 30 ? '#ffc140' : '#9ecbff';
+        ctx.beginPath(); ctx.moveTo(x - ux * L / 2, y - uy * L / 2); ctx.lineTo(x + ux * L / 2, y + uy * L / 2);
+        ctx.lineTo(x + ux * L / 2 - ux * 4 - uy * 3, y + uy * L / 2 - uy * 4 + ux * 3); ctx.stroke();
       }
     }
     // Volcanes con actividad (reporte semanal o erupción en curso).
@@ -344,6 +435,8 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
     clearTimeout(idleTimer.current);
     idleTimer.current = setTimeout(() => {
       moving.current = false; wrapRef.current?.removeAttribute('data-moving'); req();
+      const { rot, k } = cam.current;
+      propsRef.current.onView?.({ lon: -rot[0], lat: -rot[1], k });
     }, 160);
   };
 

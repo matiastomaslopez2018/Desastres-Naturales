@@ -138,3 +138,38 @@ export async function nifcPerimeter(lon: number, lat: number): Promise<Perimeter
   }).catch(() => null);
   return r?.value ?? null;
 }
+
+/* ───────────── Grilla de viento para la capa del mapa (GFS, análisis más reciente) ───────────── */
+
+export type WindGrid = { run: number; step: number; points: [lon: number, lat: number, kmh: number, toDeg: number][] };
+
+/** Viento a 10 m en una grilla de 1° (o 2° si el área es grande) dentro de un recuadro de hasta 40° × 30°. */
+export async function windGrid(w: number, s: number, e: number, n: number): Promise<WindGrid | null> {
+  const r = await kvCached(`wind1:${w}:${s}:${e}:${n}:${Math.floor(Date.now() / (3 * 36e5))}`, 3 * 36e5, async () => {
+    for (const back of [4, 10, 16]) {
+      const run = Math.floor((Date.now() - back * 36e5) / (6 * 36e5)) * 6 * 36e5;
+      const d = new Date(run), ymd = iso(run).replace(/-/g, ''), hh = String(d.getUTCHours()).padStart(2, '0');
+      const url = `https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?dir=%2Fgfs.${ymd}%2F${hh}%2Fatmos&file=gfs.t${hh}z.pgrb2.0p25.f000` +
+        `&var_UGRD=on&var_VGRD=on&lev_10_m_above_ground=on&subregion=&toplat=${n}&leftlon=${w}&rightlon=${e}&bottomlat=${s}`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(25000) }).catch(() => null);
+      if (!res?.ok) continue;
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (buf.toString('ascii', 0, 4) !== 'GRIB') continue;
+      const fields = decodeGrib2(buf);
+      const u = fields.find((f) => f.category === 2 && f.number === 2), v = fields.find((f) => f.category === 2 && f.number === 3);
+      if (!u || !v) continue;
+      const step = (e - w) * (n - s) > 600 ? 2 : 1;
+      const points: WindGrid['points'] = [];
+      for (let lat = s + step / 2; lat < n; lat += step) {
+        for (let lon = w + step / 2; lon < e; lon += step) {
+          const uu = valueAt(u, lon, lat), vv = valueAt(v, lon, lat);
+          if (uu == null || vv == null) continue;
+          points.push([lon, lat, Math.round(Math.hypot(uu, vv) * 3.6), Math.round((Math.atan2(uu, vv) * 180 / Math.PI + 360) % 360)]);
+        }
+      }
+      return { run, step, points };
+    }
+    return null;
+  }).catch(() => null);
+  return r?.value ?? null;
+}

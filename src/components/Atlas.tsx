@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { geoDistance } from 'd3-geo';
-import { Globe, HAZARD_LEVELS, SS_SCALE, type GlobeHandle, type Layers, type Overlays, type Pickable } from './Globe';
+import { Globe, HAZARD_LEVELS, SS_SCALE, type DartBuoy, type GlobeHandle, type Layers, type Overlays, type Pickable } from './Globe';
 import { Glyph, TypeDot } from './Glyph';
 import { EventCard } from './EventCard';
 import { FeatureCard } from './FeatureCard';
@@ -32,13 +32,15 @@ const toTrack = (s: IbtracsStorm): HistTrack => {
     windKt: s.wind, pressureMb: s.pres, start: s.start, end: s.end, lon: best[0], lat: best[1], points: s.pts,
   };
 };
-const NOW_LAYERS = new Set(['nhc', 'wvolc', 'firms']);
+const NOW_LAYERS = new Set(['nhc', 'wvolc', 'firms', 'fwi', 'wind', 'dart']);
 type FirmsState = 'idle' | 'wait' | 'ok' | 'needsKey' | 'err';
 
 /** initialType: ?tipo=eq|volcano|… desde Aprender, para abrir el mapa filtrado por un tipo. */
 type Props = { lang: Lang; initialRange: RangeKey; initialYear: number; initialSel?: string; initialType?: string };
 
-const LAYER_KEYS = ['nhc', 'wvolc', 'firms', 'ibtracs', 'borders', 'plates', 'ring', 'gvp', 'hazard'] as const;
+/** Leyenda oficial del mapa FWI de GWIS: color y límite inferior de cada clase. */
+const FWI_LEGEND: [string, string][] = [['#9cffc0', '<11'], ['#cde24e', '11'], ['#e6ac00', '21'], ['#d97010', '38'], ['#ad060e', '50'], ['#3a0015', '70']];
+const LAYER_KEYS = ['nhc', 'wvolc', 'firms', 'fwi', 'wind', 'ibtracs', 'borders', 'plates', 'platevec', 'slab', 'ring', 'gvp', 'dart', 'hazard'] as const;
 const SRC_NAME: Record<SourceKey, string> = { usgs: 'USGS', eonet: 'EONET', gdacs: 'GDACS', gvp: 'GVP', carto: 'PB2002' };
 /** Un tramo de la línea de tiempo por cuadro de reproducción, a 1×. */
 const PLAY_MS = 900;
@@ -58,6 +60,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
   );
   const [layers, setLayers] = useState<Layers>({
     nhc: true, wvolc: true, firms: false, ibtracs: true, borders: true, plates: true, ring: true, gvp: false, hazard: false,
+    slab: false, platevec: false, dart: false, fwi: false, wind: false,
   });
   const [storms, setStorms] = useState<NhcStorm[]>([]);
   const [volcanoes, setVolcanoes] = useState<VolcanoActivity[]>([]);
@@ -166,7 +169,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
 
   // NHC, volcanes y FIRMS son "ahora": en un año pasado no se mezclan con ese año.
   const isNow = range !== 'year' || year === new Date().getUTCFullYear();
-  const drawLayers = useMemo<Layers>(() => (isNow ? layers : { ...layers, nhc: false, wvolc: false, firms: false }), [layers, isNow]);
+  const drawLayers = useMemo<Layers>(() => (isNow ? layers : { ...layers, nhc: false, wvolc: false, firms: false, fwi: false, wind: false, dart: false }), [layers, isNow]);
   // FIRMS pesa: solo se pide al encender la capa.
   useEffect(() => {
     if (!drawLayers.firms || firmsState !== 'idle') return;
@@ -218,7 +221,42 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
   }, []);
   const animStop = useRef<() => void>(() => {});
 
-  const overlays = useMemo<Overlays>(() => ({ storms, heat, volcanoes, tracks, hazard, stormAnim }), [storms, heat, volcanoes, tracks, hazard, stormAnim]);
+  // Fase 3 · F: capas que se bajan al encenderlas.
+  const [slab, setSlab] = useState<Overlays['slab']>(null);
+  const [vectors, setVectors] = useState<Overlays['vectors']>(null);
+  const [darts, setDarts] = useState<DartBuoy[]>([]);
+  const [fwi, setFwi] = useState<Overlays['fwi']>(null);
+  const [wind, setWind] = useState<Overlays['wind']>(null);
+  useEffect(() => { if (layers.slab && !slab) fetch('/data/slab2.json').then((r) => r.json()).then(setSlab).catch(() => {}); }, [layers.slab, slab]);
+  useEffect(() => { if (layers.platevec && !vectors) fetch('/data/plate_vectors.json').then((r) => r.json()).then(setVectors).catch(() => {}); }, [layers.platevec, vectors]);
+  useEffect(() => {
+    if (!layers.dart || darts.length) return;
+    fetch('/api/dart').then((r) => r.json()).then((j: { buoys: { id: string; name: string; lat: number; lon: number; reporting: boolean; owner: string }[] }) =>
+      setDarts(j.buoys.map((b) => ({ id: b.id, type: 'dart', title: b.name, lon: b.lon, lat: b.lat, reporting: b.reporting, owner: b.owner })))).catch(() => {});
+  }, [layers.dart, darts.length]);
+  useEffect(() => {
+    if (!layers.fwi || fwi) return;
+    // Mapa global de FWI del día (mismo origen): se leen sus píxeles para reproyectarlo en el globo.
+    fetch('/api/fwi-map').then((r) => (r.ok ? r.blob() : Promise.reject(r.status))).then(createImageBitmap).then((bmp) => {
+      const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
+      const cx = c.getContext('2d')!; cx.drawImage(bmp, 0, 0);
+      setFwi({ w: bmp.width, h: bmp.height, data: cx.getImageData(0, 0, bmp.width, bmp.height).data });
+    }).catch(() => {});
+  }, [layers.fwi, fwi]);
+  // Viento: con zoom 3 o más, se pide la grilla de la zona visible al quedar quieto el globo.
+  const [view, setView] = useState<{ lon: number; lat: number; k: number } | null>(null);
+  useEffect(() => {
+    if (!layers.wind || !view || view.k < 3) return;
+    const halfLon = Math.min(19, 57 / view.k), halfLat = Math.min(14, 40 / view.k);
+    const w = Math.max(-180, Math.floor(view.lon - halfLon)), e = Math.min(180, Math.ceil(view.lon + halfLon));
+    const s = Math.max(-90, Math.floor(view.lat - halfLat)), n = Math.min(90, Math.ceil(view.lat + halfLat));
+    const ctrl = new AbortController();
+    fetch(`/api/wind?w=${w}&s=${s}&e=${e}&n=${n}`, { signal: ctrl.signal }).then((r) => (r.ok ? r.json() : null)).then((j) => j && setWind(j)).catch(() => {});
+    return () => ctrl.abort();
+  }, [layers.wind, view]);
+
+  const overlays = useMemo<Overlays>(() => ({ storms, heat, volcanoes, tracks, hazard, stormAnim, slab, vectors, darts, fwi, wind }),
+    [storms, heat, volcanoes, tracks, hazard, stormAnim, slab, vectors, darts, fwi, wind]);
 
   const passesFilters = useCallback((e: DisasterEvent) => {
     if (e.type === 'eq') {
@@ -283,6 +321,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
     if (e.type === 'nhc') return [t.nhcClass[e.classification] ?? e.classification, e.windKt != null ? `${nf(e.windKt)} kt` : '', 'NOAA NHC'].filter(Boolean).join(' · ');
     if (e.type === 'heat') return [t.heatUnit(e.count), `FRP ${nf(e.frpMax, 1)} MW`, 'NASA FIRMS'].join(' · ');
     if (e.type === 'wvolc') return [e.country, t.volcStatus[e.status], 'GVP'].filter(Boolean).join(' · ');
+    if (e.type === 'dart') return [e.reporting ? t.dartOn : t.dartOff, 'NOAA NDBC'].join(' · ');
     if (e.type === 'ibtracs') return [t.basins[e.basin] ?? e.basin, e.windKt != null ? `${nf(e.windKt)} kt` : '', 'IBTrACS'].filter(Boolean).join(' · ');
     const parts = [t.T1[e.type]];
     if (e.type === 'eq' && e.mag != null) parts.unshift('M ' + nf(e.mag, 1));
@@ -401,6 +440,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
   const featureTitle = (e: Pickable) =>
     e.type === 'nhc' ? `${t.nhcClass[e.classification] ?? e.classification} ${e.name}`
       : e.type === 'heat' ? t.heatKicker
+      : e.type === 'dart' ? `DART ${e.id}`
       : e.type === 'ibtracs' ? `${e.name || t.unnamed} (${e.season})` : e.title;
   const layerNote = (k: (typeof LAYER_KEYS)[number]) => {
     if (k === 'gvp' && src.gvp?.state === 'err') return ` · ${t.err}`;
@@ -408,6 +448,8 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
     if (k === 'firms') return firmsState === 'needsKey' ? ` · ${t.needsKey('FIRMS_MAP_KEY')}` : firmsState === 'wait' ? ` · ${t.loadingLayer}` : firmsState === 'err' ? ` · ${t.err}` : firmsState === 'ok' ? ` · ${nf(heat.length)}` : '';
     if (k === 'nhc') return storms.length ? ` · ${nf(storms.length)}` : '';
     if (k === 'wvolc') return volcanoes.length ? ` · ${nf(volcanoes.length)}` : '';
+    if (k === 'wind') return view && view.k >= 3 ? (wind ? ` · ${t.windAt(fmtHour(lang, Date.now()))}` : ` · ${t.loadingLayer}`) : ` · ${t.windZoom}`;
+    if (k === 'dart') return darts.length ? ` · ${nf(darts.filter((d) => d.reporting).length)}/${nf(darts.length)}` : '';
     if (k === 'ibtracs') return range === 'year' && tracks.length ? ` · ${nf(tracks.length)}` : '';
     return '';
   };
@@ -423,7 +465,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
         {/* El globo vive entre la barra superior y la línea de tiempo: nada lo tapa. */}
         <div className="globe-area">
           <Globe ref={globe} events={drawn} gvp={gvpShown} layers={drawLayers} overlays={overlays} selected={sel} showTsunami={types.tsunami}
-            onSelect={select} onHover={setHover} onCarto={onCarto} />
+            onSelect={select} onHover={setHover} onCarto={onCarto} onView={setView} />
         </div>
 
         {tsunami && tsunami.active.length > 0 && (
@@ -556,6 +598,17 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
                 <p className="note">{t.hazardHelp}</p>
               </div>
             )}
+            {layers.fwi && (
+              <div className="hazard-legend">
+                {/* Clases y colores de la leyenda oficial del mapa GWIS (ecmwf.fwi). */}
+                <div className="hazard-scale" role="img" aria-label={t.L.fwi}>
+                  {FWI_LEGEND.map(([c, k]) => <span key={k} style={{ background: c }}><span className="mono">{k}</span></span>)}
+                </div>
+                <span className="faint small">{t.fwiLegend}</span>
+                <p className="note">{fwi ? t.fwiHelp : t.loadingLayer}</p>
+              </div>
+            )}
+            {layers.wind && <p className="note">{t.windHelp}</p>}
           </details>
 
           {/* En celular el idioma vive acá para dejar lugar en la barra superior. */}
