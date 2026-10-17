@@ -15,7 +15,7 @@ export type SeoText = {
   quakesIn: {
     title: Fn<[c: string]>; h1: Fn<[c: string]>; kicker: string; desc: Fn<[c: string]>;
     lead: Fn<[c: string, n24: string, n30: string]>; biggest: Fn<[mag: string, place: string, when: string]>; leadNone: Fn<[c: string, n30: string]>;
-    listTitle: string; small: Fn<[agency: string]>; smallGeneric: string; history: Fn<[c: string]>; other: string;
+    listTitle: string; small: string; smallGeneric: string; history: Fn<[c: string]>; other: string;
   };
   volcanoesNow: { title: string; h1: string; kicker: string; desc: string; lead: Fn<[n: string, alerts: string]>; ongoing: string; recent: string; since: string };
   fires: { title: string; h1: string; kicker: string; desc: string; lead: Fn<[n: string]>; firms: Fn<[n: string, cells: string]>; listTitle: string; mapLink: string };
@@ -57,7 +57,7 @@ export const SEO: Record<Lang, SeoText> = {
       biggest: (mag, place, when) => `El mayor del mes fue de magnitud ${mag}, ${place}, el ${when}.`,
       leadNone: (c, n30) => `En las últimas 24 horas no se registraron sismos de magnitud 2,5 o más en ${c}. En los últimos 30 días: ${n30}.`,
       listTitle: 'Sismos de los últimos 30 días',
-      small: (a) => `El catálogo global del USGS puede no incluir todos los sismos chicos. Para temblores menores, consultá a ${a}.`,
+      small: 'El catálogo global del USGS puede no incluir todos los sismos chicos. Para temblores menores, consultá a ',
       smallGeneric: 'El catálogo global del USGS puede no incluir todos los sismos chicos de este país; para temblores menores, consultá al servicio sismológico nacional.',
       history: (c) => `Historia y estadísticas de ${c}`,
       other: 'Sismos hoy en otros países',
@@ -145,7 +145,7 @@ export const SEO: Record<Lang, SeoText> = {
       biggest: (mag, place, when) => `The largest this month was magnitude ${mag}, ${place}, on ${when}.`,
       leadNone: (c, n30) => `No earthquakes of magnitude 2.5 or greater were recorded in ${c} in the last 24 hours. In the last 30 days: ${n30}.`,
       listTitle: 'Earthquakes in the last 30 days',
-      small: (a) => `The USGS global catalog may miss some small earthquakes. For minor tremors, check ${a}.`,
+      small: 'The USGS global catalog may miss some small earthquakes. For minor tremors, check ',
       smallGeneric: 'The USGS global catalog may miss some small earthquakes in this country; for minor tremors, check the national seismological service.',
       history: (c) => `History and statistics for ${c}`,
       other: 'Earthquakes today in other countries',

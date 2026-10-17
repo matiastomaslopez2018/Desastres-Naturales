@@ -6,7 +6,7 @@ import { MediaFigure } from './MediaFigure';
 import { Glyph } from './Glyph';
 import { countryName, countryPath } from '@/lib/countries';
 import { T } from '@/lib/i18n';
-import { MULTI_COUNTRY_MIN, localPlace, localSeverity, localTitle, titlePlaces } from '@/lib/localize';
+import { MULTI_COUNTRY_MIN, localPlace, localSeverity, localTitle, localVolcanoType, titlePlaces } from '@/lib/localize';
 import { fmtCoords, fmtNum, fmtTime } from '@/lib/format';
 import { SHAPE, alertLevel } from '@/lib/symbols';
 import type { DisasterEvent, EqDetail, GvpVolcano, Lang, Link, TsunamiMessage } from '@/lib/types';
@@ -46,7 +46,7 @@ export function EventCard({ lang, e, detail, detailLoading, onClose, actions, ts
   if (e.type === 'gvp') {
     kicker = `${t.gvpKicker} · GVP`;
     add(f.country, e.country);
-    add(f.vtype, e.vtype);
+    add(f.vtype, localVolcanoType(e.vtype, lang));
     add(f.lastErup, e.lastErup != null ? (e.lastErup < 0 ? `${nf(-e.lastErup)} ${t.bce}` : e.lastErup) : null);
     add(f.coords, coords());
     links.push({ label: 'Smithsonian · Global Volcanism Program', url: `https://volcano.si.edu/volcano.cfm?vn=${e.num}` });

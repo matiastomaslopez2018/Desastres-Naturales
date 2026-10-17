@@ -184,3 +184,25 @@ export function localSeverity(text: string | undefined, lang: Lang): string | un
 
 /** Tipo singular + título, para tooltips y listas. */
 export const typeAndTitle = (e: DisasterEvent, lang: Lang) => `${T[lang].T1[e.type]} · ${localTitle(e, lang)}`;
+
+/* ───────────── tipo de volcán (Smithsonian GVP) ───────────── */
+
+const VTYPE_ES: Record<string, [string, string]> = {
+  stratovolcano: ['Estratovolcán', 'Estratovolcanes'], 'volcanic field': ['Campo volcánico', 'Campos volcánicos'], shield: ['Volcán en escudo', 'Volcanes en escudo'],
+  caldera: ['Caldera', 'Calderas'], complex: ['Complejo volcánico', 'Complejos volcánicos'], 'fissure vent': ['Fisura volcánica', 'Fisuras volcánicas'],
+  'pyroclastic cone': ['Cono piroclástico', 'Conos piroclásticos'], 'lava dome': ['Domo de lava', 'Domos de lava'], compound: ['Volcán compuesto', 'Volcanes compuestos'],
+  maar: ['Maar', 'Maares'], 'crater rows': ['Hileras de cráteres', 'Hileras de cráteres'], 'tuff cone': ['Cono de toba', 'Conos de toba'], cone: ['Cono', 'Conos'],
+  'shield(pyroclastic)': ['Escudo piroclástico', 'Escudos piroclásticos'], 'lava cone': ['Cono de lava', 'Conos de lava'], 'explosion crater': ['Cráter de explosión', 'Cráteres de explosión'],
+  'tuff ring': ['Anillo de toba', 'Anillos de toba'],
+};
+
+/** "Stratovolcano(es)" → "Estratovolcanes"; en inglés se deja como lo publica el GVP. */
+export function localVolcanoType(type: string | null | undefined, lang: Lang): string {
+  if (!type) return '';
+  if (lang === 'en') return type;
+  const t = type.trim().toLowerCase(), doubt = t.endsWith('?');
+  const plural = /\((s|es)\)$/.test(t.replace(/\?$/, ''));
+  const base = t.replace(/\?$/, '').replace(/\((s|es)\)$/, '').trim();
+  const hit = VTYPE_ES[base];
+  return hit ? hit[plural ? 1 : 0] + (doubt ? ' (?)' : '') : type;
+}

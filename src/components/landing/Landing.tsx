@@ -8,7 +8,7 @@ import { SiteFooter, SiteHeader } from '@/components/SiteHeader';
 import { countryName } from '@/lib/countries';
 import { fmtCoords, fmtNum, fmtTime } from '@/lib/format';
 import { T, isLang } from '@/lib/i18n';
-import { alertTag, countryFromEnglish, localTitle } from '@/lib/localize';
+import { alertTag, countryFromEnglish, localTitle, localVolcanoType } from '@/lib/localize';
 import { QUAKE_COUNTRIES, ROUTES, jsonLd, quakeCountryByIso, quakeCountryBySlug, routePath, type RouteKey } from '@/lib/seo';
 import { SEO } from '@/lib/seoText';
 import { SITE_URL } from '@/lib/site';
@@ -195,7 +195,7 @@ export async function QuakesIn({ lang, slug }: { lang: Lang; slug: string }) {
         <p>{n24 ? s.lead(name, nf(n24), nf(list.length)) : s.leadNone(name, nf(list.length))}{' '}
           {max && max.mag != null ? s.biggest(nf(max.mag, 1), localTitle(max, lang), fmtTime(lang, max.time, 'UTC')) : ''}</p>
         <p className="ed-note">
-          {agency ? <>{s.small('')}<a href={agency.url} target="_blank" rel="noopener noreferrer">{agency.name}</a>.</> : s.smallGeneric}
+          {agency ? <>{s.small}<a href={agency.url} target="_blank" rel="noopener noreferrer">{agency.name}</a>.</> : s.smallGeneric}
         </p>
       </>}
       ld={itemList(lang, s.h1(name), routePath(lang, 'quakesIn', c[lang]), list)}>
@@ -395,7 +395,7 @@ export async function VolcanoPage({ lang, slug }: { lang: Lang; slug: string }) 
       <div className="ed-grid">
         <MediaFigure lang={lang} q={{ volcano: v.num }} />
         <dl className="ev-facts">
-          {[[s.facts.country, country], [s.facts.type, v.vtype], [s.facts.last, last], [s.facts.coords, fmtCoords(lang, v.lat, v.lon)], [s.facts.number, String(v.num)]]
+          {[[s.facts.country, country], [s.facts.type, localVolcanoType(v.vtype, lang)], [s.facts.last, last], [s.facts.coords, fmtCoords(lang, v.lat, v.lon)], [s.facts.number, String(v.num)]]
             .filter(([, x]) => x).map(([k, x]) => <div key={k} style={{ display: 'contents' }}><dt>{k}</dt><dd>{x}</dd></div>)}
           <div style={{ display: 'contents' }}><dt>{T[lang].sources}</dt><dd><a href={`https://volcano.si.edu/volcano.cfm?vn=${v.num}`} target="_blank" rel="noopener noreferrer">Smithsonian GVP ↗</a></dd></div>
         </dl>
