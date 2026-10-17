@@ -37,12 +37,16 @@ function parse(center: TsunamiMessage['center'], xml: string): TsunamiMessage[] 
     const bulletin = /<link[^>]*rel="alternate"[^>]*href="([^"]+)"/i.exec(e)?.[1]
       ?? /href="([^"]+\.txt)"/i.exec(summary)?.[1] ?? 'https://www.tsunami.gov/';
     const issued = Date.parse(tag(e, 'updated'));
+    // Mapas que acompañan el mensaje (energía, tiempos de viaje): solo si apuntan a una imagen.
+    const maps = [...e.matchAll(/<link[^>]*rel="related"[^>]*title="([^"]+)"[^>]*href="([^"]+)"/gi)]
+      .map((m) => ({ title: m[1].trim(), url: m[2].trim() }))
+      .filter((m) => /map/i.test(m.title) && /\.(jpe?g|png|gif)$/i.test(m.url));
     return {
       id: `${center}-${issued}`, center, level,
       title: category || 'Tsunami message',
       region: tag(e, 'title').replace(/\s+/g, ' '),
       issued, lat: isFinite(lat) ? lat : null, lon: isFinite(lon) ? lon : null,
-      magnitude: mag ? Number(mag) : null, url: bulletin.trim(),
+      magnitude: mag ? Number(mag) : null, url: bulletin.trim(), maps,
     };
   });
 }

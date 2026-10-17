@@ -66,6 +66,9 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
   const [events, setEvents] = useState<DisasterEvent[]>([]);
   const [win, setWin] = useState<{ s: number; e: number } | null>(null);
   const [gvp, setGvp] = useState<GvpVolcano[]>([]);
+  // Filtro por tipo de vulcanismo (ambiente tectónico de GVP) para la capa de volcanes del Holoceno.
+  const [volcKind, setVolcKind] = useState<'all' | 'subduction' | 'rift' | 'intraplate'>('all');
+  const gvpShown = useMemo(() => (volcKind === 'all' ? gvp : gvp.filter((v) => v.setting === volcKind)), [gvp, volcKind]);
   const [loading, setLoading] = useState(true);
   const [src, setSrc] = useState<Partial<Record<SourceKey, SourceStatus>>>({});
   const [fetchedAt, setFetchedAt] = useState<number | null>(null);
@@ -400,7 +403,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
       <section className="map-stage" aria-label={t.brand}>
         {/* El globo vive entre la barra superior y la línea de tiempo: nada lo tapa. */}
         <div className="globe-area">
-          <Globe ref={globe} events={drawn} gvp={gvp} layers={drawLayers} overlays={overlays} selected={sel} showTsunami={types.tsunami}
+          <Globe ref={globe} events={drawn} gvp={gvpShown} layers={drawLayers} overlays={overlays} selected={sel} showTsunami={types.tsunami}
             onSelect={select} onHover={setHover} onCarto={onCarto} />
         </div>
 
@@ -507,6 +510,16 @@ export function Atlas({ lang, initialRange, initialYear, initialSel }: Props) {
                 </span>
               </button>
             ))}
+            {layers.gvp && (
+              <div className="seg seg-wrap" role="radiogroup" aria-label={t.volcKind}>
+                {(['all', 'subduction', 'rift', 'intraplate'] as const).map((k) => (
+                  <label key={k} className="seg-opt">
+                    <input type="radio" name="volck" checked={volcKind === k} onChange={() => setVolcKind(k)} />
+                    {t.volcKinds[k]}{k !== 'all' ? ` (${nf(gvp.filter((v) => v.setting === k).length)})` : ''}
+                  </label>
+                ))}
+              </div>
+            )}
             {layers.hazard && (
               <div className="hazard-legend">
                 <div className="hazard-scale" role="img" aria-label={t.hazardLegend}>

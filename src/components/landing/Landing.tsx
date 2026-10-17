@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Suspense } from 'react';
+import { VolcanoGeology } from '@/components/geology/VolcanoGeology';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { Glyph } from '@/components/Glyph';
 import { MediaFigure } from '@/components/MediaFigure';
@@ -416,6 +418,9 @@ export async function VolcanoPage({ lang, slug }: { lang: Lang; slug: string }) 
         <EventRows lang={lang} events={events.slice(0, 20)} empty={s.recentNone} />
         <p><Link href={routePath(lang, 'volcanoesNow')} className="ed-more">{s.allActive} →</Link></p>
       </section>
+      <Suspense fallback={<p className="ed-note">{T[lang].loading}</p>}>
+        <VolcanoGeology lang={lang} v={v} />
+      </Suspense>
     </Shell>
   );
 }

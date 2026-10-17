@@ -70,6 +70,7 @@ export function FeatureCard({ lang, f, onClose, actions }: Props) {
     add(t.volcRows.since, since != null ? day(since) : null);
     add(t.volcRows.vei, f.vei);
     add(t.f.coords, fmtCoords(lang, f.lat, f.lon));
+    if (/^erupt-\d+$/.test(f.id)) links.push({ label: t.volcPage, url: `/api/volcano-link?vn=${f.id.slice(6)}&lang=${lang}` });
     links.push({ label: t.volcLinks.gvp, url: f.gvpUrl });
     if (f.origin === 'weekly') links.push({ label: t.volcLinks.weekly, url: 'https://volcano.si.edu/reports_weekly.cfm' });
     note = f.report ?? '';

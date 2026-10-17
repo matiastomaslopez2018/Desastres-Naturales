@@ -261,3 +261,34 @@ button.ed-button { background: none; cursor: pointer; color: inherit; font-famil
 .xsec-key.main { width: 10px; height: 10px; background: #c8102e; border-radius: 2px; }
 .xsec-key.aft { width: 9px; height: 9px; border-radius: 50%; background: rgba(200,16,46,.3); }
 @media (max-width: 760px) { .geo-mech { grid-template-columns: auto minmax(0, 1fr); } .geo-mech .stack-2 { grid-column: 1 / -1; } .fault { width: 150px; } }
+
+/* Contexto geológico de volcanes */
+.vsk { width: 220px; height: auto; flex: none; }
+.vsk-mantle { fill: #e9b38a; opacity: .45; }
+.vsk-ocean { fill: #9fb3c8; stroke: #1a1a1a; stroke-width: 1; }
+.vsk-cont { fill: #d3c7ad; stroke: #1a1a1a; stroke-width: 1; }
+.vsk-volc { fill: #8a6a52; stroke: #1a1a1a; stroke-width: 1; }
+.vsk-old { fill: #b7a48f; stroke: #1a1a1a; stroke-width: .8; }
+.vsk-magma { fill: none; stroke: #c8102e; stroke-width: 3; stroke-linecap: round; stroke-dasharray: 5 4; animation: magma 1.6s linear infinite; }
+.vsk-plume { stroke-width: 6; opacity: .8; }
+.vsk-arrow { fill: none; stroke: #1a1a1a; stroke-width: 1.6; }
+@keyframes magma { to { stroke-dashoffset: -18; } }
+@media (prefers-reduced-motion: reduce) { .vsk-magma { animation: none; } }
+.vtl { width: 100%; max-width: 760px; height: auto; }
+.vtl-bar { fill: #8a6a52; }
+.vtl-bar.big { fill: #c8102e; }
+.vtl-bar.nov { fill: #bdb6a6; }
+.vei-table td, .vei-table th { white-space: normal; text-align: left; }
+.valert { padding: 8px 12px; border-left: 4px solid var(--rule-strong); }
+.valert-green { border-left-color: #2e7d32; }
+.valert-yellow { border-left-color: #f9a825; }
+.valert-orange { border-left-color: #ef6c00; background: rgba(239,108,0,.06); }
+.valert-red { border-left-color: #c8102e; background: rgba(200,16,46,.07); }
+@media (max-width: 760px) { .vsk { width: 100%; max-width: 280px; } }
+.geo-link { margin: 24px 0 0; font-size: 18px; }
+.tsu-checks { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 16px; }
+.tsu-checks li { padding-left: 12px; border-left: 3px solid var(--rule-strong); }
+.tsu-checks li.yes { border-left-color: #c8102e; }
+.tsu-checks li.no { border-left-color: #2e7d32; }
+.tsu-on { color: #2e7d32; font-weight: 600; }
+.tsu-off { color: var(--faint); }

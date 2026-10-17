@@ -48,3 +48,14 @@ export async function volcanoEvents(v: GvpVolcano): Promise<DisasterEvent[]> {
   const year = await cached('landing:volc1y', 10 * 6e4, async () => (await getEvents('1y', new Date().getUTCFullYear())).events.filter((e) => e.type === 'volcano'));
   return year.filter((e) => geoDistance([e.lon, e.lat], [v.lon, v.lat]) * 6371 < 30).sort((a, b) => b.time - a.time);
 }
+
+/** Volcán del GVP a menos de 30 km de un punto (para enlazar un evento volcánico con su ficha). */
+export async function nearestVolcano(lat: number, lon: number): Promise<{ v: GvpVolcano; slug: string } | null> {
+  const idx = await volcanoIndex();
+  let best: { v: GvpVolcano; slug: string; km: number } | null = null;
+  for (const [slug, v] of idx.bySlug) {
+    const km = geoDistance([v.lon, v.lat], [lon, lat]) * 6371;
+    if (km < 30 && (!best || km < best.km)) best = { v, slug, km };
+  }
+  return best;
+}

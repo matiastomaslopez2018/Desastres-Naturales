@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { QuakeGeology } from '@/components/geology/QuakeGeology';
+import { TsunamiContext, wantsTsunami } from '@/components/geology/TsunamiContext';
 import { notFound } from 'next/navigation';
 import { EventCard } from '@/components/EventCard';
 import { getTsunamiMessages } from '@/lib/server/tsunami';
@@ -10,7 +11,8 @@ import { ShareButtons } from '@/components/ShareButtons';
 import { StaticGlobe } from '@/components/StaticGlobe';
 import { T, isLang } from '@/lib/i18n';
 import { eventDescription, eventTitle, seoEventTitle } from '@/lib/eventText';
-import { jsonLd } from '@/lib/seo';
+import { jsonLd, routePath } from '@/lib/seo';
+import { nearestVolcano } from '@/lib/server/landing';
 import { SITE_URL } from '@/lib/site';
 import { countryName } from '@/lib/countries';
 import { getPlates } from '@/lib/server/ingest';
@@ -79,6 +81,7 @@ export default async function EventPage({ params }: Props) {
   const t = T[lang];
   const [plates, tsu] = await Promise.all([getPlates().catch(() => undefined), getTsunamiMessages().catch(() => null)]);
   const mapHref = `/${lang}?e=${encodeURIComponent(e.id)}`;
+  const volc = e.type === 'volcano' ? await nearestVolcano(e.lat, e.lon).catch(() => null) : null;
 
   return (
     <div className="theme-paper ed-page">
@@ -101,9 +104,17 @@ export default async function EventPage({ params }: Props) {
             } />
         </div>
         {/* Contexto geológico: tarda unos segundos la primera vez (después queda en la base). */}
+        {volc && (
+          <p className="geo-link"><Link href={routePath(lang, 'volcano', volc.slug)}>{t.volcPage}: {volc.v.title} →</Link></p>
+        )}
         {e.type === 'eq' && e.src === 'USGS' && (
           <Suspense fallback={<p className="ed-note">{t.loading}</p>}>
             <QuakeGeology lang={lang} e={e} />
+          </Suspense>
+        )}
+        {wantsTsunami(e) && (
+          <Suspense fallback={null}>
+            <TsunamiContext lang={lang} e={e} />
           </Suspense>
         )}
       </main>

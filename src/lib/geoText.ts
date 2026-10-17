@@ -35,7 +35,7 @@ type G = {
   summary: string; summaryAuto: string; summaryOriginal: string; summaryTranslate: string;
   section: string; sectionNote: (az: string) => string; sectionAxis: { dist: string; depth: string }; sectionLegend: { slab: string; quake: string; aft: (n: string) => string };
   oaf: string; oafNote: string; oafWindow: string; oafMag: (m: string) => string; oafRange: (lo: string, hi: string) => string; oafModel: string;
-  history: string; historyNote: string; historyNone: string; deaths: string; learnMore: string;
+  history: string; historyNote: string; historyNone: string; deaths: string; death: string; learnMore: string; oafIssued: (d: string) => string;
 };
 
 export const GEO: Record<Lang, G> = {
@@ -72,7 +72,7 @@ export const GEO: Record<Lang, G> = {
     oaf: 'Pronóstico de réplicas (USGS)', oafNote: 'Probabilidad de que haya al menos una réplica de esa magnitud o mayor en cada período, según el pronóstico operativo del USGS. Se muestra tal como lo publica el USGS.',
     oafWindow: 'Período', oafMag: (m) => `M ${m}+`, oafRange: (lo, hi) => `${lo}–${hi} sismos`, oafModel: 'Modelo',
     history: 'Sismos grandes en la zona (300 km)', historyNote: 'Sismos significativos desde 1900 según NOAA NCEI, ordenados por víctimas.', historyNone: 'NCEI no registra sismos significativos a menos de 300 km desde 1900.',
-    deaths: 'muertes', learnMore: 'Aprender más',
+    deaths: 'muertes', death: 'muerte', learnMore: 'Aprender más', oafIssued: (d) => `Pronóstico emitido el ${d}.`,
   },
   en: {
     title: 'Geological context', interp: 'Interpretation', source: 'Source',
@@ -107,11 +107,160 @@ export const GEO: Record<Lang, G> = {
     oaf: 'Aftershock forecast (USGS)', oafNote: 'Probability of at least one aftershock of that magnitude or larger in each period, according to the USGS operational forecast. Shown as published by the USGS.',
     oafWindow: 'Period', oafMag: (m) => `M ${m}+`, oafRange: (lo, hi) => `${lo}–${hi} quakes`, oafModel: 'Model',
     history: 'Large earthquakes in the area (300 km)', historyNote: 'Significant earthquakes since 1900 according to NOAA NCEI, sorted by deaths.', historyNone: 'NCEI records no significant earthquakes within 300 km since 1900.',
-    deaths: 'deaths', learnMore: 'Learn more',
+    deaths: 'deaths', death: 'death', learnMore: 'Learn more', oafIssued: (d) => `Forecast issued ${d}.`,
   },
 };
 
 export const OAF_WINDOW: Record<Lang, Record<string, string>> = {
   es: { '1 Day': '1 día', '1 Week': '1 semana', '1 Month': '1 mes', '1 Year': '1 año' },
   en: { '1 Day': '1 day', '1 Week': '1 week', '1 Month': '1 month', '1 Year': '1 year' },
+};
+
+/* ───────────── Volcanes ───────────── */
+
+type V = {
+  setting: string; settingKind: Record<string, { name: string; text: string }>; crust: Record<string, string>;
+  rock: string; rocks: Record<string, string>; rockOther: string;
+  history: string; historyNote: (n: string, from: string) => string; historyOlder: (n: string, first: string) => string; noHistory: string;
+  vei: string; veiNote: string; veiRows: [string, string, string][]; veiCol: [string, string, string];
+  alert: string; alertLevels: Record<string, string>; colors: Record<string, string>;
+  alertPre: string; alertPost: string; aviation: string; alertNone: string;
+  vaac: string; vaacPre: string; vaacNote: string;
+  summary: string; elevation: string; bce: string; unknownVei: string;
+};
+
+export const VOLC: Record<Lang, V> = {
+  es: {
+    setting: 'Por qué hay un volcán acá',
+    settingKind: {
+      subduction: { name: 'Zona de subducción', text: 'Una placa oceánica se hunde debajo de otra. Al bajar libera agua, que hace fundir el manto que tiene encima. Ese magma, con más sílice y gases, da volcanes explosivos como los de los Andes, Japón o Indonesia.' },
+      rift: { name: 'Rift o dorsal (las placas se separan)', text: 'Las placas se alejan y el manto sube y se funde al bajar la presión. Da lava basáltica fluida, como en Islandia, las dorsales oceánicas o el valle del Rift en África.' },
+      intraplate: { name: 'Intraplaca (lejos de los bordes)', text: 'El volcán está lejos de los bordes de placa. Muchos se explican por un punto caliente: una pluma de manto muy caliente que funde la placa que se mueve por encima, como en Hawái, donde se forma una cadena de islas cada vez más vieja.' },
+    },
+    crust: { continental: 'corteza continental (más de 25 km de espesor)', oceanic: 'corteza oceánica (menos de 15 km)', intermediate: 'corteza intermedia (15–25 km)' },
+    rock: 'Roca dominante',
+    rocks: {
+      basalt: 'Basalto: poca sílice, lava fluida. Las erupciones suelen ser efusivas, con coladas y fuentes de lava.',
+      andesite: 'Andesita: sílice intermedia, magma más viscoso que retiene gases. Erupciones explosivas moderadas a grandes.',
+      dacite: 'Dacita: magma viscoso. Forma domos de lava y puede dar erupciones muy explosivas.',
+      rhyolite: 'Riolita: muy viscosa y rica en gases. Da las erupciones más explosivas y calderas.',
+      trachyte: 'Traquita o fonolita (alcalinas): magmas viscosos, con erupciones explosivas variables.',
+    },
+    rockOther: 'Tipo de roca según el GVP.',
+    history: 'Historial de erupciones (VEI)',
+    historyNote: (n, from) => `${n} erupciones confirmadas desde ${from} según el Smithsonian GVP. La altura de cada barra es su VEI (índice de explosividad); gris = sin VEI asignado.`,
+    historyOlder: (n, first) => `Además, ${n} erupciones anteriores, la más antigua en ${first}`.replace(/\.?$/, '.'),
+    noHistory: 'El GVP no registra erupciones confirmadas en el Holoceno para este volcán.',
+    vei: 'Escala VEI (índice de explosividad volcánica)',
+    veiNote: 'Desde el VEI 2, cada punto multiplica por 10 el volumen de material expulsado. Newhall y Self (1982), usada por el Smithsonian GVP.',
+    veiCol: ['VEI', 'Material expulsado', 'Ejemplo'],
+    veiRows: [
+      ['0', 'menos de 10.000 m³', 'Kīlauea (efusiva, coladas de lava)'], ['1', '10.000 m³ – 1 millón de m³', 'Stromboli'],
+      ['2', '1 – 10 millones de m³', 'Galeras, Colombia (1993)'], ['3', '10 – 100 millones de m³', 'Nevado del Ruiz, Colombia (1985)'],
+      ['4', '0,1 – 1 km³', 'Eyjafjallajökull, Islandia (2010)'], ['5', '1 – 10 km³', 'Monte Santa Helena, EE. UU. (1980)'],
+      ['6', '10 – 100 km³', 'Pinatubo, Filipinas (1991)'], ['7', '100 – 1.000 km³', 'Tambora, Indonesia (1815)'],
+      ['8', 'más de 1.000 km³', 'Yellowstone, EE. UU. (hace unos 640.000 años)'],
+    ],
+    alert: 'Nivel de alerta oficial',
+    alertLevels: { NORMAL: 'Normal', ADVISORY: 'Advertencia', WATCH: 'Vigilancia', WARNING: 'Alerta', UNASSIGNED: 'Sin asignar' },
+    colors: { GREEN: 'verde', YELLOW: 'amarillo', ORANGE: 'naranja', RED: 'rojo', UNASSIGNED: 'sin asignar' },
+    alertPre: 'El nivel de alerta lo fija el observatorio local: ', alertPost: 'No publica un servicio de datos que podamos leer, así que acá va solo el enlace.', aviation: 'código de aviación',
+    alertNone: 'No tenemos registrado el observatorio oficial de este país. Consultá a la autoridad de protección civil local.',
+    vaac: 'Ceniza volcánica y aviación',
+    vaacPre: 'Los avisos de nubes de ceniza para la aviación de esta región los emite el ',
+    vaacNote: 'Asignación aproximada por región; los límites exactos de cada VAAC los fija la OACI.',
+    summary: 'Resumen geológico (Smithsonian GVP)', elevation: 'Altura', bce: 'a. C.', unknownVei: 'sin VEI',
+  },
+  en: {
+    setting: 'Why there is a volcano here',
+    settingKind: {
+      subduction: { name: 'Subduction zone', text: 'An oceanic plate sinks beneath another. As it goes down it releases water, which melts the mantle above. That magma, richer in silica and gas, feeds explosive volcanoes such as those of the Andes, Japan or Indonesia.' },
+      rift: { name: 'Rift or ridge (plates move apart)', text: 'The plates move apart and the mantle rises and melts as pressure drops. It produces fluid basaltic lava, as in Iceland, mid-ocean ridges or the African Rift Valley.' },
+      intraplate: { name: 'Intraplate (away from plate boundaries)', text: 'The volcano is far from plate boundaries. Many are explained by a hotspot: a plume of very hot mantle that melts the plate moving above it, as in Hawaii, where a chain of ever-older islands forms.' },
+    },
+    crust: { continental: 'continental crust (over 25 km thick)', oceanic: 'oceanic crust (under 15 km)', intermediate: 'intermediate crust (15–25 km)' },
+    rock: 'Dominant rock',
+    rocks: {
+      basalt: 'Basalt: low silica, fluid lava. Eruptions are usually effusive, with lava flows and fountains.',
+      andesite: 'Andesite: intermediate silica, a more viscous magma that traps gas. Moderate to large explosive eruptions.',
+      dacite: 'Dacite: viscous magma. Builds lava domes and can produce very explosive eruptions.',
+      rhyolite: 'Rhyolite: very viscous and gas-rich. Produces the most explosive eruptions and calderas.',
+      trachyte: 'Trachyte or phonolite (alkaline): viscous magmas with variably explosive eruptions.',
+    },
+    rockOther: 'Rock type according to GVP.',
+    history: 'Eruption history (VEI)',
+    historyNote: (n, from) => `${n} confirmed eruptions since ${from} according to the Smithsonian GVP. Bar height is the VEI (explosivity index); gray = no VEI assigned.`,
+    historyOlder: (n, first) => `Plus ${n} earlier eruptions, the oldest in ${first}.`,
+    noHistory: 'GVP records no confirmed Holocene eruptions for this volcano.',
+    vei: 'VEI scale (Volcanic Explosivity Index)',
+    veiNote: 'From VEI 2 on, each step multiplies the erupted volume by 10. Newhall and Self (1982), used by the Smithsonian GVP.',
+    veiCol: ['VEI', 'Erupted material', 'Example'],
+    veiRows: [
+      ['0', 'under 10,000 m³', 'Kīlauea (effusive, lava flows)'], ['1', '10,000 m³ – 1 million m³', 'Stromboli'],
+      ['2', '1 – 10 million m³', 'Galeras, Colombia (1993)'], ['3', '10 – 100 million m³', 'Nevado del Ruiz, Colombia (1985)'],
+      ['4', '0.1 – 1 km³', 'Eyjafjallajökull, Iceland (2010)'], ['5', '1 – 10 km³', 'Mount St. Helens, USA (1980)'],
+      ['6', '10 – 100 km³', 'Pinatubo, Philippines (1991)'], ['7', '100 – 1,000 km³', 'Tambora, Indonesia (1815)'],
+      ['8', 'over 1,000 km³', 'Yellowstone, USA (about 640,000 years ago)'],
+    ],
+    alert: 'Official alert level',
+    alertLevels: { NORMAL: 'Normal', ADVISORY: 'Advisory', WATCH: 'Watch', WARNING: 'Warning', UNASSIGNED: 'Unassigned' },
+    colors: { GREEN: 'green', YELLOW: 'yellow', ORANGE: 'orange', RED: 'red', UNASSIGNED: 'unassigned' },
+    alertPre: 'The alert level is set by the local observatory: ', alertPost: 'It publishes no data service we can read, so only the link is shown here.', aviation: 'aviation color code',
+    alertNone: 'We do not have this country’s official observatory on file. Check your local civil protection authority.',
+    vaac: 'Volcanic ash and aviation',
+    vaacPre: 'Ash cloud advisories for aviation in this region are issued by ',
+    vaacNote: 'Approximate assignment by region; the exact boundaries of each VAAC are set by ICAO.',
+    summary: 'Geological summary (Smithsonian GVP)', elevation: 'Elevation', bce: 'BCE', unknownVei: 'no VEI',
+  },
+};
+
+/* ───────────── Tsunamis ───────────── */
+
+type TS = {
+  title: string; why: string; whyNote: string;
+  checks: { sea: [string, string]; shallow: [string, string]; big: [string, string]; thrust: [string, string] };
+  yes: string; no: string; unknown: string;
+  maps: string; buoys: string; buoysNote: string; reporting: string; notReporting: string; last: (d: string) => string; km: (k: string) => string;
+  history: string; historyNote: string; historyNone: string; wave: (m: string) => string; deaths: (n: string) => string;
+};
+
+export const TSU: Record<Lang, TS> = {
+  es: {
+    title: 'Tsunami',
+    why: '¿Podía generar un tsunami?',
+    whyNote: 'Son las condiciones que suelen tener los sismos que generan tsunamis grandes; no es un pronóstico. La señal oficial son los mensajes de los centros de alerta.',
+    checks: {
+      sea: ['Epicentro en el mar', 'El fondo marino tiene que moverse para empujar el agua.'],
+      shallow: ['Poco profundo (70 km o menos)', 'Si la ruptura es muy profunda, casi no deforma el fondo marino.'],
+      big: ['Magnitud 7 o más', 'Hace falta mucha energía para mover grandes volúmenes de agua; los tsunamis destructivos lejanos suelen venir de M8+.'],
+      thrust: ['Falla inversa (movimiento vertical)', 'Las fallas inversas de subducción levantan el fondo marino; las de rumbo lo mueven de costado y empujan poca agua.'],
+    },
+    yes: 'Sí', no: 'No', unknown: 'Sin dato',
+    maps: 'Mapas de los centros de alerta',
+    buoys: 'Boyas DART cercanas (NOAA)',
+    buoysNote: 'Las boyas DART miden desde el fondo del mar el paso de un tsunami. Estado según la lista de estaciones activas de NDBC (NOAA).',
+    reporting: 'transmitiendo', notReporting: 'sin datos recientes', last: (d) => `último dato: ${d}`, km: (k) => `a ${k} km`,
+    history: 'Tsunamis históricos en la zona (400 km)', historyNote: 'Tsunamis desde 1900 según la base de NOAA NCEI, ordenados por altura máxima de ola.',
+    historyNone: 'NCEI no registra tsunamis a menos de 400 km desde 1900.',
+    wave: (m) => `ola máxima ${m} m`, deaths: (n) => (n === '1' ? '1 muerte' : `${n} muertes`),
+  },
+  en: {
+    title: 'Tsunami',
+    why: 'Could it generate a tsunami?',
+    whyNote: 'These are the conditions earthquakes that generate large tsunamis usually have; this is not a forecast. The official signal is the warning centers’ messages.',
+    checks: {
+      sea: ['Epicenter at sea', 'The seafloor has to move to push the water.'],
+      shallow: ['Shallow (70 km or less)', 'A very deep rupture barely deforms the seafloor.'],
+      big: ['Magnitude 7 or greater', 'Moving large volumes of water takes a lot of energy; distant destructive tsunamis usually come from M8+.'],
+      thrust: ['Reverse fault (vertical motion)', 'Subduction reverse faults lift the seafloor; strike-slip faults move it sideways and push little water.'],
+    },
+    yes: 'Yes', no: 'No', unknown: 'No data',
+    maps: 'Warning center maps',
+    buoys: 'Nearby DART buoys (NOAA)',
+    buoysNote: 'DART buoys detect a passing tsunami from the seafloor. Status from the NDBC (NOAA) active stations list.',
+    reporting: 'reporting', notReporting: 'no recent data', last: (d) => `latest data: ${d}`, km: (k) => `${k} km away`,
+    history: 'Historical tsunamis in the area (400 km)', historyNote: 'Tsunamis since 1900 from the NOAA NCEI database, sorted by maximum wave height.',
+    historyNone: 'NCEI records no tsunamis within 400 km since 1900.',
+    wave: (m) => `max wave ${m} m`, deaths: (n) => (n === '1' ? '1 death' : `${n} deaths`),
+  },
 };

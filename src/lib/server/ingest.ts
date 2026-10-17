@@ -100,6 +100,11 @@ export async function getEvents(range: RangeKey, year: number): Promise<EventsRe
 
 async function reference<T>(key: 'gvp' | 'plates'): Promise<T> {
   let hit = await kvGet<T>(key);
+  // Datos de GVP guardados antes de agregar el ambiente tectónico: se vuelven a pedir.
+  if (key === 'gvp' && hit && Array.isArray(hit.value) && hit.value.length && !('setting' in (hit.value[0] as object))) {
+    await refreshReference(true).catch(() => {});
+    hit = await kvGet<T>(key);
+  }
   if (!hit) {
     const r = await refreshReference();
     hit = await kvGet<T>(key);

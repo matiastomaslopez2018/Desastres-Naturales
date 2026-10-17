@@ -52,6 +52,8 @@ export interface GvpVolcano {
   vtype?: string;
   lastErup?: number | null;
   num: number;
+  /** Ambiente tectónico según GVP (para filtrar por tipo de vulcanismo). */
+  setting?: 'subduction' | 'rift' | 'intraplate' | null;
 }
 
 export type SourceKey = 'usgs' | 'eonet' | 'gdacs' | 'gvp' | 'carto';
@@ -150,6 +152,8 @@ export interface TsunamiMessage {
   lon: number | null;
   magnitude: number | null;
   url: string;
+  /** Mapas publicados con el mensaje (energía, tiempos de viaje), si los hay. */
+  maps?: { title: string; url: string }[];
 }
 
 /** Trayectoria histórica de un ciclón (IBTrACS). Puntos: [lon, lat, viento kt | null]. */

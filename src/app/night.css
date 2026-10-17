@@ -215,3 +215,5 @@
 .hazard-legend { display: flex; flex-direction: column; gap: 6px; padding: 8px 0 4px; }
 .hazard-scale { display: grid; grid-template-columns: repeat(8, 1fr); border-radius: 4px; overflow: hidden; }
 .hazard-scale > span { display: flex; justify-content: center; padding: 3px 0; font-size: 10px; color: #fff; text-shadow: 0 0 3px #000; }
+.seg-wrap { flex-wrap: wrap; margin: 4px 0 8px; }
+.seg-wrap .seg-opt { font-size: 11px; }

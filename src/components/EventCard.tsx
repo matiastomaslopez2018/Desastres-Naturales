@@ -49,6 +49,7 @@ export function EventCard({ lang, e, detail, detailLoading, onClose, actions, ts
     add(f.vtype, localVolcanoType(e.vtype, lang));
     add(f.lastErup, e.lastErup != null ? (e.lastErup < 0 ? `${nf(-e.lastErup)} ${t.bce}` : e.lastErup) : null);
     add(f.coords, coords());
+    links.push({ label: t.volcPage, url: `/api/volcano-link?vn=${e.num}&lang=${lang}` });
     links.push({ label: 'Smithsonian · Global Volcanism Program', url: `https://volcano.si.edu/volcano.cfm?vn=${e.num}` });
   } else {
     const status = e.type === 'eq' ? (e.status === 'reviewed' ? t.revShort : e.status === 'automatic' ? t.autoShort : '') : '';

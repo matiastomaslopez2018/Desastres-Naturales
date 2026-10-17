@@ -178,7 +178,7 @@ export async function fetchGdacsEvent(eventType: string, eventId: string): Promi
 
 type GvpFeature = {
   geometry: { coordinates: [number, number] } | null;
-  properties: { Volcano_Number: number; Volcano_Name: string; Country: string; Primary_Volcano_Type: string; Last_Eruption_Year: number | null };
+  properties: { Volcano_Number: number; Volcano_Name: string; Country: string; Primary_Volcano_Type: string; Last_Eruption_Year: number | null; Tectonic_Setting?: string | null };
 };
 
 export async function fetchGvp(): Promise<GvpVolcano[]> {
@@ -192,6 +192,7 @@ export async function fetchGvp(): Promise<GvpVolcano[]> {
       return {
         id: 'gvp-' + p.Volcano_Number, type: 'gvp', src: 'GVP', lon, lat, title: p.Volcano_Name,
         country: p.Country, vtype: p.Primary_Volcano_Type, lastErup: p.Last_Eruption_Year, num: p.Volcano_Number,
+        setting: /subduction/i.test(p.Tectonic_Setting ?? '') ? 'subduction' : /rift/i.test(p.Tectonic_Setting ?? '') ? 'rift' : /intraplate/i.test(p.Tectonic_Setting ?? '') ? 'intraplate' : null,
       } satisfies GvpVolcano;
     });
 }

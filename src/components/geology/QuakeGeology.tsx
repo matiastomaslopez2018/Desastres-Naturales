@@ -96,7 +96,7 @@ export async function QuakeGeology({ lang, e }: { lang: Lang; e: DisasterEvent }
               <tbody>
                 {fcst.map((f) => (
                   <tr key={f.label}>
-                    <th scope="row">{OAF_WINDOW[lang][f.label] ?? f.label}<span className="ed-note"> · {fmtTime(lang, f.start, 'UTC').split(' · ')[0]}</span></th>
+                    <th scope="row">{OAF_WINDOW[lang][f.label] ?? f.label}</th>
                     {f.bins.map((b) => (
                       <td key={b.mag} className={b.prob >= 0.5 ? 'red' : ''}>
                         {b.prob >= 0.995 ? '>99' : b.prob < 0.01 && b.prob > 0 ? '<1' : nf(b.prob * 100)} %
@@ -108,7 +108,7 @@ export async function QuakeGeology({ lang, e }: { lang: Lang; e: DisasterEvent }
               </tbody>
             </table>
           </div>
-          <p className="ed-note">{g.oafNote} {g.oafModel}: {oaf.model} · <a href={oaf.url} target="_blank" rel="noopener noreferrer">USGS ↗</a></p>
+          <p className="ed-note">{g.oafIssued(fmtTime(lang, oaf.created, 'UTC'))} {g.oafNote} {g.oafModel}: {oaf.model} · <a href={oaf.url} target="_blank" rel="noopener noreferrer">USGS ↗</a></p>
         </div>
       )}
 
@@ -119,7 +119,7 @@ export async function QuakeGeology({ lang, e }: { lang: Lang; e: DisasterEvent }
             {geo.history.map((h) => (
               <li key={h.id}>
                 <a href={h.url} target="_blank" rel="noopener noreferrer">{h.year}</a> · {h.location}{h.mag != null ? ` · M ${nf(h.mag, 1)}` : ''}
-                {h.deaths ? <strong> · {nf(h.deaths)} {g.deaths}</strong> : ''}
+                {h.deaths ? <strong> · {nf(h.deaths)} {h.deaths === 1 ? g.death : g.deaths}</strong> : ''}
               </li>
             ))}
           </ul>

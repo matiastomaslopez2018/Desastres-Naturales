@@ -97,3 +97,13 @@ export async function getNearbyHistory(lat: number, lon: number, radiusDeg = 3, 
   }));
   return { events: r.value, fetchedAt: r.at };
 }
+
+/** Tsunamis significativos a menos de `radiusDeg` de un punto (NCEI), con altura máxima de ola. */
+export async function getNearbyTsunamis(lat: number, lon: number, radiusDeg = 3, minYear = 1900) {
+  const key = `ncei:tsu:${lat.toFixed(1)}:${lon.toFixed(1)}:${radiusDeg}:${minYear}`;
+  const r = await kvCached(key, 7 * 24 * 36e5, () => query('tsunami', {
+    minLatitude: Math.max(-90, lat - radiusDeg), maxLatitude: Math.min(90, lat + radiusDeg),
+    minLongitude: Math.max(-180, lon - radiusDeg), maxLongitude: Math.min(180, lon + radiusDeg), minYear,
+  }));
+  return { events: r.value, fetchedAt: r.at };
+}
