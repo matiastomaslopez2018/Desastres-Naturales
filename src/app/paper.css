@@ -147,6 +147,8 @@ button.ed-button { background: none; cursor: pointer; color: inherit; font-famil
   .week-cols { grid-template-columns: 1fr; gap: 36px; }
   /* minmax(0, 1fr): una columna "1fr" se estira con contenido que no se parte y desborda la página. */
   .ed-grid, .ed-event { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+  /* En el celular la ficha (imagen y título) va primero; el globo de ubicación, después. */
+  .ed-event-figure { order: 2; }
   .ed-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ed-stat:nth-child(3) { padding-left: 0; border-left: 0; }
   .ed-stat:nth-child(n+3) { border-top: 1px solid var(--rule); }
