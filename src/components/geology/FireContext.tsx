@@ -14,7 +14,7 @@ const TXT = {
     wind: 'Viento: dirección probable de propagación', windNote: 'Viento a 10 m del modelo GFS de NOAA. La flecha apunta hacia donde sopla, que es la dirección probable de propagación según el viento. No es un pronóstico oficial del incendio: el relieve, el combustible y el combate cambian su avance.',
     windRun: (d: string) => `Corrida GFS de ${d}.`, windNone: 'No se pudo leer el pronóstico de viento de NOAA.',
     spread: 'Evolución: focos de calor de los últimos 7 días', spreadNote: 'Focos detectados por el satélite VIIRS (NASA FIRMS) a unos 40 km a la redonda. Un foco no siempre es este incendio: puede ser otra quema cercana.',
-    spreadNoKey: 'Requiere la clave de NASA FIRMS.',
+    spreadNoKey: 'Requiere la clave de NASA FIRMS.', spreadError: 'NASA FIRMS no respondió; se vuelve a intentar en unos minutos.',
     perimeter: 'Perímetro oficial (NIFC)', perimeterText: (n: string, a: string, c: string) => `${n}: ${a} acres${c}.`, contained: (p: string) => `, ${p} % contenido`,
     burned: 'Área quemada', burnedText: 'El área quemada estimada por satélite está en el visor de Copernicus GWIS.', burnedLink: "Abrir el visor de GWIS",
     smoke: 'Humo', smokeText: 'El pronóstico de humo y aerosoles lo publica Copernicus CAMS.', smokeLink: 'Ver pronóstico de aerosoles (CAMS)',
@@ -30,7 +30,7 @@ const TXT = {
     wind: 'Wind: likely direction of spread', windNote: '10 m wind from the NOAA GFS model. The arrow points where the wind blows, the likely direction of spread according to the wind. This is not an official fire forecast: terrain, fuel and firefighting change how it advances.',
     windRun: (d: string) => `GFS run of ${d}.`, windNone: 'The NOAA wind forecast could not be read.',
     spread: 'Evolution: hotspots of the last 7 days', spreadNote: 'Hotspots detected by the VIIRS satellite (NASA FIRMS) within about 40 km. A hotspot is not always this fire: it may be another nearby burn.',
-    spreadNoKey: 'Requires the NASA FIRMS key.',
+    spreadNoKey: 'Requires the NASA FIRMS key.', spreadError: 'NASA FIRMS did not respond; it will be retried in a few minutes.',
     perimeter: 'Official perimeter (NIFC)', perimeterText: (n: string, a: string, c: string) => `${n}: ${a} acres${c}.`, contained: (p: string) => `, ${p}% contained`,
     burned: 'Burned area', burnedText: 'Satellite-estimated burned area is in the Copernicus GWIS viewer.', burnedLink: "Open the GWIS viewer",
     smoke: 'Smoke', smokeText: 'Smoke and aerosol forecasts are published by Copernicus CAMS.', smokeLink: 'See aerosol forecast (CAMS)',
@@ -83,7 +83,7 @@ export async function FireContext({ lang, e }: { lang: Lang; e: DisasterEvent })
 
       <div className="geo-block">
         <h3 className="geo-h">{t.spread}</h3>
-        {pts ? <FireSpread points={pts} center={[e.lon, e.lat]} perimeter={perim?.geometry ?? null} labels={t.labels} lang={lang} /> : <p className="ed-note">{t.spreadNoKey}</p>}
+        {Array.isArray(pts) ? <FireSpread points={pts} center={[e.lon, e.lat]} perimeter={perim?.geometry ?? null} labels={t.labels} lang={lang} /> : <p className="ed-note">{pts === 'nokey' ? t.spreadNoKey : t.spreadError}</p>}
         <p className="ed-note">{t.spreadNote}</p>
       </div>
 

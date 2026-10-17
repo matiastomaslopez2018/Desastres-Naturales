@@ -90,21 +90,28 @@ export async function windForecast(lon: number, lat: number): Promise<{ run: num
 
 export type FirePoint = [lon: number, lat: number, day: string, frp: number];
 
-export async function firms7(lon: number, lat: number): Promise<FirePoint[] | null> {
+/** Focos de los últimos 7 días: 'nokey' sin FIRMS_MAP_KEY, 'error' si FIRMS no respondió. */
+export async function firms7(lon: number, lat: number): Promise<FirePoint[] | 'nokey' | 'error'> {
   const key = firmsKey();
-  if (!key) return null;
+  if (!key) return 'nokey';
   const d = 0.4;
-  const r = await kvCached(`fire1:firms7:${r2(lon)}:${r2(lat)}:${Math.floor(Date.now() / (3 * 36e5))}`, 3 * 36e5, async () => {
-    const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${key}/VIIRS_SNPP_NRT/${(lon - d).toFixed(3)},${(lat - d).toFixed(3)},${(lon + d).toFixed(3)},${(lat + d).toFixed(3)}/7`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(30000) });
-    if (!res.ok) throw new Error(`FIRMS ${res.status}`);
-    const [head, ...rows] = (await res.text()).trim().split('\n');
+  const r = await kvCached(`fire2:firms7:${r2(lon)}:${r2(lat)}:${Math.floor(Date.now() / (3 * 36e5))}`, 3 * 36e5, async () => {
+    // Un pedido por día: la API de área limita el rango de días de cada pedido.
+    const area = `${(lon - d).toFixed(3)},${(lat - d).toFixed(3)},${(lon + d).toFixed(3)},${(lat + d).toFixed(3)}`;
+    const texts = await Promise.all(Array.from({ length: 7 }, (_, k) => iso(Date.now() - k * DAY)).map(async (date) => {
+      const res = await fetch(`https://firms.modaps.eosdis.nasa.gov/api/area/csv/${key}/VIIRS_SNPP_NRT/${area}/1/${date}`, { signal: AbortSignal.timeout(30000) });
+      const body = await res.text();
+      if (!res.ok || !/latitude/i.test(body.slice(0, 300))) throw new Error(`FIRMS ${res.status}: ${body.slice(0, 160)}`);
+      return body;
+    }));
+    const lines = texts.flatMap((t, i) => t.trim().split('\n').slice(i === 0 ? 0 : 1));
+    const [head, ...rows] = lines;
     const h = head.split(',');
     const I = (n: string) => h.indexOf(n);
     return rows.map((l) => l.split(',')).map((c) => [r2(+c[I('longitude')] * 50) / 50, r2(+c[I('latitude')] * 50) / 50, c[I('acq_date')], Math.round(+c[I('frp')] * 10) / 10] as FirePoint)
       .filter((p) => Number.isFinite(p[0]) && Number.isFinite(p[1]));
-  }).catch(() => null);
-  return r?.value ?? null;
+  }).catch((err) => { console.error('[firms7]', err instanceof Error ? err.message : err); return null; });
+  return r?.value ?? 'error';
 }
 
 /* ───────────── Perímetro oficial en EE. UU. (NIFC WFIGS) ───────────── */
