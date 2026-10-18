@@ -651,8 +651,9 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
             {layers.hazard && (
               <div className="hazard-legend">
                 <div className="hazard-scale" role="img" aria-label={t.hazardLegend} style={{ gridTemplateColumns: `repeat(${HAZARD_LEVELS.length}, 1fr)` }}>
-                  {HAZARD_LEVELS.map(([v, c]) => (
-                    <span key={v} style={{ background: c }}><span className="mono">{nf(v, 2)}</span></span>
+                  {/* 9 clases: se rotula una sí y una no para que entren los números; todas tienen su valor al pasar el mouse. */}
+                  {HAZARD_LEVELS.map(([v, c], i) => (
+                    <span key={v} style={{ background: c }} title={`≥ ${nf(v, 2)} g`}><span className="mono">{i % 2 === 0 ? nf(v, 2) : ' '}</span></span>
                   ))}
                 </div>
                 <span className="faint small">{t.hazardUnit}</span>
