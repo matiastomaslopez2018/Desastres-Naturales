@@ -262,3 +262,6 @@ body { background: #fafaf8; color: #141414; }
 .type-row-wrap > .info-pop { position: absolute; left: 0; right: 0; top: 100%; z-index: 2; margin: 0; padding: 8px 10px; border-radius: 10px; background: #fff; box-shadow: var(--panel-shadow); }
 /* Anchos intermedios: la ayuda va arriba (sin estirarse entre top y bottom). */
 @media (min-width: 761px) and (max-width: 1250px) { .map-help { bottom: auto; top: 72px; } }
+
+/* Aviso de contexto WebGL perdido (se reintenta solo). */
+.gl-lost { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 4; max-width: min(420px, calc(100% - 32px)); padding: 12px 18px; border-radius: 14px; background: #fff; box-shadow: var(--panel-shadow); font-size: 14px; text-align: center; color: var(--text); }

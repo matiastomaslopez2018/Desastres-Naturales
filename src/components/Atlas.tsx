@@ -394,6 +394,12 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
   }, [playing, win, span, range, speed]);
+  // Pestaña oculta: se pausa la reproducción (no tiene sentido seguir dibujando lo que nadie ve).
+  useEffect(() => {
+    const onVis = () => { if (document.hidden) setPlaying(false); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, []);
   const togglePlay = () => {
     if (!win) return;
     if (!playing && (head == null || head >= win.e)) setHead(win.s);
@@ -596,7 +602,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
         <div className="globe-area">
           <Globe ref={globe} events={drawn} gvp={gvpShown} layers={drawLayers} overlays={overlays} selected={sel} showTsunami={types.tsunami}
             terrain={terrain} playHead={head} flashSpan={flashSpan} onSelect={select} onHover={setHover} onCarto={onCarto} onView={setView}
-            onPitch={setPitched} onLowFps={onLowFps} onRaster={onRaster} loadingText={t.loadingRelief} />
+            onPitch={setPitched} onLowFps={onLowFps} onRaster={onRaster} loadingText={t.loadingRelief} lostText={t.glLost} />
         </div>
 
         {head != null

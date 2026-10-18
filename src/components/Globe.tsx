@@ -1,6 +1,6 @@
 'use client';
 
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import maplibregl, { type GeoJSONSource, type LayerSpecification, type Map as MLMap, type MapGeoJSONFeature, type StyleSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { mesh } from 'topojson-client';
@@ -48,7 +48,16 @@ type Props = {
    */
   playHead?: number | null;
   flashSpan?: number;
+  /** Aviso cuando el navegador quita el contexto WebGL (por falta de memoria gráfica) y se reintenta. */
+  lostText?: string;
 };
+
+/** Fuentes ráster (las que ocupan texturas en la GPU). */
+const RASTER_SOURCES = new Set(['bm', 's2', 'dem', 'hazard', 'fwi', 'lhasa']);
+
+/** Mapas vivos en la página (diagnóstico: tiene que ser 0 o 1; lo leen las pruebas en window.__mapasVivos). */
+let mapsAlive = 0;
+const countMaps = (d: number) => { mapsAlive += d; if (typeof window !== 'undefined') (window as unknown as { __mapasVivos: number }).__mapasVivos = mapsAlive; };
 
 /* ───────────── Fondo y relieve ───────────── */
 
@@ -319,6 +328,9 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
   const pick = useRef(new Map<string, Pickable>());
   const profile = useRef<Profile>({ mobile: false, slow: false });
   const evFeats = useRef<GeoJSON.Feature[]>([]);
+  /** Generación del mapa: sube al recrearlo tras perder el contexto WebGL (todos los datos se vuelven a aplicar). */
+  const [gen, setGen] = useState(0);
+  const [lost, setLost] = useState(false);
   const lastClusterPlay = useRef(0);
   const terrainRef = useRef(props.terrain);
   terrainRef.current = props.terrain;
@@ -401,10 +413,43 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
       dragRotate: true,
       touchPitch: true,
       fadeDuration: 150,
+      // Memoria: caché de teselas fuera de vista acotada por fuente (MapLibre usa por defecto ~5 pantallas:
+      // ~175 teselas a 1440 px, que con imágenes y relieve suman cientos de MB) y resolución de dibujo
+      // como mucho 2× (1,5× en el celular).
+      maxTileCacheSize: profile.current.mobile ? 30 : 60,
+      pixelRatio: Math.min(window.devicePixelRatio || 1, profile.current.mobile ? 1.5 : 2),
     });
     mapRef.current = m;
+    countMaps(1);
+    // Diagnóstico de memoria (lo leen las pruebas): teselas en vista y en caché por fuente, y una
+    // estimación de las texturas de las fuentes ráster (256×256×4 bytes por tesela; elevación, el doble).
+    (window as unknown as { __mapaTeselas: () => unknown }).__mapaTeselas = () => {
+      const tm = (m as unknown as { style?: { tileManagers?: Record<string, { _inViewTiles?: { _tiles: object }; _outOfViewCache?: { order: unknown[] } }> } }).style?.tileManagers ?? {};
+      const out: Record<string, [number, number]> = {};
+      let bytes = 0;
+      for (const [id, c] of Object.entries(tm)) {
+        const inView = Object.keys(c._inViewTiles?._tiles ?? {}).length, cached = c._outOfViewCache?.order.length ?? 0;
+        if (inView + cached) out[id] = [inView, cached];
+        if (RASTER_SOURCES.has(id)) bytes += (inView + cached) * 262144 * (id === 'dem' ? 2 : 1);
+      }
+      return { teselas: out, texturasMB: Math.round(bytes / 1048576) };
+    };
+
+    // Contexto WebGL perdido (el navegador lo quita cuando le falta memoria gráfica): aviso y, si no
+    // vuelve solo en 4 s, se recrea el mapa en lugar de dejar la pestaña colgada.
+    let lostTimer: ReturnType<typeof setTimeout> | undefined;
+    m.on('webglcontextlost', () => {
+      setLost(true); cancelFlight();
+      lostTimer = setTimeout(() => setGen((g) => g + 1), 4000);
+    });
+    m.on('webglcontextrestored', () => { clearTimeout(lostTimer); setLost(false); });
+
+    // Pestaña oculta: se cancela el vuelo y se detiene la cámara (el navegador ya no pide cuadros).
+    const onVis = () => { if (document.hidden) { cancelFlight(); m.stop(); } };
+    document.addEventListener('visibilitychange', onVis);
     m.on('styleimagemissing', (e) => { const img = makeIcon(e.id); if (img && !m.hasImage(e.id)) m.addImage(e.id, img, { pixelRatio: 2 }); });
     m.on('load', () => {
+      setLost(false);
       // Atribución compacta: el botón (i) la despliega; de entrada queda cerrada.
       wrap.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show');
       ready.current = true;
@@ -459,9 +504,19 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
 
     const ro = new ResizeObserver(() => m.resize());
     ro.observe(wrap);
-    return () => { ro.disconnect(); m.remove(); mapRef.current = null; ready.current = false; };
+    return () => {
+      clearTimeout(lostTimer);
+      document.removeEventListener('visibilitychange', onVis);
+      ro.disconnect();
+      const gl = m.getCanvas().getContext('webgl2') ?? m.getCanvas().getContext('webgl');
+      m.remove();
+      // map.remove() ya suelta el contexto; por si el navegador lo retiene, se fuerza la pérdida.
+      try { gl?.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* ya liberado */ }
+      mapRef.current = null; ready.current = false; queue.current = [];
+      countMaps(-1);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [gen]);
 
   /* ── Geometrías fijas y placas (en paralelo con el estilo) ── */
   useEffect(() => {
@@ -475,7 +530,7 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
       })
       .catch(() => propsRef.current.onCarto({ state: 'err' }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [gen]);
 
   /* ── Terreno 3D: solo con el interruptor encendido y desde TERRAIN_MIN_ZOOM ── */
   useEffect(() => {
@@ -491,7 +546,7 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
     });
     return () => cleanupTerrain.current();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.terrain]);
+  }, [gen, props.terrain]);
 
   /* ── Visibilidad de capas ── */
   useEffect(() => {
@@ -513,7 +568,7 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.layers]);
+  }, [gen, props.layers]);
 
   /* ── Eventos (agrupados solo con más de 2.000 puntos, p. ej. un año) ── */
   useEffect(() => {
@@ -530,7 +585,7 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
     const tracks = props.events.filter((e) => e.track && e.track.length > 1).map((e) => line(e.track!));
     setData('ev-tracks', fc(tracks));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.events, props.showTsunami]);
+  }, [gen, props.events, props.showTsunami]);
 
   /* ── Selección ── */
   useEffect(() => {
@@ -538,14 +593,14 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
     const r = s && s.type !== 'heat' && 'mag' in s && s.type === 'eq' ? baseRadius(s as DisasterEvent) : 6;
     setData('sel', s ? fc([pt(s.lon, s.lat, { r })]) : EMPTY);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.selected]);
+  }, [gen, props.selected]);
 
   /* ── Volcanes del Holoceno (referencia) ── */
   useEffect(() => {
     const ids = pick.current;
     setData('gvp', fc(props.gvp.map((v, i) => { const pid = `g:${i}`; ids.set(pid, v); return pt(v.lon, v.lat, { pid }); })));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.gvp]);
+  }, [gen, props.gvp]);
 
   /* ── Ciclones (dependen también del cabezal de la línea de tiempo) ── */
   useEffect(() => {
@@ -581,7 +636,7 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
     });
     setData('storm-areas', fc(areas)); setData('storm-lines', fc(lines)); setData('storm-pts', fc(pts));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.overlays?.storms, props.overlays?.stormAnim, props.playHead]);
+  }, [gen, props.overlays?.storms, props.overlays?.stormAnim, props.playHead]);
 
   /* ── Reproducción: filtro por tiempo en las capas (sin volver a cargar datos) ── */
   useEffect(() => {
@@ -604,18 +659,18 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
         m.setPaintProperty('ev-flash', 'circle-stroke-opacity', ['-', 1, age] as never);
         m.setPaintProperty('ev-flash', 'circle-radius', ['interpolate', ['linear'], ['zoom'], 1, r, 8, ['*', 1.8, r]] as never);
       } else m.setFilter('ev-flash', ['boolean', false]);
-      // Con más de 2.000 eventos (fuente agrupada) el filtro va en los datos, como mucho 4 veces por segundo.
+      // Con más de 2.000 eventos (fuente agrupada) el filtro va en los datos, como mucho una vez por segundo (regenerar 17.000 puntos agrupados cuesta memoria).
       const feats = evFeats.current;
       if (feats.length > 2000) {
         const now = performance.now();
-        if (head == null || now - lastClusterPlay.current > 250) {
+        if (head == null || now - lastClusterPlay.current > 1000) {
           lastClusterPlay.current = now;
           (m.getSource('evc') as GeoJSONSource | undefined)?.setData(fc(head == null ? feats : feats.filter((x) => (x.properties!.ts as number) <= head)));
         }
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.playHead, props.flashSpan, props.events]);
+  }, [gen, props.playHead, props.flashSpan, props.events]);
 
   /* ── Capas de otras fuentes ── */
   useEffect(() => {
@@ -653,7 +708,12 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
     }
     setData('platevec', fc(vl)); setData('platehead', fc(vh));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.overlays]);
+  }, [gen, props.overlays]);
 
-  return <div ref={wrapRef} className="globe-gl" style={{ position: 'absolute', inset: 0 }} />;
+  return (
+    <>
+      <div ref={wrapRef} className="globe-gl" style={{ position: 'absolute', inset: 0 }} />
+      {lost && <div className="gl-lost" role="status">{props.lostText ?? '…'}</div>}
+    </>
+  );
 });
