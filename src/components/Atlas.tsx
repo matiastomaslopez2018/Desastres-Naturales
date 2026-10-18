@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { geoDistance } from 'd3-geo';
 import { Globe } from './Globe';
@@ -106,6 +106,18 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
   const globe = useRef<GlobeHandle>(null);
   // Hoja inferior de "Más relevantes" en celular: cerrada asoma 2–3 ítems; se arrastra hacia arriba.
   const [sheetOpen, setSheetOpen] = useState(false);
+  /** Panel derecho desplegado (en escritorio se puede plegar con ‹ ›); "Ver todos" en la lista. */
+  const [rightOpen, setRightOpen] = useState(true);
+  const [showAllTop, setShowAllTop] = useState(false);
+  /** Pantalla completa: sin paneles, solo el globo y la línea de tiempo. */
+  const [bare, setBare] = useState(false);
+  const [volcInfo, setVolcInfo] = useState(false);
+  useEffect(() => {
+    if (!bare) return;
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setBare(false); };
+    window.addEventListener('keydown', esc);
+    return () => window.removeEventListener('keydown', esc);
+  }, [bare]);
   const sheetRef = useRef<HTMLElement>(null);
   const drag = useRef<{ y: number; h: number; moved: number } | null>(null);
   const selId = useRef<string | null>(null);
@@ -470,6 +482,24 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
   const [coarse, setCoarse] = useState(false);
   // Táctil: puntero grueso o pantalla táctil (algunos navegadores no informan uno de los dos).
   useEffect(() => setCoarse(!!window.matchMedia?.('(pointer: coarse)').matches || navigator.maxTouchPoints > 0 || 'ontouchstart' in window), []);
+  // Titular en la barra superior: entre 1100 y 1300 px, si el texto completo no entra en dos líneas,
+  // solo la primera frase con "…" (el completo queda en el title, al pasar el mouse).
+  const hlRef = useRef<HTMLParagraphElement>(null);
+  const [hlShort, setHlShort] = useState(false);
+  const [vw, setVw] = useState(0);
+  useEffect(() => {
+    const on = () => setVw(window.innerWidth);
+    on(); window.addEventListener('resize', on);
+    return () => window.removeEventListener('resize', on);
+  }, []);
+  // Ante un cambio de ancho o de titular se vuelve al texto completo y se mide de nuevo.
+  useLayoutEffect(() => setHlShort(false), [headline, vw]);
+  useLayoutEffect(() => {
+    const el = hlRef.current;
+    if (hlShort || !el || vw < 1100 || vw > 1300) return;
+    if (el.scrollHeight > el.clientHeight + 1) setHlShort(true);
+  }, [hlShort, headline, vw]);
+  const hlFirst = headline ? `${headline.split(/(?<=\.)\s/)[0].replace(/\.$/, '')}…` : '';
   const helpText = pitched ? (coarse ? t.helpTerrainTouch : t.helpTerrain) : coarse ? t.helpTouch : t.help;
   const ri = rangeInfo(range, year);
   const rangeNote = range === 'year' ? `${t.noteLong} ${t.noteYear}` : ri.days > 31 ? t.noteLong : t.noteShort;
@@ -561,7 +591,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
 
   return (
     <div className="theme-night map-shell">
-      <section className="map-stage" aria-label={t.brand}>
+      <section className={`map-stage${bare ? ' is-bare' : ''}${!rightOpen && !sel ? ' right-collapsed' : ''}`} aria-label={t.brand}>
         {/* El globo vive entre la barra superior y la línea de tiempo: nada lo tapa. */}
         <div className="globe-area">
           <Globe ref={globe} events={drawn} gvp={gvpShown} layers={drawLayers} overlays={overlays} selected={sel} showTsunami={types.tsunami}
@@ -575,7 +605,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
               {/* FIRMS solo trae las últimas 24 h: antes de ese tramo no hay focos que mostrar. */}
               {drawLayers.firms && range !== '24h' && head < Date.now() - 864e5 && <p className="map-playnote">{t.firmsOnly24h}</p>}
             </div>
-          : headline && !sel && <p className="map-headline">{headline}</p>}
+          : null}
         <p className="map-help">{helpText}</p>
 
         {tsunami && tsunami.active.length > 0 && (
@@ -590,13 +620,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
 
         <header className="map-top">
           <Link href={`/${lang}`} className="map-brand logo"><LogoMark /><span className="logo-text">{t.brand}</span></Link>
-          <div className="chips" role="group" aria-label={t.types}>
-            {TYPE_ORDER.map((k) => (
-              <button key={k} className="chip" aria-pressed={types[k]} onClick={() => toggleType(k)}>
-                <TypeDot type={k} />{t.Tshort[k]}
-              </button>
-            ))}
-          </div>
+          {headline && <p ref={hlRef} className="map-top-headline" title={headline}>{hlShort ? hlFirst : headline}</p>}
           <span className={`live${allOk ? '' : ' degraded'}`} title={t.dataStatus}>
             <span className="live-dot" />
             <span className="live-text">
@@ -629,16 +653,22 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
           </div>
           <div className="type-list" role="group" aria-label={t.types}>
             {TYPE_ORDER.map((k) => (
-              <button key={k} className="type-row" aria-pressed={types[k]} onClick={() => toggleType(k)}>
+              <div key={k} className="type-row-wrap">
+              <button className="type-row" aria-pressed={types[k]} onClick={() => toggleType(k)}>
                 <Glyph shape={SHAPE[k]} type={k} />
                 <span className="type-name">{t.T[k]}</span>
                 <span className="mono faint" title={k === 'volcano' && gvpActive ? [t.volcCountNote(gvpActive), weeklyDown ? t.weeklyDownNote(fmtDay(lang, weeklyDown)) : ''].filter(Boolean).join('. ') : undefined}>{nf(counts[k] + (k === 'volcano' ? gvpActive : 0))}</span>
               </button>
+              {k === 'volcano' && weeklyDown != null && gvpActive > 0 && (
+                <button type="button" className="info-i" aria-expanded={volcInfo} aria-label={t.weeklyDownNote(fmtDay(lang, weeklyDown))}
+                  title={t.weeklyDownNote(fmtDay(lang, weeklyDown))} onClick={() => setVolcInfo((v) => !v)}>i</button>
+              )}
+              {k === 'volcano' && volcInfo && weeklyDown != null && <p className="note faint small info-pop">{t.weeklyDownNote(fmtDay(lang, weeklyDown))}.</p>}
+              </div>
             ))}
           </div>
-          {weeklyDown != null && gvpActive > 0 && <p className="note faint small">{t.weeklyDownNote(fmtDay(lang, weeklyDown))}.</p>}
 
-          <details className="layers" open>
+          <details className="layers">
             <summary className="panel-label">{t.periodFilters}</summary>
           <div className="stack" style={{ marginTop: 10 }}>
             <span className="sr-only">{t.period}</span>
@@ -804,18 +834,21 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
                 onPointerDown={sheetDown} onPointerMove={sheetMove} onPointerUp={sheetUp} onPointerCancel={sheetUp}>
                 <span className="sheet-grip" aria-hidden="true" />
               </button>
-              <span className="panel-label">{t.topTitle}</span>
+              {headline && <p className="sheet-headline">{headline}</p>}
+              <div className="row-between">
+                <span className="panel-label">{t.topTitle}</span>
+                <button type="button" className="panel-fold" onClick={() => setRightOpen(false)} aria-label={t.hidePanel} title={t.hidePanel}>›</button>
+              </div>
               <div className="tabs" role="tablist" aria-label={t.topTitle}>
                 {(['period', 'alerts'] as const).map((k) => (
                   <button key={k} role="tab" aria-selected={tab === k} className="tab"
-                    onClick={() => { setTab(k); setShowAllLong(false); }}>
+                    onClick={() => { setTab(k); setShowAllLong(false); setShowAllTop(false); }}>
                     {k === 'alerts' ? t.tabAlerts : range === '7d' ? t.tabWeek : t.tabPeriod}
                   </button>
                 ))}
               </div>
-              <p className="note" style={{ margin: '0 0 6px' }}>{tab === 'alerts' ? t.tabAlertsSub : t.tabPeriodSub}</p>
               {top.length === 0 && <p className="note">{tab === 'alerts' ? t.noAlerts : t.noData}</p>}
-              {top.map((e) => (
+              {(showAllTop ? top : top.slice(0, 4)).map((e) => (
                 <button key={e.id} className="ev-row" onClick={() => select(e)}>
                   <span className="ev-row-mag" style={{ color: `var(--type-${e.type})` }}>{e.type === 'eq' && e.mag != null ? nf(e.mag, 1) : ''}</span>
                   <span className="ev-row-body">
@@ -827,7 +860,12 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
                   </span>
                 </button>
               ))}
-              {moreLong > 0 && (
+              {top.length > 4 && (
+                <button type="button" className="see-all" onClick={() => setShowAllTop((v) => !v)} aria-expanded={showAllTop}>
+                  {showAllTop ? t.showLess : t.seeAll(top.length)}
+                </button>
+              )}
+              {showAllTop && moreLong > 0 && (
                 <button className="ev-row ev-group" onClick={() => setShowAllLong((v) => !v)} aria-expanded={showAllLong}>
                   <Glyph shape={SHAPE.drought} type="drought" size={12} />
                   <span className="ev-row-body"><span className="ev-row-meta">{showAllLong ? t.showLess : t.moreLong(moreLong)}</span></span>
@@ -837,11 +875,19 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
           )}
         </aside>
 
+        {!rightOpen && !sel && !bare && (
+          <button type="button" className="right-tab" onClick={() => setRightOpen(true)} aria-label={t.showPanel} title={t.showPanel}>‹ <span>{t.topShort}</span></button>
+        )}
         <div className="map-zoom">
           <button onClick={() => globe.current?.zoomBy(1.8)} aria-label={t.zoomIn} title={t.zoomIn}>+</button>
           <button onClick={() => globe.current?.zoomBy(1 / 1.8)} aria-label={t.zoomOut} title={t.zoomOut}>−</button>
           <button onClick={() => { setSel(null); globe.current?.reset(); }} aria-label={t.resetView} title={t.resetView}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></svg>
+          </button>
+          <button onClick={() => setBare((b) => !b)} aria-pressed={bare} aria-label={bare ? t.exitFull : t.fullMap} title={bare ? t.exitFull : t.fullMap}>
+            {bare
+              ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" /></svg>
+              : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></svg>}
           </button>
         </div>
 
