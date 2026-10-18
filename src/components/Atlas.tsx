@@ -72,6 +72,8 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
   });
   const [storms, setStorms] = useState<NhcStorm[]>([]);
   const [volcanoes, setVolcanoes] = useState<VolcanoActivity[]>([]);
+  /** Desde cuándo no responde el reporte semanal del Smithsonian (null si responde). */
+  const [weeklyDown, setWeeklyDown] = useState<number | null>(null);
   const [heat, setHeat] = useState<HeatBin[]>([]);
   const [firmsState, setFirmsState] = useState<FirmsState>('idle');
   const [tracks, setTracks] = useState<HistTrack[]>([]);
@@ -168,7 +170,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
   useEffect(() => {
     const get = <J,>(u: string) => fetch(u).then((r) => (r.ok ? (r.json() as Promise<J>) : Promise.reject(r.status)));
     get<{ storms: NhcStorm[] }>('/api/storms').then((j) => setStorms(j.storms.map((st) => ({ ...st, cone: rewind(st.cone), windField: st.windField?.map((w) => ({ ...w, geometry: rewind(w.geometry) })) })))).catch((e) => console.warn('[atlas] nhc', e));
-    get<{ volcanoes: VolcanoActivity[] }>('/api/volcanoes').then((j) => setVolcanoes(j.volcanoes)).catch((e) => console.warn('[atlas] volcanes', e));
+    get<{ volcanoes: VolcanoActivity[]; weeklyDownSince: number | null }>('/api/volcanoes').then((j) => { setVolcanoes(j.volcanoes); setWeeklyDown(j.weeklyDownSince ?? null); }).catch((e) => console.warn('[atlas] volcanes', e));
     const tsu = () => get<{ messages: TsunamiMessage[]; active: TsunamiMessage[] }>('/api/tsunami').then(setTsunami).catch((e) => console.warn('[atlas] tsunami', e));
     tsu();
     const id = setInterval(tsu, 5 * 6e4);
@@ -583,10 +585,11 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
               <button key={k} className="type-row" aria-pressed={types[k]} onClick={() => toggleType(k)}>
                 <Glyph shape={SHAPE[k]} type={k} />
                 <span className="type-name">{t.T[k]}</span>
-                <span className="mono faint" title={k === 'volcano' && gvpActive ? t.volcCountNote(gvpActive) : undefined}>{nf(counts[k] + (k === 'volcano' ? gvpActive : 0))}</span>
+                <span className="mono faint" title={k === 'volcano' && gvpActive ? [t.volcCountNote(gvpActive), weeklyDown ? t.weeklyDownNote(fmtDay(lang, weeklyDown)) : ''].filter(Boolean).join('. ') : undefined}>{nf(counts[k] + (k === 'volcano' ? gvpActive : 0))}</span>
               </button>
             ))}
           </div>
+          {weeklyDown != null && gvpActive > 0 && <p className="note faint small">{t.weeklyDownNote(fmtDay(lang, weeklyDown))}.</p>}
 
           <div className="stack">
             <span className="panel-label">{t.period}</span>

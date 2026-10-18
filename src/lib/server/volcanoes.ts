@@ -1,6 +1,7 @@
 import 'server-only';
 import { fetchJson } from './cache';
 import { kvCached } from './kvCache';
+import { kvGet, kvSet } from './db';
 import { getGvp } from './ingest';
 import type { VolcanoActivity } from '../types';
 
@@ -67,9 +68,40 @@ async function loadWeekly(): Promise<VolcanoActivity[]> {
  */
 export async function getVolcanoActivity() {
   const weekly = await kvCached('gvp:weekly', 6 * 36e5, loadWeekly).catch((err) => ({ error: String(err instanceof Error ? err.message : err) }));
-  if ('value' in weekly && weekly.value.length) {
-    return { volcanoes: weekly.value, origin: 'weekly' as const, fetchedAt: weekly.at, weeklyError: null };
+  // Un reporte guardado de hace más de 10 días (el sitio cayó después) ya no vale como "esta semana".
+  const fresh = 'value' in weekly && weekly.value.length > 0 && Date.now() - weekly.at < 10 * 864e5;
+  const status = await recordWeeklyStatus(fresh, 'error' in weekly ? weekly.error : fresh ? null : 'reporte viejo o sin ítems').catch(() => null);
+  if (fresh && 'value' in weekly) {
+    return { volcanoes: weekly.value, origin: 'weekly' as const, fetchedAt: weekly.at, weeklyError: null, weeklyDownSince: null };
   }
   const er = await kvCached('gvp:eruptions', 24 * 36e5, loadEruptions);
-  return { volcanoes: er.value, origin: 'eruptions' as const, fetchedAt: er.at, weeklyError: 'error' in weekly ? weekly.error : 'sin ítems' };
+  return { volcanoes: er.value, origin: 'eruptions' as const, fetchedAt: er.at, weeklyError: 'error' in weekly ? weekly.error : 'sin ítems', weeklyDownSince: status?.since ?? null };
+}
+
+/* ───────────── Estado del reporte semanal del Smithsonian (para /api/health) ───────────── */
+
+export type WeeklyStatus = { state: 'ok' | 'down'; code: number | null; error: string | null; since: number; checkedAt: number };
+const STATUS_KEY = 'status:gvp-weekly';
+
+/**
+ * Guarda si el RSS semanal responde y desde cuándo está en ese estado. "since" es la primera vez
+ * que este sitio vio el cambio (no la hora real del corte en el Smithsonian). Se escribe solo al
+ * cambiar de estado o, como mucho, una vez por hora.
+ */
+async function recordWeeklyStatus(ok: boolean, error: string | null): Promise<WeeklyStatus> {
+  const prev = (await kvGet<WeeklyStatus>(STATUS_KEY))?.value ?? null;
+  const state = ok ? 'ok' : 'down';
+  const now = Date.now();
+  const code = error ? Number(/\((\d{3})\)/.exec(error)?.[1]) || null : null;
+  const next: WeeklyStatus = { state, code, error, since: prev && prev.state === state ? prev.since : now, checkedAt: now };
+  if (!prev || prev.state !== state || now - prev.checkedAt > 36e5) await kvSet(STATUS_KEY, next);
+  return next;
+}
+
+export async function getWeeklyStatus(): Promise<(WeeklyStatus & { downDays: number; alert: boolean }) | null> {
+  await getVolcanoActivity().catch(() => null);
+  const s = (await kvGet<WeeklyStatus>(STATUS_KEY))?.value;
+  if (!s) return null;
+  const downDays = s.state === 'down' ? Math.floor((Date.now() - s.since) / 864e5) : 0;
+  return { ...s, downDays, alert: downDays > 7 };
 }
