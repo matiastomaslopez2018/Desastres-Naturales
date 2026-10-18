@@ -15,6 +15,10 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["@libsql/client", "libsql"],
   // La imagen OG lee las fuentes con fs: incluirlas en el bundle serverless (Vercel).
   outputFileTracingIncludes: {
+    "/[lang]/opengraph-image": [
+      "./node_modules/@fontsource/instrument-serif/files/instrument-serif-latin-400-normal.woff",
+      "./node_modules/@fontsource/instrument-sans/files/instrument-sans-latin-{400,600}-normal.woff",
+    ],
     "/[lang]/evento/[id]/opengraph-image": [
       "./node_modules/@fontsource/instrument-serif/files/instrument-serif-latin-400-normal.woff",
       "./node_modules/@fontsource/instrument-sans/files/instrument-sans-latin-{400,600}-normal.woff",

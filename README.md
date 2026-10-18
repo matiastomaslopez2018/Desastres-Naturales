@@ -1,4 +1,4 @@
-# Atlas de Desastres
+# Mapa de Desastres (Disaster Map)
 
 Mapa mundial de desastres naturales en un globo 3D. Usa solo fuentes oficiales y científicas: USGS, NASA EONET, GDACS, Smithsonian GVP, PB2002 y Natural Earth.
 Está construido a partir del handoff de diseño en `../design_handoff_atlas_desastres/`.
@@ -87,6 +87,14 @@ En producción serverless el archivo local no persiste. Usar Turso (`STORAGE_URL
 | `src/components/Globe.tsx` | Globo d3-geo ortográfico en canvas: arrastre, rueda, pellizco, tap, hover y vuelo |
 | `src/components/Atlas.tsx` | Filtros, overlays, "Más relevantes", ficha, cercanos y estado de fuentes |
 | `src/app/industry.css` | Sistema de diseño Industry (copiado del handoff) |
+
+## Dominio propio (preparado, sin activar)
+
+El dominio previsto es **mapadedesastres.com** (todavía no está comprado). Mientras `NEXT_PUBLIC_SITE_URL` esté vacía, las URL absolutas (canonical, sitemap, imágenes OG) usan el dominio de producción de Vercel. Para activarlo cuando se compre:
+
+1. Vercel → Settings → Domains: agregar `mapadedesastres.com` (y `www`, redirigido) y configurar el DNS que indique Vercel.
+2. Vercel → Settings → Environment Variables (Production): `NEXT_PUBLIC_SITE_URL=https://mapadedesastres.com` y volver a desplegar (la variable se lee al compilar).
+3. Search Console: agregar la propiedad del dominio nuevo y enviar `https://mapadedesastres.com/sitemap.xml`.
 
 ## Licencias de datos con restricciones
 

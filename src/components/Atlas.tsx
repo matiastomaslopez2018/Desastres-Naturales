@@ -48,8 +48,12 @@ const LAYER_TAG: Partial<Record<(typeof LAYER_KEYS)[number], 'hist' | 'ref'>> = 
   ibtracs: 'hist', glc: 'hist', borders: 'ref', plates: 'ref', platevec: 'ref', slab: 'ref', ring: 'ref', gvp: 'ref', hazard: 'ref',
 };
 const SRC_NAME: Record<SourceKey, string> = { usgs: 'USGS', eonet: 'EONET', gdacs: 'GDACS', gvp: 'GVP', carto: 'PB2002' };
-/** Un tramo de la línea de tiempo por cuadro de reproducción, a 1×. */
-const PLAY_MS = 900;
+/** Duración de la reproducción completa a 1× según el período (7 días ≈ 20 s, 30 días ≈ 30 s, 1 año ≈ 40 s). */
+const PLAY_DURATION: Record<RangeKey, number> = { '24h': 15000, '7d': 20000, '30d': 30000, '1y': 40000, year: 40000 };
+/** Cuadros por segundo de la reproducción (el filtro del globo es una expresión: barato). */
+const PLAY_FPS = 20;
+/** Instante en que el evento aparece en la reproducción: su inicio (o su hora). */
+const appearAt = (e: DisasterEvent) => e.start ?? e.time;
 /** Eventos de larga duración: como mucho 2 en la lista; el resto se agrupa. */
 const LONG_TYPES = new Set(['drought']);
 
@@ -89,12 +93,15 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
   const [detail, setDetail] = useState<EqDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [hover, setHover] = useState<{ e: Pickable; x: number; y: number } | null>(null);
-  const [focus, setFocus] = useState<number | null>(null);
+  /** Cabezal de la línea de tiempo (ms); null = todo el período. */
+  const [head, setHead] = useState<number | null>(null);
+  const [reducedMotion, setReducedMotion] = useState(false);
+  useEffect(() => setReducedMotion(!!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches), []);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState<1 | 2 | 4>(1);
   const [tab, setTab] = useState<'period' | 'alerts'>('period');
   const [showAllLong, setShowAllLong] = useState(false);
-  const scrub = useRef<{ startI: number; prev: number | null; moved: boolean } | null>(null);
+  const scrub = useRef<{ pointerId: number } | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const globe = useRef<GlobeHandle>(null);
   // Hoja inferior de "Más relevantes" en celular: cerrada asoma 2–3 ítems; se arrastra hacia arriba.
@@ -138,7 +145,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
   // Datos de eventos desde la API propia.
   useEffect(() => {
     const ctrl = new AbortController();
-    setLoading(true); setSel(null); setDetail(null); setFocus(null); setPlaying(false);
+    setLoading(true); setSel(null); setDetail(null); setHead(null); setPlaying(false);
     setSrc((s) => ({ ...s, usgs: { state: 'wait' }, eonet: { state: 'wait' }, gdacs: { state: 'wait' } }));
     const p = new URLSearchParams({ range, ...(range === 'year' ? { year: String(year) } : {}) });
     fetch(`/api/events?${p}`, { signal: ctrl.signal })
@@ -314,9 +321,11 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
 
   // Orden de dibujo: alertas y magnitudes mayores arriba.
   const visible = useMemo(() => {
-    const v = focus == null ? filtered : filtered.filter((e) => bucketOf(bs, lastUpdate(e)) === focus);
+    const v = head == null ? filtered : filtered.filter((e) => appearAt(e) <= head);
     return v.slice().sort((a, b) => relevance(a) - relevance(b));
-  }, [filtered, focus, bs]);
+  }, [filtered, head]);
+  // Al globo van todos los del período: el cabezal lo aplica él con un filtro (sin volver a cargar datos).
+  const forGlobe = useMemo(() => filtered.slice().sort((a, b) => relevance(a) - relevance(b)), [filtered]);
 
   // Un evento abierto por enlace puede quedar fuera del período: se dibuja igual.
   // Con la capa NHC encendida, el mismo ciclón de EONET/GDACS no se dibuja dos veces
@@ -324,39 +333,58 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
   const drawn = useMemo(() => {
     const dupOfNhc = (e: DisasterEvent) => drawLayers.nhc && e.type === 'storm' && storms.some((s) =>
       new RegExp(`\\b${s.name}\\b`, 'i').test(e.title) && geoDistance([s.lon, s.lat], [e.lon, e.lat]) * 6371 < 1000);
-    const v = storms.length ? visible.filter((e) => !dupOfNhc(e)) : visible;
+    const v = storms.length ? forGlobe.filter((e) => !dupOfNhc(e)) : forGlobe;
     return sel && isEvent(sel) && !v.some((e) => e.id === sel.id) ? [...v, sel] : v;
-  }, [visible, sel, storms, drawLayers.nhc]);
+  }, [forGlobe, sel, storms, drawLayers.nhc]);
 
   const counts = useMemo(() => {
     const c = Object.fromEntries(TYPE_ORDER.map((k) => [k, 0])) as Record<FilterType, number>;
     for (const e of events) {
-      if (focus != null && bucketOf(bs, lastUpdate(e)) !== focus) continue;
+      if (head != null && appearAt(e) > head) continue;
       if (e.type === 'eq') { if (e.mag == null || e.mag >= minMag) { c.eq++; if (e.tsunami) c.tsunami++; } }
       else c[e.type]++;
     }
     return c;
-  }, [events, minMag, focus, bs]);
+  }, [events, minMag, head]);
   // Volcanes con actividad según GVP (reporte semanal o erupciones en curso) que no estén ya en
   // los eventos de EONET: se suman al contador de volcanes cuando se mira el presente.
   const gvpActive = useMemo(() => {
-    if (!isNow || focus != null) return 0;
+    if (!isNow) return 0;
     const names = events.filter((e) => e.type === 'volcano').map((e) => e.title.toLowerCase());
     return new Set(volcanoes.filter((v) => !names.some((n) => n.includes(v.title.toLowerCase()))).map((v) => v.title)).size;
-  }, [volcanoes, events, isNow, focus]);
+  }, [volcanoes, events, isNow]);
 
-  // Play: recorre los tramos uno por uno y vuelve a "todo el período" al final.
+  // Play: el cabezal avanza del inicio al fin del período en PLAY_DURATION (÷ velocidad). El globo no
+  // se mueve solo: solo cambia qué se muestra. Al terminar vuelve a "todo el período".
+  const span = win ? win.e - win.s : 0;
   useEffect(() => {
-    if (!playing) return;
-    const id = setInterval(() => {
-      setFocus((f) => {
-        const next = f == null ? 0 : f + 1;
-        if (next >= bs.length) { setPlaying(false); return null; }
-        return next;
-      });
-    }, PLAY_MS / speed);
-    return () => clearInterval(id);
-  }, [playing, bs.length, speed]);
+    if (!playing || !win) return;
+    let raf = 0, last = performance.now(), acc = 0;
+    const rate = (span / PLAY_DURATION[range]) * speed; // ms de datos por ms real
+    const step = (now: number) => {
+      const dt = now - last; last = now; acc += dt;
+      if (acc >= 1000 / PLAY_FPS) {
+        const adv = acc * rate; acc = 0;
+        let ended = false;
+        setHead((h) => {
+          const n = (h ?? win.s) + adv;
+          if (n >= win.e) { ended = true; return null; }
+          return n;
+        });
+        if (ended) { setPlaying(false); return; }
+      }
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [playing, win, span, range, speed]);
+  const togglePlay = () => {
+    if (!win) return;
+    if (!playing && (head == null || head >= win.e)) setHead(win.s);
+    setPlaying((p) => !p);
+  };
+  // Destello: lo que apareció en los últimos ~0,6 s reales, solo mientras reproduce (sin destellos con movimiento reducido).
+  const flashSpan = !playing || reducedMotion || !win ? 0 : (span / PLAY_DURATION[range]) * speed * 600;
 
   const subLine = (e: Pickable) => {
     if (e.type === 'gvp') return [e.country, e.vtype].filter(Boolean).join(' · ');
@@ -423,7 +451,8 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
       .slice(0, 6);
   }, [visible, sel]);
 
-  const rangeLabel = focus != null && bs[focus] ? bs[focus].title : range === 'year' ? `${t.inYear} ${year}` : `${t.last} ${t[`r${range}`]}`;
+  const headLabel = head != null ? `${fmtDay(lang, head)} · ${fmtHour(lang, head)}` : '';
+  const rangeLabel = head != null ? `${t.untilHead} ${headLabel}` : range === 'year' ? `${t.inYear} ${year}` : `${t.last} ${t[`r${range}`]}`;
   // Titular automático con datos reales: cuántos sismos hubo en el período y dónde fue el mayor.
   const headline = useMemo(() => {
     const eqs = visible.filter((e) => e.type === 'eq');
@@ -472,30 +501,32 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
     else setSheetOpen(h > d.h + (sheetOpen ? -80 : 80));
   };
 
-  /** Índice del tramo bajo el puntero. */
-  const bucketAt = (el: HTMLElement, x: number) => {
+  /** Instante bajo el puntero (posición continua sobre el histograma). */
+  const timeAt = (el: HTMLElement, x: number) => {
     const r = el.getBoundingClientRect();
-    return Math.max(0, Math.min(bs.length - 1, Math.floor(((x - r.left) / r.width) * bs.length)));
+    return win ? win.s + Math.max(0, Math.min(1, (x - r.left) / r.width)) * span : 0;
   };
+  // Arrastrar sobre el histograma (o tocarlo) mueve el cabezal y pausa la reproducción.
   const scrubDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!bs.length) return;
+    if (!win) return;
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* puntero sintético */ }
-    const i = bucketAt(e.currentTarget, e.clientX);
-    scrub.current = { startI: i, prev: focus, moved: false };
+    scrub.current = { pointerId: e.pointerId };
     setPlaying(false);
-    setFocus(i);
+    setHead(timeAt(e.currentTarget, e.clientX));
   };
   const scrubMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!scrub.current) return;
-    const i = bucketAt(e.currentTarget, e.clientX);
-    if (i !== scrub.current.startI) scrub.current.moved = true;
-    setFocus(i);
+    setHead(timeAt(e.currentTarget, e.clientX));
   };
-  const scrubUp = () => {
-    const s0 = scrub.current;
-    scrub.current = null;
-    // Toque sin arrastrar sobre el tramo ya fijado: lo suelta (vuelve a todo el período).
-    if (s0 && !s0.moved && s0.prev === s0.startI) setFocus(null);
+  const scrubUp = () => { scrub.current = null; };
+  /** Teclado sobre el cabezal: flechas = 1 % del período (Mayús: 10 %), Inicio/Fin. */
+  const headKey = (e: React.KeyboardEvent) => {
+    if (!win) return;
+    const st = span * (e.shiftKey ? 0.1 : 0.01), h = head ?? win.e;
+    const next = e.key === 'ArrowLeft' ? h - st : e.key === 'ArrowRight' ? h + st : e.key === 'Home' ? win.s : e.key === 'End' ? win.e : null;
+    if (next == null) return;
+    e.preventDefault(); setPlaying(false);
+    setHead(next >= win.e ? null : Math.max(win.s, next));
   };
 
   const featureTitle = (e: Pickable) =>
@@ -530,11 +561,13 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
         {/* El globo vive entre la barra superior y la línea de tiempo: nada lo tapa. */}
         <div className="globe-area">
           <Globe ref={globe} events={drawn} gvp={gvpShown} layers={drawLayers} overlays={overlays} selected={sel} showTsunami={types.tsunami}
-            terrain={terrain} onSelect={select} onHover={setHover} onCarto={onCarto} onView={setView}
+            terrain={terrain} playHead={head} flashSpan={flashSpan} onSelect={select} onHover={setHover} onCarto={onCarto} onView={setView}
             onPitch={setPitched} onLowFps={onLowFps} onRaster={onRaster} loadingText={t.loadingRelief} />
         </div>
 
-        {headline && !sel && <p className="map-headline">{headline}</p>}
+        {head != null
+          ? <p className="map-playdate" aria-live="off"><span className="faint">{playing ? t.playing : t.paused}</span> {headLabel}</p>
+          : headline && !sel && <p className="map-headline">{headline}</p>}
         <p className="map-help">{helpText}</p>
 
         {tsunami && tsunami.active.length > 0 && (
@@ -806,29 +839,35 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
 
         <div className="map-bottom">
           <div className="play-group">
-            <button className="play" onClick={() => setPlaying((p) => !p)} aria-label={playing ? t.pause : t.play} title={playing ? t.pause : t.play} disabled={!bs.length}>
+            <button className="play" onClick={togglePlay} aria-label={playing ? t.pause : t.play} title={playing ? t.pause : t.play} disabled={!bs.length}>
               {playing ? '❚❚' : '▶'}
             </button>
             <button className="speed" onClick={() => setSpeed((v) => (v === 1 ? 2 : v === 2 ? 4 : 1))} title={t.speed} aria-label={`${t.speed}: ${speed}×`}>
               {speed}×
             </button>
           </div>
-          {/* Arrastrar sobre la línea de tiempo la recorre (scrubber); tocar un tramo lo fija o lo suelta. */}
-          <div className={`timeline${bs.length > 14 ? ' dense' : ''}`} role="group" aria-label={t.period}
+          {/* Histograma con cabezal: arrastrar (o tocar) mueve el cabezal; las barras posteriores quedan tenues. */}
+          <div className={`timeline${bs.length > 14 ? ' dense' : ''}${head != null ? ' has-head' : ''}`} role="group" aria-label={t.period}
             onPointerDown={scrubDown} onPointerMove={scrubMove} onPointerUp={scrubUp} onPointerCancel={scrubUp}>
             {bs.map((b) => (
-              <button key={b.i} className={`tl-bar${focus === b.i ? ' on' : ''}${focus != null && focus !== b.i ? ' dim' : ''}`}
-                title={`${b.title} · ${nf(perBucket[b.i] ?? 0)}`} aria-pressed={focus === b.i}
-                onClick={(ev) => { if (ev.detail === 0) { setPlaying(false); setFocus((f) => (f === b.i ? null : b.i)); } }}>
+              <span key={b.i} className={`tl-bar${head != null && b.start <= head && head < b.end ? ' on' : ''}${head != null && b.start > head ? ' dim' : ''}`}
+                title={`${b.title} · ${nf(perBucket[b.i] ?? 0)}`}>
                 <span className="tl-count">{nf(perBucket[b.i] ?? 0)}</span>
                 <span className="tl-track"><span className="tl-fill" style={{ height: `${Math.round(((perBucket[b.i] ?? 0) / maxBucket) * 100)}%` }} /></span>
-                <span className="tl-label">{bs.length <= 14 || b.i % 5 === 0 || focus === b.i ? b.label : ' '}</span>
-              </button>
+                <span className="tl-label">{bs.length <= 14 || b.i % 5 === 0 ? b.label : ' '}</span>
+              </span>
             ))}
+            {win && (
+              <span className="tl-head" role="slider" tabIndex={0} aria-label={t.playhead}
+                aria-valuemin={win.s} aria-valuemax={win.e} aria-valuenow={head ?? win.e} aria-valuetext={head != null ? headLabel : t.allPeriod}
+                style={{ left: `${((head ?? win.e) - win.s) / (span || 1) * 100}%` }} onKeyDown={headKey}>
+                <span className="tl-head-grip" aria-hidden="true" />
+              </span>
+            )}
           </div>
           <div className="map-sources">
             <a href="#semana" className="scroll-cue">{t.weekBelow} ↓</a>
-            {focus != null && <button className="tl-all" onClick={() => { setPlaying(false); setFocus(null); }}>{t.allPeriod}</button>}
+            {head != null && <button className="tl-all" onClick={() => { setPlaying(false); setHead(null); }}>{t.allPeriod}</button>}
             <span className="src-line" title={t.dataStatus}>
               {t.srcShort}:
               {(['usgs', 'eonet', 'gdacs'] as SourceKey[]).map((k) => {

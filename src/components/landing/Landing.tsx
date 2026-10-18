@@ -43,7 +43,7 @@ export async function pageLang(params: Promise<{ lang: string }>, folder: Lang, 
 
 export function seoMeta(lang: Lang, key: RouteKey, title: string, description: string, sub?: Record<Lang, string>): Metadata {
   const path = (l: Lang) => routePath(l, key, sub?.[l]);
-  const full = `${title} | ${SEO[lang].suffix}`;
+  const full = `${title} · ${SEO[lang].suffix}`;
   return {
     title: { absolute: full },
     description,

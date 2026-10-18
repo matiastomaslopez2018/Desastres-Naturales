@@ -1,6 +1,6 @@
 /**
  * URL pública del sitio (OG, canonical, sitemap). Orden: NEXT_PUBLIC_SITE_URL
- * (dominio propio) → dominio de producción que asigna Vercel → localhost.
+ * (dominio propio; el previsto es https://mapadedesastres.com, sin activar) → dominio de producción que asigna Vercel → localhost.
  */
 const vercelHost = process.env.VERCEL_PROJECT_PRODUCTION_URL;
 

@@ -69,7 +69,7 @@ export const MORE_2: LearnArticle[] = [
           ['5 (mayor)', '252 km/h o más (137 kt o más)', 'Destrucción de gran parte de las viviendas.'],
         ] } },
         { h: 'Lo que la escala no mide', p: ['Solo mide el viento. No tiene en cuenta la marejada ciclónica (la subida del mar), la lluvia ni las inundaciones, que suelen causar la mayoría de las muertes. Un huracán de categoría 1 lento y muy lluvioso puede ser más grave que uno de categoría 4 que pasa rápido.'] },
-        { h: 'En el mapa', p: ['El atlas colorea las trayectorias según esta escala, del celeste (depresión) al rojo (categoría 5), con la misma leyenda en el mapa.'] },
+        { h: 'En el mapa', p: ['El Mapa de Desastres colorea las trayectorias según esta escala, del celeste (depresión) al rojo (categoría 5), con la misma leyenda en el mapa.'] },
       ],
     },
     en: {
@@ -86,7 +86,7 @@ export const MORE_2: LearnArticle[] = [
           ['5 (major)', '252 km/h or more (137 kt or more)', 'Destruction of a large share of homes.'],
         ] } },
         { h: 'What the scale does not measure', p: ['It only measures wind. It does not account for storm surge (the rise of the sea), rain or flooding, which usually cause most deaths. A slow, very rainy category 1 hurricane can be worse than a fast-moving category 4.'] },
-        { h: 'On the map', p: ['The atlas colors tracks by this scale, from light blue (depression) to red (category 5), with the same legend on the map.'] },
+        { h: 'On the map', p: ['The Disaster Map colors tracks by this scale, from light blue (depression) to red (category 5), with the same legend on the map.'] },
       ],
     },
   },
@@ -107,7 +107,7 @@ export const MORE_2: LearnArticle[] = [
           'No muestra dónde va a haber daños: lugares lejos del centro pueden sufrir inundaciones graves.',
           'Una de cada tres veces, el centro sale del cono.',
         ] },
-        { h: 'En el mapa del atlas', list: [
+        { h: 'En el Mapa de Desastres', list: [
           'Línea continua: trayectoria observada, coloreada por intensidad.',
           'Línea punteada y puntos: pronóstico, con la letra de la categoría (D depresión, S tormenta, H huracán, M huracán mayor).',
           'Zona clara: el cono. Manchas amarillas, naranjas y rojas: áreas con vientos de 63, 93 y 119 km/h o más en este momento.',
@@ -126,7 +126,7 @@ export const MORE_2: LearnArticle[] = [
           'It does not show where damage will occur: places far from the center can suffer severe flooding.',
           'One time in three, the center leaves the cone.',
         ] },
-        { h: 'On the atlas map', list: [
+        { h: 'On the Disaster Map', list: [
           'Solid line: observed track, colored by intensity.',
           'Dotted line and points: forecast, with the category letter (D depression, S storm, H hurricane, M major hurricane).',
           'Light area: the cone. Yellow, orange and red patches: areas with winds of 63, 93 and 119 km/h or more right now.',
@@ -255,7 +255,7 @@ export const MORE_2: LearnArticle[] = [
         ] },
         { h: 'El índice FWI', p: [
           'El Fire Weather Index (FWI) es un sistema canadiense que usan Copernicus y muchos países. Con temperatura, humedad, viento y lluvia calcula la humedad de distintas capas de combustible y, de ahí, qué tan fácil es que un fuego se inicie y se propague.',
-          'Copernicus GWIS lo publica para todo el mundo con pronóstico de varios días, y el atlas lo muestra en la ficha de cada incendio con las clases de peligro de EFFIS: muy bajo, bajo, moderado, alto, muy alto y extremo.',
+          'Copernicus GWIS lo publica para todo el mundo con pronóstico de varios días, y el Mapa de Desastres lo muestra en la ficha de cada incendio con las clases de peligro de EFFIS: muy bajo, bajo, moderado, alto, muy alto y extremo.',
         ] },
         { h: 'Lo que el FWI no dice', p: ['Mide el peligro meteorológico: no sabe si hay fuego ni cuánta vegetación hay en el lugar. Un FWI alto en un desierto sin vegetación no implica incendios.'] },
       ],
@@ -274,7 +274,7 @@ export const MORE_2: LearnArticle[] = [
         ] },
         { h: 'The FWI', p: [
           'The Fire Weather Index (FWI) is a Canadian system used by Copernicus and many countries. From temperature, humidity, wind and rain it computes the moisture of different fuel layers and, from that, how easily a fire can start and spread.',
-          'Copernicus GWIS publishes it worldwide with a multi-day forecast, and the atlas shows it on each wildfire page with the EFFIS danger classes: very low, low, moderate, high, very high and extreme.',
+          'Copernicus GWIS publishes it worldwide with a multi-day forecast, and the Disaster Map shows it on each wildfire page with the EFFIS danger classes: very low, low, moderate, high, very high and extreme.',
         ] },
         { h: 'What the FWI does not tell you', p: ['It measures weather danger: it does not know whether there is fire or how much vegetation there is. A high FWI in a desert without vegetation does not mean fires.'] },
       ],
@@ -467,7 +467,7 @@ export const MORE_2: LearnArticle[] = [
           'Soil moisture, estimated by models and satellites.',
           'Vegetation condition, with satellite indices such as fAPAR.',
           'Combined indices, such as the European Drought Observatory’s or the US Drought Monitor (categories D0 to D4).',
-          'The Global Drought Observatory’s risk of impact for agriculture, which combines hazard with exposure and vulnerability; it is the one the atlas shows.',
+          'The Global Drought Observatory’s risk of impact for agriculture, which combines hazard with exposure and vulnerability; it is the one the Disaster Map shows.',
         ] },
       ],
     },
@@ -531,7 +531,7 @@ export const MORE_2: LearnArticle[] = [
           'Vulnerabilidad: qué tan susceptibles son a sufrir daño (construcciones precarias, pobreza, falta de alerta).',
           'Capacidad: los recursos para prepararse, responder y recuperarse.',
         ] },
-        { h: 'Por qué importa', p: ['Dos sismos de igual magnitud pueden tener consecuencias muy distintas según dónde ocurran y cómo se construyó. Por eso el mapa de amenaza sísmica del atlas se llama "amenaza" y no "riesgo": no tiene en cuenta la población ni los edificios. Reducir la exposición y la vulnerabilidad, con normas de construcción, alertas y planificación, es lo que convierte una amenaza en un evento sin víctimas.'] },
+        { h: 'Por qué importa', p: ['Dos sismos de igual magnitud pueden tener consecuencias muy distintas según dónde ocurran y cómo se construyó. Por eso el mapa de amenaza sísmica del Mapa de Desastres se llama "amenaza" y no "riesgo": no tiene en cuenta la población ni los edificios. Reducir la exposición y la vulnerabilidad, con normas de construcción, alertas y planificación, es lo que convierte una amenaza en un evento sin víctimas.'] },
       ],
     },
     en: {
@@ -547,7 +547,7 @@ export const MORE_2: LearnArticle[] = [
           'Vulnerability: how susceptible they are to harm (poor construction, poverty, lack of warning).',
           'Capacity: the resources to prepare, respond and recover.',
         ] },
-        { h: 'Why it matters', p: ['Two earthquakes of the same magnitude can have very different consequences depending on where they strike and how buildings were made. That is why the atlas’s seismic hazard map is called "hazard" and not "risk": it does not account for population or buildings. Reducing exposure and vulnerability, through building codes, warnings and planning, is what turns a hazard into an event without victims.'] },
+        { h: 'Why it matters', p: ['Two earthquakes of the same magnitude can have very different consequences depending on where they strike and how buildings were made. That is why the Disaster Map’s seismic hazard map is called "hazard" and not "risk": it does not account for population or buildings. Reducing exposure and vulnerability, through building codes, warnings and planning, is what turns a hazard into an event without victims.'] },
       ],
     },
   },
@@ -560,7 +560,7 @@ export const MORE_2: LearnArticle[] = [
     ],
     es: {
       slug: 'como-leer-este-mapa', title: 'Cómo leer este mapa',
-      seoTitle: 'Cómo leer el mapa del Atlas de Desastres',
+      seoTitle: 'Cómo leer el Mapa de Desastres',
       desc: 'Qué significa cada símbolo, color y tamaño del mapa, de dónde vienen los datos y por qué pueden cambiar.',
       lead: 'El mapa muestra eventos publicados por organismos oficiales y científicos. Cada símbolo es un evento y cada evento enlaza su fuente.',
       sections: [
@@ -577,13 +577,13 @@ export const MORE_2: LearnArticle[] = [
         { h: 'Por qué los datos cambian', list: [
           'Los sismos tienen primero una solución automática ("preliminar") que un sismólogo revisa después.',
           'Las alertas de GDACS se actualizan con cada episodio de un evento.',
-          'Algunas fuentes tardan horas en publicar: el atlas muestra la hora de la última actualización.',
+          'Algunas fuentes tardan horas en publicar: el Mapa de Desastres muestra la hora de la última actualización.',
         ] },
       ],
     },
     en: {
       slug: 'how-to-read-this-map', title: 'How to read this map',
-      seoTitle: 'How to read the Disaster Atlas map',
+      seoTitle: 'How to read the Disaster Map',
       desc: 'What each symbol, color and size on the map means, where the data come from, and why they can change.',
       lead: 'The map shows events published by official and scientific agencies. Each symbol is an event and each event links to its source.',
       sections: [
@@ -600,7 +600,7 @@ export const MORE_2: LearnArticle[] = [
         { h: 'Why data change', list: [
           'Earthquakes first get an automatic ("preliminary") solution that a seismologist reviews later.',
           'GDACS alerts are updated with each episode of an event.',
-          'Some sources take hours to publish: the atlas shows the time of the latest update.',
+          'Some sources take hours to publish: the Disaster Map shows the time of the latest update.',
         ] },
       ],
     },
@@ -615,8 +615,8 @@ export const MORE_2: LearnArticle[] = [
     es: {
       slug: 'glosario', title: 'Glosario',
       seoTitle: 'Glosario de desastres naturales: términos de sismos, volcanes, ciclones y más',
-      desc: 'Definiciones breves de los términos que aparecen en el atlas: epicentro, magnitud, subducción, VEI, marejada ciclónica, FRP, período de retorno y más.',
-      lead: 'Definiciones breves de los términos que aparecen en las fichas del atlas.',
+      desc: 'Definiciones breves de los términos que aparecen en el Mapa de Desastres: epicentro, magnitud, subducción, VEI, marejada ciclónica, FRP, período de retorno y más.',
+      lead: 'Definiciones breves de los términos que aparecen en las fichas del Mapa de Desastres.',
       sections: [
         { h: 'Riesgo', table: { head: ['Término', 'Definición'], rows: [
           ['Amenaza', 'Fenómeno que puede causar daño a personas, bienes o al ambiente.'],
@@ -654,8 +654,8 @@ export const MORE_2: LearnArticle[] = [
     en: {
       slug: 'glossary', title: 'Glossary',
       seoTitle: 'Natural disaster glossary: earthquake, volcano, cyclone terms and more',
-      desc: 'Short definitions of the terms used in the atlas: epicenter, magnitude, subduction, VEI, storm surge, FRP, return period and more.',
-      lead: 'Short definitions of the terms that appear on the atlas pages.',
+      desc: 'Short definitions of the terms used on the Disaster Map: epicenter, magnitude, subduction, VEI, storm surge, FRP, return period and more.',
+      lead: 'Short definitions of the terms that appear on the Disaster Map pages.',
       sections: [
         { h: 'Risk', table: { head: ['Term', 'Definition'], rows: [
           ['Hazard', 'A phenomenon that can cause harm to people, property or the environment.'],

@@ -15,7 +15,7 @@ import { getCountry } from '@/lib/server/stats';
 
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
-export const alt = 'Atlas de Desastres';
+export const alt = 'Mapa de Desastres';
 
 const topo = world as unknown as Topology<{ countries: GeometryCollection; land: GeometryCollection }>;
 const LAND = feature(topo, topo.objects.land);
