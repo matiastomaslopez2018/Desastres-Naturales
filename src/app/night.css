@@ -9,7 +9,7 @@
 /* barra superior */
 .map-top { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 20px; padding: 18px 28px; pointer-events: none; }
 .map-top > * { pointer-events: auto; }
-/* Mismo logo que el resto del sitio: "Atlas de Desastres" en serif. */
+/* Mismo logo que el resto del sitio: "Mapa de Desastres" en serif. */
 .map-brand { font-family: var(--font-newsreader), Georgia, serif; font-size: 22px; font-weight: 600; letter-spacing: -.01em; color: var(--text); text-decoration: none; white-space: nowrap; }
 .chips { display: flex; gap: 6px; flex-wrap: nowrap; overflow: hidden; }
 .chip { display: flex; align-items: center; gap: 7px; padding: 6px 11px; border-radius: 999px; background: var(--chip); border: 1px solid var(--panel-border); font-size: 12px; cursor: pointer; white-space: nowrap; color: var(--text); }

@@ -4,7 +4,7 @@ export const LANGS: Lang[] = ['es', 'en'];
 export const isLang = (v: string): v is Lang => (LANGS as string[]).includes(v);
 
 const es = {
-  brand: 'Atlas de Desastres', brandSub: 'Eventos naturales en el mundo · solo fuentes oficiales y científicas',
+  brand: 'Mapa de Desastres', homeTitle: 'Mapa de Desastres — terremotos, volcanes, incendios y huracanes en vivo en el mundo', brandSub: 'Eventos naturales en el mundo · solo fuentes oficiales y científicas',
   updated: 'Actualizado', method: 'Metodología', types: 'Tipo de evento', period: 'Período', minMag: 'Magnitud mínima (sismos)',
   layers: 'Capas de referencia', eventsIn: 'eventos ·', legSize: 'tamaño = magnitud', legAlert: 'relleno = alerta oficial',
   hint: 'Arrastrá para girar · rueda o pellizco para acercar · tocá un evento', loading: 'Cargando datos oficiales…',
@@ -14,7 +14,7 @@ const es = {
   headline: (n: string, when: string, m: string, place: string) => `${n} sismos sacudieron el planeta ${when}. El mayor, de magnitud ${m}, ocurrió ${/^\d/.test(place) ? 'a' : 'cerca de'} ${place}.`,
   hlRange: { '24h': 'en las últimas 24 horas', '7d': 'esta semana', '30d': 'en los últimos 30 días', '1y': 'en el último año', year: '' } as Record<string, string>,
   hlYear: (y: number) => `en ${y}`,
-  help: 'Arrastrá para girar · rueda para acercar · tocá un evento', helpTouch: 'Pellizcá para acercar · dos dedos para inclinar · tocá un evento', loadingRelief: 'Cargando relieve…',
+  help: 'Arrastrá para girar · rueda para acercar · tocá un evento', helpTouch: 'Pellizcá para acercar · dos dedos para inclinar · tocá un evento', loadingRelief: 'Cargando relieve…', untilHead: 'hasta el', firmsOnly24h: 'Focos de calor: solo últimas 24 h', playing: 'Reproduciendo', paused: 'En pausa', playhead: 'Cabezal de la línea de tiempo',
   helpTerrain: 'Ctrl + arrastrar para rotar la cámara', helpTerrainTouch: 'Dos dedos para rotar e inclinar la cámara',
   periodFilters: 'Período y filtros', legendPlates: 'límites de placas (PB2002)', terrain3d: 'Relieve 3D',
   terrainLow: (fps: number) => `apagado: el mapa iba a ${fps} cuadros por segundo`,
@@ -91,7 +91,7 @@ const es = {
   countriesTitle: 'Países', countriesSub: 'Todos los países con eventos registrados en los últimos 365 días, con su cantidad de alertas oficiales y de eventos.',
   countriesMeta: 'Desastres naturales por país: sismos, volcanes, incendios, tormentas e inundaciones según fuentes oficiales.',
   methodSub: 'Qué mostramos, de dónde sale cada dato y qué limitaciones tiene.',
-  methodMeta: 'Fuentes, criterios y limitaciones del Atlas de Desastres: USGS, NASA EONET, GDACS, Smithsonian y Natural Earth.',
+  methodMeta: 'Fuentes, criterios y limitaciones del Mapa de Desastres: USGS, NASA EONET, GDACS, Smithsonian y Natural Earth.',
   footerAbout: 'Solo datos publicados por organismos oficiales y científicos. Cada ficha enlaza su fuente primaria.',
   lastIngest: 'Última actualización', fetched: 'Registros en la última corrida',
   ongoingSince: (d: string) => `en curso desde ${d}`, countriesRow: 'Países', origUsgs: 'Texto original (USGS)', original: 'Original',
@@ -109,8 +109,8 @@ const es = {
   moreLong: (n: number) => `+ ${n} sequía${n === 1 ? '' : 's'} en curso más`, showLess: 'Mostrar menos',
   speed: 'Velocidad',
   share: 'Compartir', copyLink: 'Copiar enlace', copied: 'Enlace copiado',
-  shareEvent: (title: string) => `${title} — Atlas de Desastres`,
-  shareCountry: (c: string) => `${c}: desastres naturales según fuentes oficiales — Atlas de Desastres`,
+  shareEvent: (title: string) => `${title} · Mapa de Desastres`,
+  shareCountry: (c: string) => `${c}: desastres naturales según fuentes oficiales · Mapa de Desastres`,
   // Fase 2 · B
   needsKey: (k: string) => `Requiere la clave ${k}`,
   loadingLayer: 'Cargando…',
@@ -172,7 +172,7 @@ const es = {
 type Dict = typeof es;
 
 const en: Dict = {
-  brand: 'Disaster Atlas', brandSub: 'Natural events worldwide · official and scientific sources only',
+  brand: 'Disaster Map', homeTitle: 'Disaster Map — live earthquakes, volcanoes, wildfires and hurricanes worldwide', brandSub: 'Natural events worldwide · official and scientific sources only',
   updated: 'Updated', method: 'Methodology', types: 'Event type', period: 'Period', minMag: 'Minimum magnitude (quakes)',
   layers: 'Reference layers', eventsIn: 'events ·', legSize: 'size = magnitude', legAlert: 'fill = official alert',
   hint: 'Drag to rotate · scroll or pinch to zoom · tap an event', loading: 'Loading official data…',
@@ -182,7 +182,7 @@ const en: Dict = {
   headline: (n: string, when: string, m: string, place: string) => `${n} earthquakes shook the planet ${when}. The largest, magnitude ${m}, struck ${/^\d/.test(place) ? '' : 'near '}${place}.`,
   hlRange: { '24h': 'in the last 24 hours', '7d': 'this week', '30d': 'in the last 30 days', '1y': 'in the last year', year: '' } as Record<string, string>,
   hlYear: (y: number) => `in ${y}`,
-  help: 'Drag to rotate · scroll to zoom · tap an event', helpTouch: 'Pinch to zoom · two fingers to tilt · tap an event', loadingRelief: 'Loading relief…',
+  help: 'Drag to rotate · scroll to zoom · tap an event', helpTouch: 'Pinch to zoom · two fingers to tilt · tap an event', loadingRelief: 'Loading relief…', untilHead: 'up to', firmsOnly24h: 'Fire hotspots: last 24 h only', playing: 'Playing', paused: 'Paused', playhead: 'Timeline playhead',
   helpTerrain: 'Ctrl + drag to rotate the camera', helpTerrainTouch: 'Two fingers to rotate and tilt the camera',
   periodFilters: 'Period and filters', legendPlates: 'plate boundaries (PB2002)', terrain3d: '3D relief',
   terrainLow: (fps: number) => `off: the map ran at ${fps} frames per second`,
@@ -256,7 +256,7 @@ const en: Dict = {
   countriesTitle: 'Countries', countriesSub: 'Every country with events recorded in the last 365 days, with its number of official alerts and events.',
   countriesMeta: 'Natural disasters by country: earthquakes, volcanoes, wildfires, storms and floods from official sources.',
   methodSub: 'What we show, where each data point comes from and what its limitations are.',
-  methodMeta: 'Sources, criteria and limitations of the Disaster Atlas: USGS, NASA EONET, GDACS, Smithsonian and Natural Earth.',
+  methodMeta: 'Sources, criteria and limitations of the Disaster Map: USGS, NASA EONET, GDACS, Smithsonian and Natural Earth.',
   footerAbout: 'Only data published by official and scientific bodies. Every record links its primary source.',
   lastIngest: 'Last update', fetched: 'Records in the last run',
   ongoingSince: (d: string) => `ongoing since ${d}`, countriesRow: 'Countries', origUsgs: 'Original text (USGS)', original: 'Original',
@@ -273,8 +273,8 @@ const en: Dict = {
   moreLong: (n: number) => `+ ${n} more ongoing drought${n === 1 ? '' : 's'}`, showLess: 'Show less',
   speed: 'Speed',
   share: 'Share', copyLink: 'Copy link', copied: 'Link copied',
-  shareEvent: (title: string) => `${title} — Disaster Atlas`,
-  shareCountry: (c: string) => `${c}: natural disasters from official sources — Disaster Atlas`,
+  shareEvent: (title: string) => `${title} · Disaster Map`,
+  shareCountry: (c: string) => `${c}: natural disasters from official sources · Disaster Map`,
   needsKey: (k: string) => `Requires the ${k} key`,
   loadingLayer: 'Loading…',
   onlyNow: 'current period only',

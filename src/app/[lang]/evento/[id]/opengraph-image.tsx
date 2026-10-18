@@ -14,7 +14,7 @@ import { loadEvent } from './data';
 
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
-export const alt = 'Atlas de Desastres';
+export const alt = 'Mapa de Desastres';
 
 const font = (pkg: string, file: string) => readFile(path.join(process.cwd(), 'node_modules', '@fontsource', pkg, 'files', file));
 

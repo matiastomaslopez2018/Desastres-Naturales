@@ -136,7 +136,7 @@ const BASE: LearnArticle[] = [
         ] },
         { h: 'Intensidad: cuánto se sacudió cada lugar', p: [
           'La intensidad describe los efectos del sismo en un lugar concreto: qué sintió la gente, qué se cayó, qué se dañó. Cambia de un lugar a otro según la distancia al epicentro, la profundidad del sismo, el tipo de suelo y las construcciones.',
-          'La escala más usada en América es la de Mercalli Modificada (MMI), con números romanos del I (no se siente) al XII (destrucción casi total). En la ficha de cada sismo de este atlas, "Intensidad máx. (MMI)" es la mayor intensidad estimada por el ShakeMap del USGS.',
+          'La escala más usada en América es la de Mercalli Modificada (MMI), con números romanos del I (no se siente) al XII (destrucción casi total). En la ficha de cada sismo del Mapa de Desastres, "Intensidad máx. (MMI)" es la mayor intensidad estimada por el ShakeMap del USGS.',
         ] },
         { h: 'Por qué un sismo "más chico" puede sentirse más fuerte', p: [
           'Un M 6 poco profundo debajo de una ciudad puede producir más intensidad allí que un M 7 profundo y lejano. Por eso dos sismos de igual magnitud pueden tener consecuencias muy distintas, y por eso para medir el impacto se mira la intensidad y no solo la magnitud.',
@@ -162,7 +162,7 @@ const BASE: LearnArticle[] = [
         ] },
         { h: 'Intensity: how hard each place shook', p: [
           'Intensity describes the effects of the earthquake at a given place: what people felt, what fell, what was damaged. It changes from place to place depending on distance to the epicenter, depth, soil type and buildings.',
-          'The most widely used scale in the Americas is the Modified Mercalli Intensity (MMI) scale, with Roman numerals from I (not felt) to XII (near-total destruction). On each earthquake page of this atlas, "Max intensity (MMI)" is the highest intensity estimated by the USGS ShakeMap.',
+          'The most widely used scale in the Americas is the Modified Mercalli Intensity (MMI) scale, with Roman numerals from I (not felt) to XII (near-total destruction). On each earthquake page of the Disaster Map, "Max intensity (MMI)" is the highest intensity estimated by the USGS ShakeMap.',
         ] },
         { h: 'Why a "smaller" earthquake can feel stronger', p: [
           'A shallow M 6 under a city can produce higher intensity there than a deep, distant M 7. That is why two earthquakes of the same magnitude can have very different consequences, and why impact is judged by intensity, not just magnitude.',
@@ -197,14 +197,14 @@ const BASE: LearnArticle[] = [
         ] },
         { h: 'Ondas P y S: cómo se encuentra el epicentro', p: [
           'Un sismo emite varios tipos de ondas. Las primeras en llegar son las ondas P (de compresión), más rápidas; después llegan las ondas S (de corte). Cuanto más lejos está una estación, más tiempo pasa entre la llegada de la P y la de la S.',
-          'Con esa diferencia, cada estación sabe a qué distancia ocurrió el sismo, pero no en qué dirección. Combinando muchas estaciones, un programa calcula el punto que mejor explica todos los tiempos: el hipocentro (el punto en profundidad donde empezó la ruptura) y, sobre la superficie, el epicentro. Por eso cada ubicación tiene un margen de error, que en las fichas de este atlas se muestra como "± km".',
+          'Con esa diferencia, cada estación sabe a qué distancia ocurrió el sismo, pero no en qué dirección. Combinando muchas estaciones, un programa calcula el punto que mejor explica todos los tiempos: el hipocentro (el punto en profundidad donde empezó la ruptura) y, sobre la superficie, el epicentro. Por eso cada ubicación tiene un margen de error, que en las fichas del Mapa de Desastres se muestra como "± km".',
         ] },
         { h: 'Cómo se calcula la magnitud', p: [
           'Las magnitudes clásicas (local ML, de ondas de cuerpo mb, de ondas superficiales Ms) se calculan a partir de la amplitud de ciertas ondas en los sismogramas, corregida por la distancia.',
           'Para sismos medianos y grandes se usa la magnitud de momento (Mw), que parte del momento sísmico: la rigidez de la roca, por el área de la falla que se rompió, por cuánto se deslizó. Se calcula modelando la forma completa de las ondas y no se satura en los sismos más grandes. Su fórmula es Mw = ⅔ · log₁₀(M₀) − 6,07, con el momento M₀ en newton·metro.',
         ] },
         { h: 'Por qué los datos cambian en las primeras horas', p: [
-          'La primera solución sale en minutos y es automática, con pocas estaciones. A medida que llegan más datos, los sismólogos revisan la ubicación, la profundidad y la magnitud; por eso un sismo puede pasar, por ejemplo, de M 6,6 a M 6,8. En este atlas cada sismo dice si es "preliminar" (automático) o "revisado" por un sismólogo, y distintas agencias pueden publicar valores algo diferentes para el mismo sismo.',
+          'La primera solución sale en minutos y es automática, con pocas estaciones. A medida que llegan más datos, los sismólogos revisan la ubicación, la profundidad y la magnitud; por eso un sismo puede pasar, por ejemplo, de M 6,6 a M 6,8. En el Mapa de Desastres cada sismo dice si es "preliminar" (automático) o "revisado" por un sismólogo, y distintas agencias pueden publicar valores algo diferentes para el mismo sismo.',
         ] },
         { h: 'Además de la magnitud', p: [
           'Con los datos de los acelerómetros y los reportes de la gente, el USGS arma el ShakeMap (la intensidad del sacudimiento en cada lugar) y el sistema PAGER, que estima el impacto posible en personas y en la economía con una alerta verde, amarilla, naranja o roja. En la costa, los centros de alerta de tsunami usan la magnitud y la ubicación para decidir en minutos si emiten una alerta.',
@@ -223,14 +223,14 @@ const BASE: LearnArticle[] = [
         ] },
         { h: 'P and S waves: finding the epicenter', p: [
           'An earthquake sends out several kinds of waves. The first to arrive are P waves (compressional), which are faster; S waves (shear) come next. The farther away a station is, the more time passes between the P and the S arrival.',
-          'From that difference each station knows how far away the earthquake was, but not in which direction. Combining many stations, software computes the point that best explains all the arrival times: the hypocenter (the point at depth where the rupture began) and, above it on the surface, the epicenter. That is why every location has an uncertainty, shown on this atlas\'s pages as "± km".',
+          'From that difference each station knows how far away the earthquake was, but not in which direction. Combining many stations, software computes the point that best explains all the arrival times: the hypocenter (the point at depth where the rupture began) and, above it on the surface, the epicenter. That is why every location has an uncertainty, shown on the Disaster Map\'s pages as "± km".',
         ] },
         { h: 'How magnitude is computed', p: [
           'The classic magnitudes (local ML, body-wave mb, surface-wave Ms) are computed from the amplitude of certain waves on the seismograms, corrected for distance.',
           'For medium and large earthquakes, moment magnitude (Mw) is used. It starts from the seismic moment: the rigidity of the rock, times the area of the fault that ruptured, times how far it slipped. It is computed by modeling the full waveforms and does not saturate for the largest earthquakes. The formula is Mw = ⅔ · log₁₀(M₀) − 6.07, with the moment M₀ in newton-meters.',
         ] },
         { h: 'Why the numbers change in the first hours', p: [
-          'The first solution comes out within minutes and is automatic, based on few stations. As more data arrive, seismologists review the location, depth and magnitude; that is why an earthquake can go, for example, from M 6.6 to M 6.8. On this atlas every earthquake says whether it is "preliminary" (automatic) or "reviewed" by a seismologist, and different agencies may publish slightly different values for the same earthquake.',
+          'The first solution comes out within minutes and is automatic, based on few stations. As more data arrive, seismologists review the location, depth and magnitude; that is why an earthquake can go, for example, from M 6.6 to M 6.8. On the Disaster Map every earthquake says whether it is "preliminary" (automatic) or "reviewed" by a seismologist, and different agencies may publish slightly different values for the same earthquake.',
         ] },
         { h: 'Beyond magnitude', p: [
           'With accelerometer data and people\'s reports, the USGS builds ShakeMap (shaking intensity at each place) and the PAGER system, which estimates possible impact on people and the economy with a green, yellow, orange or red alert. On the coast, tsunami warning centers use magnitude and location to decide within minutes whether to issue an alert.',

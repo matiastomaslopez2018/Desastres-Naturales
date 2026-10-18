@@ -35,7 +35,7 @@ export type SeoText = {
 
 export const SEO: Record<Lang, SeoText> = {
   es: {
-    suffix: 'Atlas de Desastres',
+    suffix: 'Mapa de Desastres',
     updatedEvery: 'Datos oficiales actualizados automáticamente.',
     sourceNote: 'Fuentes: USGS, NASA EONET, GDACS, NOAA y Smithsonian GVP. Cada evento enlaza su fuente primaria.',
     quakesToday: {
@@ -128,7 +128,7 @@ export const SEO: Record<Lang, SeoText> = {
     more: 'Ver más',
   },
   en: {
-    suffix: 'Disaster Atlas',
+    suffix: 'Disaster Map',
     updatedEvery: 'Official data, updated automatically.',
     sourceNote: 'Sources: USGS, NASA EONET, GDACS, NOAA and Smithsonian GVP. Every event links to its primary source.',
     quakesToday: {

@@ -37,7 +37,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const found = await loadEvent(id).catch(() => null);
   if (!found) return { title: `${t.notFoundTitle} · ${t.brand}`, robots: { index: false } };
   const { event: e } = found;
-  const title = `${seoEventTitle(lang, e)} | ${t.brand}`;
+  const title = `${seoEventTitle(lang, e)} · ${t.brand}`;
   const description = eventDescription(lang, e);
   const path = (l: string) => `/${l}/evento/${encodeURIComponent(e.id)}`;
   return {

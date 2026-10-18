@@ -17,8 +17,8 @@ export const MORE_1: LearnArticle[] = [
       lead: 'La capa externa y rígida de la Tierra, la litosfera, está partida en placas que se mueven unos centímetros por año. Donde chocan, se separan o se deslizan, la Tierra tiembla y nacen volcanes.',
       sections: [
         { h: 'Placas que se mueven', p: [
-          'La litosfera tiene unos 100 km de espesor y está dividida en una docena de placas grandes y varias decenas de placas chicas: el modelo PB2002 que usa este atlas distingue 52. Flotan sobre el manto, más caliente y plástico, y se mueven entre 1 y 10 centímetros por año, más o menos lo que crecen las uñas.',
-          'Hoy ese movimiento se mide con GPS y se resume en modelos como NNR-MORVEL56, con el que el atlas calcula, en la ficha de cada sismo, a qué velocidad se acercan o se separan las placas.',
+          'La litosfera tiene unos 100 km de espesor y está dividida en una docena de placas grandes y varias decenas de placas chicas: el modelo PB2002 que usa el Mapa de Desastres distingue 52. Flotan sobre el manto, más caliente y plástico, y se mueven entre 1 y 10 centímetros por año, más o menos lo que crecen las uñas.',
+          'Hoy ese movimiento se mide con GPS y se resume en modelos como NNR-MORVEL56, con el que el Mapa de Desastres calcula, en la ficha de cada sismo, a qué velocidad se acercan o se separan las placas.',
         ] },
         { h: 'Tres tipos de borde', list: [
           'Convergente: las placas se acercan. Si una es oceánica, se hunde debajo de la otra (subducción), como Nazca bajo Sudamérica; si las dos son continentales, chocan y levantan cordilleras, como el Himalaya.',
@@ -38,8 +38,8 @@ export const MORE_1: LearnArticle[] = [
       lead: 'Earth’s rigid outer shell, the lithosphere, is broken into plates that move a few centimeters a year. Where they collide, pull apart or slide past each other, the ground shakes and volcanoes form.',
       sections: [
         { h: 'Moving plates', p: [
-          'The lithosphere is about 100 km thick and divided into a dozen large plates and several dozen small ones: the PB2002 model this atlas uses distinguishes 52. They ride on the hotter, plastic mantle and move between 1 and 10 centimeters a year, roughly as fast as fingernails grow.',
-          'That motion is now measured with GPS and summarized in models such as NNR-MORVEL56, which the atlas uses on each earthquake page to compute how fast the plates are converging or separating.',
+          'The lithosphere is about 100 km thick and divided into a dozen large plates and several dozen small ones: the PB2002 model this map uses distinguishes 52. They ride on the hotter, plastic mantle and move between 1 and 10 centimeters a year, roughly as fast as fingernails grow.',
+          'That motion is now measured with GPS and summarized in models such as NNR-MORVEL56, which the Disaster Map uses on each earthquake page to compute how fast the plates are converging or separating.',
         ] },
         { h: 'Three kinds of boundary', list: [
           'Convergent: plates move together. If one is oceanic, it sinks beneath the other (subduction), like Nazca under South America; if both are continental, they collide and raise mountains, like the Himalaya.',
@@ -109,7 +109,7 @@ export const MORE_1: LearnArticle[] = [
           'La réplica más grande suele ser alrededor de 1 punto de magnitud menor que el sismo principal, aunque hay excepciones.',
           'En sismos muy grandes, las réplicas fuertes pueden seguir durante años.',
         ] },
-        { h: '¿Puede venir uno más grande?', p: ['Sí, en una minoría de los casos el sismo resulta ser el anticipo de otro mayor. Por eso el USGS publica pronósticos de réplicas con probabilidades para el próximo día, semana, mes y año; en la ficha de los sismos grandes del atlas se muestran tal como los publica.'] },
+        { h: '¿Puede venir uno más grande?', p: ['Sí, en una minoría de los casos el sismo resulta ser el anticipo de otro mayor. Por eso el USGS publica pronósticos de réplicas con probabilidades para el próximo día, semana, mes y año; en la ficha de los sismos grandes del Mapa de Desastres se muestran tal como los publica.'] },
         { h: 'Qué hacer', list: [
           'Ante cada réplica fuerte: agacharse, cubrirse y sujetarse.',
           'No volver a edificios dañados: una réplica puede terminar de derribarlos.',
@@ -129,7 +129,7 @@ export const MORE_1: LearnArticle[] = [
           'The largest aftershock is usually about 1 magnitude unit smaller than the mainshock, though there are exceptions.',
           'After very large earthquakes, strong aftershocks can continue for years.',
         ] },
-        { h: 'Can a bigger one follow?', p: ['Yes: in a minority of cases the earthquake turns out to be a foreshock of a larger one. That is why the USGS publishes aftershock forecasts with probabilities for the next day, week, month and year; the atlas shows them on large-earthquake pages exactly as published.'] },
+        { h: 'Can a bigger one follow?', p: ['Yes: in a minority of cases the earthquake turns out to be a foreshock of a larger one. That is why the USGS publishes aftershock forecasts with probabilities for the next day, week, month and year; the Disaster Map shows them on large-earthquake pages exactly as published.'] },
         { h: 'What to do', list: [
           'During each strong aftershock: drop, cover and hold on.',
           'Do not go back into damaged buildings: an aftershock can bring them down.',
@@ -259,7 +259,7 @@ export const MORE_1: LearnArticle[] = [
         { h: 'Antes', list: [
           'Averiguá si vivís en una zona de riesgo volcánico y cuáles son las rutas de evacuación.',
           'Prepará una mochila de emergencia con barbijos y anteojos de protección.',
-          'Conocé los niveles de alerta del observatorio local (en el atlas, cada ficha de volcán enlaza al observatorio que corresponde).',
+          'Conocé los niveles de alerta del observatorio local (en el Mapa de Desastres, cada ficha de volcán enlaza al observatorio que corresponde).',
         ] },
       ],
     },
@@ -284,7 +284,7 @@ export const MORE_1: LearnArticle[] = [
         { h: 'Before', list: [
           'Find out whether you live in a volcanic hazard zone and what the evacuation routes are.',
           'Prepare an emergency kit with masks and goggles.',
-          'Learn the local observatory’s alert levels (on the atlas, each volcano page links to the relevant observatory).',
+          'Learn the local observatory’s alert levels (on the Disaster Map, each volcano page links to the relevant observatory).',
         ] },
       ],
     },
@@ -306,7 +306,7 @@ export const MORE_1: LearnArticle[] = [
           'Deslizamientos submarinos o de laderas que caen al mar.',
           'Erupciones volcánicas y, muy raramente, impactos de meteoritos.',
         ] },
-        { h: 'Por qué no todo sismo genera un tsunami', p: ['Tiene que moverse mucho el fondo del mar. Por eso hace falta, en general, un sismo en el mar, poco profundo (menos de unos 70 km), grande (magnitud 7 o más; los tsunamis destructivos lejanos suelen venir de M 8 o más) y con falla inversa, que levanta el fondo. Un sismo de rumbo mueve el fondo de costado y empuja poca agua. En la ficha de cada sismo grande, el atlas muestra cuáles de estas condiciones se cumplen.'] },
+        { h: 'Por qué no todo sismo genera un tsunami', p: ['Tiene que moverse mucho el fondo del mar. Por eso hace falta, en general, un sismo en el mar, poco profundo (menos de unos 70 km), grande (magnitud 7 o más; los tsunamis destructivos lejanos suelen venir de M 8 o más) y con falla inversa, que levanta el fondo. Un sismo de rumbo mueve el fondo de costado y empuja poca agua. En la ficha de cada sismo grande, el Mapa de Desastres muestra cuáles de estas condiciones se cumplen.'] },
         { h: 'Cómo viaja', p: [
           'En mar abierto, un tsunami viaja tan rápido como un avión: en un océano de 4.000 m de profundidad, unos 700 km/h. Allí la ola mide poco de alto y un barco casi no la nota.',
           'Al llegar a la costa, el agua más baja la frena y la ola crece. No es una ola que rompe: es una subida del mar que puede entrar cientos de metros tierra adentro. Llegan varias olas durante horas y la primera no siempre es la más grande; a veces el mar primero se retira.',
@@ -325,7 +325,7 @@ export const MORE_1: LearnArticle[] = [
           'Submarine landslides or slopes collapsing into the sea.',
           'Volcanic eruptions and, very rarely, meteorite impacts.',
         ] },
-        { h: 'Why not every earthquake causes a tsunami', p: ['The seafloor has to move a lot. That generally takes an earthquake at sea, shallow (less than about 70 km), large (magnitude 7 or more; distant destructive tsunamis usually come from M 8 or more) and on a reverse fault, which lifts the seafloor. A strike-slip earthquake moves the seafloor sideways and pushes little water. On each large earthquake page, the atlas shows which of these conditions are met.'] },
+        { h: 'Why not every earthquake causes a tsunami', p: ['The seafloor has to move a lot. That generally takes an earthquake at sea, shallow (less than about 70 km), large (magnitude 7 or more; distant destructive tsunamis usually come from M 8 or more) and on a reverse fault, which lifts the seafloor. A strike-slip earthquake moves the seafloor sideways and pushes little water. On each large earthquake page, the Disaster Map shows which of these conditions are met.'] },
         { h: 'How it travels', p: [
           'In the open ocean a tsunami travels as fast as a jet: in a 4,000 m deep ocean, about 700 km/h. There the wave is low and a ship barely notices it.',
           'Near the coast, shallower water slows it down and the wave grows. It is not a breaking wave: it is a rise of the sea that can run hundreds of meters inland. Several waves arrive over hours and the first is not always the largest; sometimes the sea first recedes.',

@@ -41,6 +41,13 @@ type Props = {
   onRaster?(id: 'hazard' | 'fwi' | 'lhasa', state: 'wait' | 'ok' | 'err'): void;
   /** Texto del indicador que aparece junto al evento mientras cargan las teselas del destino. */
   loadingText?: string;
+  /**
+   * Reproducción de la línea de tiempo: solo se muestran los eventos con inicio ≤ playHead (ms),
+   * los ciclones hasta ese instante de su trayectoria y los focos FIRMS detectados hasta entonces.
+   * flashSpan: cuánto tiempo de datos (ms) dura el destello de un evento que aparece (0 = sin destello).
+   */
+  playHead?: number | null;
+  flashSpan?: number;
 };
 
 /* ───────────── Fondo y relieve ───────────── */
@@ -130,6 +137,8 @@ function baseRadius(e: DisasterEvent) {
   for (let i = 1; i < P.length; i++) if (m <= P[i][0]) return P[i - 1][1] + ((m - P[i - 1][0]) / (P[i][0] - P[i - 1][0])) * (P[i][1] - P[i - 1][1]);
   return P[3][1] + (m - 7.5) * 4;
 }
+/** Instante en que el evento aparece en la reproducción: su inicio (o su hora, si no informa inicio). */
+const appearAt = (e: DisasterEvent) => e.start ?? e.time;
 /** Anillo blanco: sismo M6+ o alerta oficial (PAGER/GDACS) distinta de verde. */
 const hasRing = (e: DisasterEvent) => (e.type === 'eq' && (e.mag ?? 0) >= 6) || alertLevel(e) >= 1;
 /** Zoom del vuelo según el tipo. */
@@ -264,6 +273,7 @@ function buildStyle(p: Profile): StyleSpecification {
       'circle-color': ['get', 'c'], 'circle-radius': zoomScaled(['get', 'r']) as never, 'circle-opacity': 0.92, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 1.2 } },
     { id: 'evc-ring', type: 'circle', source: 'evc', filter: ['all', ['!', ['has', 'point_count']], ['get', 'ring']], paint: {
       'circle-color': 'rgba(0,0,0,0)', 'circle-radius': zoomScaled(['+', ['get', 'r'], 5]) as never, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2 } },
+    { id: 'ev-flash', type: 'circle', source: 'ev', filter: ['boolean', false], paint: { 'circle-color': 'rgba(0,0,0,0)', 'circle-radius': 10, 'circle-stroke-color': ['get', 'c'], 'circle-stroke-width': 2.5, 'circle-stroke-opacity': 0 } },
     { id: 'sel', type: 'circle', source: 'sel', paint: { 'circle-color': 'rgba(0,0,0,0)', 'circle-radius': zoomScaled(['+', ['get', 'r'], 8]) as never, 'circle-stroke-color': '#141414', 'circle-stroke-width': 2.2 } },
   ];
 
@@ -299,6 +309,8 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
   /** pid (propiedad de cada punto) → objeto original, para devolverlo al tocarlo. */
   const pick = useRef(new Map<string, Pickable>());
   const profile = useRef<Profile>({ mobile: false, slow: false });
+  const evFeats = useRef<GeoJSON.Feature[]>([]);
+  const lastClusterPlay = useRef(0);
   const terrainRef = useRef(props.terrain);
   terrainRef.current = props.terrain;
   const cleanupTerrain = useRef<() => void>(() => {});
@@ -500,8 +512,9 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
     for (const k of [...ids.keys()]) if (k.startsWith('e:')) ids.delete(k);
     const feats = [...props.events].sort((a, b) => baseRadius(a) - baseRadius(b)).map((e, i) => {
       const pid = `e:${i}`; ids.set(pid, e);
-      return pt(e.lon, e.lat, { pid, t: e.type, mag: e.mag ?? 0, c: TYPE_COLOR[e.type], r: +baseRadius(e).toFixed(2), ring: hasRing(e), tsu: !!e.tsunami && props.showTsunami });
+      return pt(e.lon, e.lat, { pid, t: e.type, mag: e.mag ?? 0, c: TYPE_COLOR[e.type], r: +baseRadius(e).toFixed(2), ring: hasRing(e), tsu: !!e.tsunami && props.showTsunami, ts: appearAt(e) });
     });
+    evFeats.current = feats;
     const clustered = feats.length > 2000;
     setData('ev', clustered ? EMPTY : fc(feats));
     setData('evc', clustered ? fc(feats) : EMPTY);
@@ -525,24 +538,28 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.gvp]);
 
-  /* ── Capas de otras fuentes ── */
+  /* ── Ciclones (dependen también del cabezal de la línea de tiempo) ── */
   useEffect(() => {
     const ov = props.overlays;
     if (!ov) return;
     const ids = pick.current;
+    for (const k of [...ids.keys()]) if (k.startsWith('s:')) ids.delete(k);
     const reg = (prefix: string, i: number, p: Pickable) => { const pid = `${prefix}:${i}`; ids.set(pid, p); return pid; };
-
+    const head = props.playHead ?? null;
     // Ciclones: radios de viento, cono, trayectoria pasada (Saffir-Simpson), pronóstico y posición.
     const anim = ov.stormAnim ?? null;
     const areas: GeoJSON.Feature[] = [], lines: GeoJSON.Feature[] = [], pts: GeoJSON.Feature[] = [];
     ov.storms.forEach((st, i) => {
-      const playing = anim && anim.id === st.id ? anim.t : null;
+      // Animación de un ciclón (botón de la ficha) o reproducción de la línea de tiempo.
+      const playing = anim && anim.id === st.id ? anim.t : head;
+      if (playing != null && head != null && !(st.pastPoints ?? []).some((p) => p.time <= playing) && st.lastUpdate > playing) return;
       if (playing == null) for (const w of st.windField ?? []) areas.push({ type: 'Feature', properties: { k: 'wind', c: w.kt >= 64 ? '#e03131' : w.kt >= 50 ? '#ff922b' : '#ffd43b', o: w.kt >= 64 ? 0.3 : 0.22 }, geometry: w.geometry });
-      if (st.cone) areas.push({ type: 'Feature', properties: { k: 'cone' }, geometry: st.cone });
+      if (st.cone && head == null) areas.push({ type: 'Feature', properties: { k: 'cone' }, geometry: st.cone });
       const pp = (st.pastPoints ?? []).filter((p) => playing == null || p.time <= playing);
       if (pp.length > 1) for (let j = 1; j < pp.length; j++) lines.push(line([[pp[j - 1].lon, pp[j - 1].lat], [pp[j].lon, pp[j].lat]], { k: 'past', c: ssColor(pp[j].kt) }));
       else if (playing == null) for (const l of st.pastTrack ?? []) lines.push(line(l, { k: 'past', c: '#5a5a5a' }));
       const fp = (st.forecastPoints ?? []).filter((p) => playing == null || (p.time ?? 0) <= playing);
+      // (en la reproducción el cabezal nunca pasa de "ahora": no se dibuja el pronóstico)
       if (st.forecastTrack?.length && (playing == null || fp.length)) lines.push(line(playing == null ? st.forecastTrack : [[st.lon, st.lat], ...fp.map((p) => [p.lon, p.lat])], { k: 'fc' }));
       for (const p of fp) pts.push(pt(p.lon, p.lat, { k: 'fc', c: p.windKt != null ? ssColor(p.windKt) : '#ffffff' }));
       let mx = st.lon, my = st.lat;
@@ -554,8 +571,52 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
       pts.push(pt(mx, my, { k: 'now', pid: reg('s', i, st) }));
     });
     setData('storm-areas', fc(areas)); setData('storm-lines', fc(lines)); setData('storm-pts', fc(pts));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.overlays?.storms, props.overlays?.stormAnim, props.playHead]);
 
-    setData('heat', fc(ov.heat.map((h, i) => pt(h.lon, h.lat, { pid: reg('h', i, h), n: h.count, frp: h.frpMax, r: Math.min(10, 2 + Math.sqrt(h.count) * 0.7) }))));
+  /* ── Reproducción: filtro por tiempo en las capas (sin volver a cargar datos) ── */
+  useEffect(() => {
+    whenReady(() => {
+      const m = mapRef.current!;
+      const head = props.playHead ?? null;
+      const until = (base: unknown[] | null): unknown[] | null => (head == null ? base : base ? ['all', base, ['<=', ['get', 'ts'], head]] : ['<=', ['get', 'ts'], head]);
+      m.setFilter('ev', until(null) as never);
+      m.setFilter('ev-ring', until(['get', 'ring']) as never);
+      m.setFilter('ev-tsu', until(['get', 'tsu']) as never);
+      // Focos FIRMS: los detectados hasta el cabezal.
+      const heatF = head == null ? null : ['<=', ['get', 'last'], head];
+      m.setFilter('heat-map', heatF as never); m.setFilter('heat-pt', heatF as never);
+      // Destello de lo que acaba de aparecer: anillo del color del tipo que se agranda y se apaga.
+      const span = props.flashSpan ?? 0;
+      if (head != null && span > 0) {
+        const age = ['interpolate', ['linear'], ['get', 'ts'], head - span, 1, head, 0];
+        const r = ['+', ['get', 'r'], ['*', 14, age]];
+        m.setFilter('ev-flash', ['all', ['<=', ['get', 'ts'], head], ['>', ['get', 'ts'], head - span]] as never);
+        m.setPaintProperty('ev-flash', 'circle-stroke-opacity', ['-', 1, age] as never);
+        m.setPaintProperty('ev-flash', 'circle-radius', ['interpolate', ['linear'], ['zoom'], 1, r, 8, ['*', 1.8, r]] as never);
+      } else m.setFilter('ev-flash', ['boolean', false]);
+      // Con más de 2.000 eventos (fuente agrupada) el filtro va en los datos, como mucho 4 veces por segundo.
+      const feats = evFeats.current;
+      if (feats.length > 2000) {
+        const now = performance.now();
+        if (head == null || now - lastClusterPlay.current > 250) {
+          lastClusterPlay.current = now;
+          (m.getSource('evc') as GeoJSONSource | undefined)?.setData(fc(head == null ? feats : feats.filter((x) => (x.properties!.ts as number) <= head)));
+        }
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.playHead, props.flashSpan, props.events]);
+
+  /* ── Capas de otras fuentes ── */
+  useEffect(() => {
+    const ov = props.overlays;
+    if (!ov) return;
+    const ids = pick.current;
+    const reg = (prefix: string, i: number, p: Pickable) => { const pid = `${prefix}:${i}`; ids.set(pid, p); return pid; };
+
+
+    setData('heat', fc(ov.heat.map((h, i) => pt(h.lon, h.lat, { pid: reg('h', i, h), n: h.count, frp: h.frpMax, r: Math.min(10, 2 + Math.sqrt(h.count) * 0.7), last: h.last }))));
     setData('wvolc', fc(ov.volcanoes.map((v, i) => pt(v.lon, v.lat, { pid: reg('w', i, v), isNew: v.status === 'new' }))));
     const tl: GeoJSON.Feature[] = [];
     for (const tr of ov.tracks) for (let j = 1; j < tr.points.length; j++) tl.push(line([[tr.points[j - 1][0], tr.points[j - 1][1]], [tr.points[j][0], tr.points[j][1]]], { c: ssColor(tr.points[j][2]) }));

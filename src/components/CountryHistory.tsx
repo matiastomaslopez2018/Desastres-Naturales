@@ -100,7 +100,7 @@ export async function CountryHistory({ lang, iso3 }: { lang: Lang; iso3: string 
   );
 }
 
-/** Organismos oficiales nacionales (solo enlaces: sus datos no se mezclan con los del atlas). */
+/** Organismos oficiales nacionales (solo enlaces: sus datos no se mezclan con los del Mapa de Desastres). */
 export const NATIONAL: Record<string, { name: string; url: string }[]> = {
   ARG: [{ name: 'INPRES · Instituto Nacional de Prevención Sísmica', url: 'https://www.inpres.gob.ar/' }],
   CHL: [{ name: 'CSN · Centro Sismológico Nacional (U. de Chile)', url: 'https://www.sismologia.cl/' }],
