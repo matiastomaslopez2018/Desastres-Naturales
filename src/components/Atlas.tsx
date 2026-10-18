@@ -357,21 +357,25 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
   // Play: el cabezal avanza del inicio al fin del período en PLAY_DURATION (÷ velocidad). El globo no
   // se mueve solo: solo cambia qué se muestra. Al terminar vuelve a "todo el período".
   const span = win ? win.e - win.s : 0;
+  // El cabezal se lleva en una variable local del bucle (no en el estado): así el final se detecta en
+  // el mismo cuadro y la reproducción no vuelve a empezar. Solo arranca con el botón ▶ (togglePlay).
+  const headRef = useRef(head);
+  headRef.current = head;
   useEffect(() => {
     if (!playing || !win) return;
     let raf = 0, last = performance.now(), acc = 0;
+    let cur = headRef.current ?? win.s;
     const rate = (span / PLAY_DURATION[range]) * speed; // ms de datos por ms real
     const step = (now: number) => {
       const dt = now - last; last = now; acc += dt;
       if (acc >= 1000 / PLAY_FPS) {
-        const adv = acc * rate; acc = 0;
-        let ended = false;
-        setHead((h) => {
-          const n = (h ?? win.s) + adv;
-          if (n >= win.e) { ended = true; return null; }
-          return n;
-        });
-        if (ended) { setPlaying(false); return; }
+        cur += acc * rate; acc = 0;
+        if (cur >= win.e) {
+          // Fin: queda en pausa mostrando todo el período.
+          setHead(null); setPlaying(false);
+          return;
+        }
+        setHead(cur);
       }
       raf = requestAnimationFrame(step);
     };
@@ -566,7 +570,11 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
         </div>
 
         {head != null
-          ? <p className="map-playdate" aria-live="off"><span className="faint">{playing ? t.playing : t.paused}</span> {headLabel}</p>
+          ? <div className="map-playdate-wrap">
+              <p className="map-playdate" aria-live="off"><span className="faint">{playing ? t.playing : t.paused}</span> {headLabel}</p>
+              {/* FIRMS solo trae las últimas 24 h: antes de ese tramo no hay focos que mostrar. */}
+              {drawLayers.firms && range !== '24h' && head < Date.now() - 864e5 && <p className="map-playnote">{t.firmsOnly24h}</p>}
+            </div>
           : headline && !sel && <p className="map-headline">{headline}</p>}
         <p className="map-help">{helpText}</p>
 

@@ -172,11 +172,14 @@ body { background: #fafaf8; color: #141414; }
 .timeline:not(.has-head):hover .tl-head { opacity: .8; }
 .tl-head:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
 /* Fecha y hora del cabezal arriba del globo. */
-.map-playdate { position: absolute; top: 80px; left: 50%; transform: translateX(-50%); z-index: 2; margin: 0; padding: 8px 16px; border-radius: 999px; background: rgba(255, 255, 255, .94); box-shadow: var(--panel-shadow); font-family: var(--font-serif); font-size: 22px; white-space: nowrap; font-variant-numeric: tabular-nums; pointer-events: none; }
+.map-playdate-wrap { position: absolute; top: 80px; left: 50%; transform: translateX(-50%); z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
+.map-playnote { margin: 0; padding: 4px 12px; border-radius: 999px; background: rgba(255, 255, 255, .9); box-shadow: 0 1px 6px rgba(0, 0, 0, .1); font-size: 12px; color: var(--muted); white-space: nowrap; }
+.map-playdate { margin: 0; padding: 8px 16px; border-radius: 999px; background: rgba(255, 255, 255, .94); box-shadow: var(--panel-shadow); font-family: var(--font-serif); font-size: 22px; white-space: nowrap; font-variant-numeric: tabular-nums; pointer-events: none; }
 .map-playdate .faint { font-family: var(--font-sans); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; margin-right: 6px; vertical-align: 3px; }
 .map-stage:has(.map-playdate) .map-help { display: none; }
+@media (max-width: 760px) { .map-playdate-wrap { top: 60px; } .map-playnote { font-size: 11px; } }
 @media (max-width: 760px) {
-  .map-playdate { top: 60px; font-size: 17px; padding: 6px 12px; }
+  .map-playdate { font-size: 17px; padding: 6px 12px; }
   .tl-head { top: 8px; bottom: 12px; }
 }
 /* El agarre va abajo del cabezal para no tapar el número de la barra. */
