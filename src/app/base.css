@@ -14,38 +14,45 @@ button, input, select { font: inherit; color: inherit; }
 :focus { outline: none; }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
-/* Color por tipo de evento (2a). En papel se pisan con tinta: el tipo lo da la forma. */
+/* Color fijo por tipo ("Observatorio claro"): igual en el mapa, las fichas, Aprender y el ranking
+   (mismos valores que TYPE_COLOR en src/lib/mapTypes.ts). */
 :root {
-  --type-eq: #ff7a3d;
-  --type-volcano: #ff3d6e;
-  --type-fire: #ffb547;
-  --type-storm: #6ec8ff;
-  --type-flood: #3d8bff;
-  --type-drought: #c9a26b;
-  --type-tsunami: #7af0e0;
-  --type-gvp: #9fb0c3;
+  --type-eq: #e8590c;
+  --type-volcano: #d6336c;
+  --type-fire: #f59f00;
+  --type-storm: #228be6;
+  --type-flood: #12b886;
+  --type-drought: #b08c4a;
+  --type-tsunami: #0c8599;
+  --type-landslide: #8f5b2e;
+  --type-gvp: #868e96;
+  --font-sans: var(--font-isans), system-ui, sans-serif;
+  --font-serif: var(--font-iserif), Georgia, serif;
 }
 
+/* Mapa ("Observatorio claro"): fondo claro, paneles blancos flotando sobre el globo. */
 .theme-night {
-  color-scheme: dark;
-  --bg: #06080c;
-  --panel: rgba(12, 17, 25, .74);
-  --panel-strong: rgba(12, 17, 25, .86);
-  --panel-border: rgba(255, 255, 255, .08);
-  --chip: rgba(255, 255, 255, .06);
-  --text: #e6edf5;
-  --muted: #9fb0c3;
-  --faint: #7d8ea2;
-  --rule: rgba(255, 255, 255, .08);
-  --accent: #ff9a5c;
-  --accent-strong: #ff7a3d;
-  --alert-orange: #ff9a5c;
-  --alert-red: #ff3d3d;
-  --live: #3dff9a;
-  --focus: #6ec8ff;
-  --font-ui: var(--font-plex-sans), system-ui, sans-serif;
-  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
-  --font-display: var(--font-plex-sans), system-ui, sans-serif;
+  color-scheme: light;
+  --bg: #fafaf8;
+  --panel: #ffffff;
+  --panel-strong: #ffffff;
+  --panel-border: #e7e7e2;
+  --panel-shadow: 0 2px 12px rgba(0, 0, 0, .12);
+  --chip: #f2f2ee;
+  --text: #141414;
+  --muted: #5a5a5a;
+  --faint: #6f6f6b;
+  --rule: #e7e7e2;
+  --rule-strong: #141414;
+  --accent: #e8590c;
+  --accent-strong: #e8590c;
+  --alert-orange: #e8590c;
+  --alert-red: #c92a2a;
+  --live: #2f9e44;
+  --focus: #1c7ed6;
+  --font-ui: var(--font-sans);
+  --font-mono: var(--font-sans);
+  --font-display: var(--font-serif);
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-ui);
@@ -53,24 +60,22 @@ button, input, select { font: inherit; color: inherit; }
 
 .theme-paper {
   color-scheme: light;
-  --bg: #faf8f3;
-  --paper-2: #f1eee6;
-  --land: #dcd5c5;
-  --text: #1a1a1a;
-  --muted: #444;
-  --faint: #666;
-  --rule: #d9d4c8;
-  --rule-strong: #1a1a1a;
+  --bg: #fafaf8;
+  --paper-2: #f2f2ee;
+  --land: #e2e0d8;
+  --text: #141414;
+  --muted: #5a5a5a;
+  --faint: #6f6f6b;
+  --rule: #e7e7e2;
+  --rule-strong: #141414;
   --accent: #c8102e;
   --accent-strong: #c8102e;
   --alert-orange: #c8102e;
   --alert-red: #c8102e;
   --focus: #c8102e;
-  --font-ui: var(--font-source-sans), system-ui, sans-serif;
-  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
-  --font-display: var(--font-newsreader), Georgia, serif;
-  --type-eq: #1a1a1a; --type-volcano: #1a1a1a; --type-fire: #1a1a1a; --type-storm: #1a1a1a;
-  --type-flood: #1a1a1a; --type-drought: #1a1a1a; --type-tsunami: #1a1a1a; --type-gvp: #666;
+  --font-ui: var(--font-sans);
+  --font-mono: var(--font-sans);
+  --font-display: var(--font-serif);
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-ui);

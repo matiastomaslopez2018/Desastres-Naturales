@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { ImageResponse } from 'next/og';
+import { LOGO_PATH } from '@/components/Logo';
 import { geoGraticule10, geoOrthographic, geoPath } from 'd3-geo';
 import { feature, mesh } from 'topojson-client';
 import type { Topology, GeometryCollection } from 'topojson-specification';
@@ -30,16 +31,16 @@ export default async function CountryOg({ params }: { params: Promise<{ lang: st
   const iso3 = isIso3(iso) ? iso.toUpperCase() : null;
   const [data, serif400, serif600, sans400, sans600] = await Promise.all([
     iso3 ? getCountry(iso3, '1y', new Date().getUTCFullYear()).catch(() => null) : null,
-    font('newsreader', 'newsreader-latin-400-normal.woff'),
-    font('newsreader', 'newsreader-latin-600-normal.woff'),
-    font('source-sans-3', 'source-sans-3-latin-400-normal.woff'),
-    font('source-sans-3', 'source-sans-3-latin-600-normal.woff'),
+    font('instrument-serif', 'instrument-serif-latin-400-normal.woff'),
+    font('instrument-serif', 'instrument-serif-latin-400-normal.woff'),
+    font('instrument-sans', 'instrument-sans-latin-400-normal.woff'),
+    font('instrument-sans', 'instrument-sans-latin-600-normal.woff'),
   ]);
   const fonts = [
-    { name: 'Newsreader', data: serif400, weight: 400 as const, style: 'normal' as const },
-    { name: 'Newsreader', data: serif600, weight: 600 as const, style: 'normal' as const },
-    { name: 'Source Sans 3', data: sans400, weight: 400 as const, style: 'normal' as const },
-    { name: 'Source Sans 3', data: sans600, weight: 600 as const, style: 'normal' as const },
+    { name: 'Instrument Serif', data: serif400, weight: 400 as const, style: 'normal' as const },
+    { name: 'Instrument Serif', data: serif600, weight: 600 as const, style: 'normal' as const },
+    { name: 'Instrument Sans', data: sans400, weight: 400 as const, style: 'normal' as const },
+    { name: 'Instrument Sans', data: sans600, weight: 600 as const, style: 'normal' as const },
   ];
   const nf = (x: number, d = 0) => fmtNum(lang, x, d);
   const name = iso3 ? countryName(iso3, lang) : t.brand;
@@ -64,9 +65,12 @@ export default async function CountryOg({ params }: { params: Promise<{ lang: st
 
   return new ImageResponse(
     (
-      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: PAPER.bg, color: PAPER.ink, fontFamily: 'Source Sans 3' }}>
+      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: PAPER.bg, color: PAPER.ink, fontFamily: 'Instrument Sans' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '22px 44px 16px', borderBottom: `1.5px solid ${PAPER.ink}` }}>
-          <span style={{ fontFamily: 'Newsreader', fontWeight: 600, fontSize: 32 }}>{t.brand}</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 12, fontFamily: 'Instrument Serif', fontSize: 34 }}>
+            <svg width="40" height="40" viewBox="0 0 32 32"><circle cx="16" cy="16" r="14.75" fill="#ffffff" stroke="#141414" strokeWidth="1.5" /><path d={LOGO_PATH} fill="none" stroke="#e8590c" strokeWidth="2.1" strokeLinejoin="round" strokeLinecap="round" /></svg>
+            {t.brand}
+          </span>
           <span style={{ fontSize: 20, color: PAPER.muted }}>USGS · NASA EONET · GDACS</span>
         </div>
         <div style={{ flex: 1, display: 'flex', padding: '18px 44px 0' }}>
@@ -74,12 +78,12 @@ export default async function CountryOg({ params }: { params: Promise<{ lang: st
             <div style={{ display: 'flex', fontSize: 22, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase', color: PAPER.red }}>
               {`${t.countryKicker} · ${t.inRange['1y']}`}
             </div>
-            <div style={{ display: 'flex', fontFamily: 'Newsreader', fontSize: name.length > 18 ? 64 : 88, lineHeight: 1, marginTop: 12 }}>{name}</div>
+            <div style={{ display: 'flex', fontFamily: 'Instrument Serif', fontSize: name.length > 18 ? 64 : 88, lineHeight: 1, marginTop: 12 }}>{name}</div>
             <div style={{ display: 'flex', gap: 36, marginTop: 40 }}>
               {figures.map((f) => (
                 <div key={f.label} style={{ display: 'flex', flexDirection: 'column' }}>
                   <span style={{ fontSize: 18, fontWeight: 600, letterSpacing: 1.5, textTransform: 'uppercase', color: PAPER.muted }}>{f.label}</span>
-                  <span style={{ fontFamily: 'Newsreader', fontSize: 64, lineHeight: 1.05, color: f.red ? PAPER.red : PAPER.ink }}>{f.value}</span>
+                  <span style={{ fontFamily: 'Instrument Serif', fontSize: 64, lineHeight: 1.05, color: f.red ? PAPER.red : PAPER.ink }}>{f.value}</span>
                 </div>
               ))}
             </div>

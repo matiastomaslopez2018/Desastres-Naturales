@@ -1,3 +1,4 @@
+import { TYPE_COLOR } from './mapTypes';
 import type { AlertLevel, DisasterEvent, EventType } from './types';
 
 export type FilterType = EventType | 'tsunami';
@@ -15,14 +16,14 @@ export const NIGHT = {
   ring: 'rgba(255,122,61,.10)', glow: 'rgba(80,140,255,.22)', rim: 'rgba(140,180,255,.35)',
   text: '#e6edf5', muted: '#9fb0c3', select: '#ff9a5c', alertOrange: '#ff9a5c', alertRed: '#ff3d3d', gvp: '#7d8ea2',
   type: {
-    eq: '#ff7a3d', volcano: '#ff3d6e', fire: '#ffb547', storm: '#6ec8ff', flood: '#3d8bff', drought: '#c9a26b', tsunami: '#7af0e0',
+    eq: TYPE_COLOR.eq, volcano: TYPE_COLOR.volcano, fire: TYPE_COLOR.fire, storm: TYPE_COLOR.storm, flood: TYPE_COLOR.flood, drought: TYPE_COLOR.drought, tsunami: TYPE_COLOR.tsunami,
   } as Record<FilterType, string>,
 };
 
 /** 2b "Periodístico": papel, tinta y un solo rojo (mapas estáticos, imagen OG). */
 export const PAPER = {
-  bg: '#faf8f3', sphere: '#f1eee6', land: '#dcd5c5', borders: '#faf8f3', grat: 'rgba(26,26,26,.06)',
-  plates: 'rgba(26,26,26,.25)', ink: '#1a1a1a', muted: '#555', rule: '#d9d4c8', red: '#c8102e', highlight: 'rgba(200,16,46,.12)',
+  bg: '#fafaf8', sphere: '#f2f2ee', land: '#e2e0d8', borders: '#fafaf8', grat: 'rgba(20,20,20,.06)',
+  plates: 'rgba(20,20,20,.28)', ink: '#141414', muted: '#5a5a5a', rule: '#e7e7e2', red: '#c8102e', highlight: 'rgba(200,16,46,.12)',
 };
 
 /** Último dato publicado del evento (eventos en curso: último punto o fin informado). */
@@ -37,9 +38,10 @@ export const isHighlighted = (e: DisasterEvent) => alertLevel(e) >= 2 || (e.type
 
 /** Estilo de un evento en papel: contorno de tinta, relleno rojo si es destacado. */
 export function paperStyle(e: DisasterEvent) {
+  const c: string = TYPE_COLOR[e.type];
   return isHighlighted(e)
-    ? { fill: PAPER.red, stroke: PAPER.red, fillOpacity: 0.85 }
-    : { fill: e.type === 'eq' ? 'none' : PAPER.ink, stroke: PAPER.ink, fillOpacity: e.type === 'eq' ? 0 : 0.55 };
+    ? { fill: c, stroke: PAPER.ink, fillOpacity: 0.95 }
+    : { fill: c, stroke: '#ffffff', fillOpacity: 0.85 };
 }
 
 export function sizeFor(e: { type: string; mag?: number | null }, k: number) {

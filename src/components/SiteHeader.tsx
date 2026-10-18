@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { LogoMark } from './Logo';
 import { T } from '@/lib/i18n';
 import { fmtTime } from '@/lib/format';
 import { cached } from '@/lib/server/cache';
@@ -36,7 +37,7 @@ export async function SiteHeader({ lang, langHrefs, current, updatedAt }: Props)
   ];
   return (
     <header className="ed-header">
-      <Link href={`/${lang}`} className="ed-brand">{t.brand}</Link>
+      <Link href={`/${lang}`} className="ed-brand logo"><LogoMark /><span className="logo-text">{t.brand}</span></Link>
       <nav className="ed-nav" aria-label={lang === 'es' ? 'Secciones' : 'Sections'}>
         {items.map((i) => (
           <Link key={i.k} href={i.href} aria-current={current === i.k ? 'page' : undefined}>{i.label}</Link>

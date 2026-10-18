@@ -5,7 +5,7 @@ import { MediaFigure } from './MediaFigure';
 import { T } from '@/lib/i18n';
 import { landslideCategory, landslideTrigger } from '@/lib/landslideText';
 import { fmtCoords, fmtNum, fmtTime } from '@/lib/format';
-import type { DartBuoy, GlcSlide, SpcReport } from './Globe';
+import type { DartBuoy, GlcSlide, SpcReport } from '@/lib/mapTypes';
 import type { HeatBin, HistTrack, Lang, Link, NhcStorm, VolcanoActivity } from '@/lib/types';
 
 /*
