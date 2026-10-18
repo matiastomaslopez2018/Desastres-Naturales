@@ -54,7 +54,16 @@ type Props = {
 
 const INITIAL = { center: [-62, -8] as [number, number], zoom: 1.75, pitch: 0, bearing: 0 };
 const isNarrow = () => typeof window !== 'undefined' && window.innerWidth < 600;
-const initialZoom = () => (isNarrow() ? 1.1 : INITIAL.zoom);
+/**
+ * Zoom inicial para que la esfera ocupe ~90 % del lado menor del área del mapa. En la proyección de
+ * globo de MapLibre la circunferencia mide 512·2^z px, así que el diámetro es 512·2^z/π.
+ */
+const fitZoom = (el: HTMLElement | null) => {
+  const side = el ? Math.min(el.clientWidth, el.clientHeight) : 0;
+  if (!side) return isNarrow() ? 1.1 : INITIAL.zoom;
+  // Con la perspectiva de la cámara la esfera se ve ~20 % más chica que ese diámetro: se compensa.
+  return Math.max(0.6, Math.min(3, Math.log2(((0.9 / 0.8) * side * Math.PI) / 512)));
+};
 
 /**
  * Celular (pantalla angosta, o táctil y de menos de 1024 px) y conexión lenta (3G o peor según
@@ -367,7 +376,7 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
       m.once('idle', go);
     });
   };
-  const reset = () => { cancelFlight(); mapRef.current?.flyTo({ center: INITIAL.center, zoom: initialZoom(), pitch: 0, bearing: 0, padding: { top: 0, bottom: 0, left: 0, right: 0 }, duration: 2200 }); };
+  const reset = () => { cancelFlight(); mapRef.current?.flyTo({ center: INITIAL.center, zoom: fitZoom(wrapRef.current), pitch: 0, bearing: 0, padding: { top: 0, bottom: 0, left: 0, right: 0 }, duration: 2200 }); };
   useImperativeHandle(ref, () => ({
     focus,
     zoomBy: (f) => { const m = mapRef.current; if (m) m.easeTo({ zoom: m.getZoom() + Math.log2(f), duration: 400 }); },
@@ -385,7 +394,7 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
       container: wrap,
       style: buildStyle(profile.current),
       center: fromUrl ? [v[0], v[1]] : INITIAL.center,
-      zoom: fromUrl ? v[2] : initialZoom(),
+      zoom: fromUrl ? v[2] : fitZoom(wrap),
       pitch: fromUrl ? v[3] ?? 0 : 0,
       maxPitch: 75,
       attributionControl: { compact: true },

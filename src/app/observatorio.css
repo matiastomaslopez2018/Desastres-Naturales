@@ -185,3 +185,78 @@ body { background: #fafaf8; color: #141414; }
 /* El agarre va abajo del cabezal para no tapar el número de la barra. */
 .tl-head { top: 14px; }
 .tl-head-grip { top: auto; bottom: -7px; }
+
+/* ═════════ Jerarquía del home: el globo manda ═════════ */
+/* Titular chico en la barra superior (los chips de tipos ya están en el panel izquierdo). */
+.chips { display: none; }
+.map-top-headline { flex: 1; min-width: 0; margin: 0; font-family: var(--font-serif); font-size: 17px; line-height: 1.2; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.sheet-headline { display: none; }
+.info-pop { margin: 2px 0 6px 26px; }
+.type-row-wrap { position: relative; }
+.info-i { position: absolute; top: 50%; right: 34px; transform: translateY(-50%); width: 16px; height: 16px; padding: 0; border-radius: 50%; border: 1px solid #9a9a95; background: #fff; color: var(--muted); font: italic 600 10px/14px var(--font-serif); cursor: pointer; }
+.info-i[aria-expanded='true'] { background: #141414; color: #fff; border-color: #141414; }
+.panel-fold { display: none; }
+.see-all { align-self: flex-start; margin-top: 4px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--rule); background: #fff; color: var(--text); font-size: 12px; cursor: pointer; }
+.see-all:hover { border-color: #141414; }
+.right-tab { display: none; }
+
+@media (min-width: 761px) {
+  .map-stage { --zoom-right: 340px; }
+  .map-stage.right-collapsed, .map-stage.is-bare { --zoom-right: 28px; }
+  /* El mapa ocupa todo el ancho detrás; los paneles flotan arriba, blancos al 92 %. */
+  .globe-area { left: 0; right: 0; top: 60px; bottom: 64px; }
+  .panel { background: rgba(255, 255, 255, .92); }
+  .map-stage:has([data-moving]) .panel { background: rgba(255, 255, 255, .92); }
+  .panel-left { width: 240px; top: 76px; bottom: auto; max-height: calc(100% - 76px - 80px); padding: 16px; gap: 12px; }
+  .big-count { font-size: 48px; }
+  .panel-count .muted { font-size: 12px; }
+  .type-list { gap: 0; }
+  .type-row { height: 28px; padding: 0 4px; font-size: 13.5px; gap: 8px; }
+  .panel-right { width: 300px; top: 76px; max-height: calc(100% - 76px - 80px); padding: 16px; transition: transform .25s ease, opacity .25s ease; }
+  .panel-fold { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--rule); background: #fff; color: var(--text); font-size: 16px; line-height: 1; cursor: pointer; }
+  .panel-fold:hover { border-color: #141414; }
+  .right-collapsed .panel-right { transform: translateX(calc(100% + 40px)); opacity: 0; pointer-events: none; }
+  .right-tab { display: flex; align-items: center; gap: 6px; position: absolute; right: 0; top: 96px; z-index: 3; padding: 8px 12px 8px 10px; border: 0; border-radius: 10px 0 0 10px; background: rgba(255, 255, 255, .92); box-shadow: var(--panel-shadow); color: var(--text); font-size: 13px; cursor: pointer; }
+  /* Zoom y atribución siguen al borde del panel derecho (o al borde de la pantalla si está plegado). */
+  .map-zoom { right: var(--zoom-right); bottom: 76px; transition: right .25s ease; }
+  .globe-gl .maplibregl-ctrl-bottom-right { right: var(--zoom-right); bottom: calc(76px - 64px + 4 * 38px + 3 * 6px + 10px); }
+  /* Pantalla completa: solo el globo y la línea de tiempo. */
+  .is-bare .panel-left, .is-bare .panel-right, .is-bare .map-top-headline { display: none; }
+  .map-zoom button[aria-pressed='true'] { background: #141414; color: #fff; }
+  /* Línea de tiempo baja: ~64 px en total. */
+  .map-bottom { bottom: 6px; align-items: flex-end; }
+  .tl-track { height: 26px; }
+  .tl-count { font-size: 10px; height: 11px; line-height: 11px; }
+  .tl-label { font-size: 9.5px; height: 11px; line-height: 11px; }
+  .tl-bar { gap: 3px; }
+  .play-group { margin-bottom: 12px; }
+  .play { width: 34px; height: 34px; font-size: 12px; }
+  .map-sources { gap: 4px; margin-bottom: 2px; }
+  .tl-head { top: 12px; bottom: 12px; }
+  .map-help { bottom: 72px; }
+}
+@media (min-width: 761px) and (max-width: 1100px) {
+  .map-stage { --zoom-right: 324px; }
+  .panel-left { width: 220px; }
+  .panel-right { width: 284px; }
+}
+@media (max-width: 1100px) { .map-top-headline { display: none; } }
+@media (max-width: 760px) {
+  .map-top-headline { display: none; }
+  .sheet-headline { display: block; margin: 0 0 6px; font-family: var(--font-serif); font-size: 16px; line-height: 1.25; color: var(--muted); }
+  /* Pantalla completa en el celular: sin la hoja de "Más relevantes". */
+  .is-bare .panel-right, .is-bare .panel-left { display: none; }
+}
+.type-row { width: 100%; }
+.info-i { right: 36px; }
+@media (max-width: 760px) {
+  /* El globo usa todo el alto libre entre la barra y la hoja (antes lo limitaba el ancho). */
+  .globe-area { height: calc(100% - 52px - 92px - 214px); }
+}
+/* (i) en su propia columna a la derecha del número; las demás filas reservan el mismo lugar para que los números queden alineados. */
+.type-row-wrap { display: flex; align-items: center; }
+.type-row-wrap > .type-row { flex: 1; min-width: 0; }
+.type-row-wrap::after { content: ''; width: 20px; flex: none; }
+.type-row-wrap:has(.info-i)::after { display: none; }
+.info-i { position: static; transform: none; flex: none; width: 16px; height: 16px; margin-left: 4px; }
+.type-row-wrap > .info-pop { position: absolute; left: 0; right: 0; top: 100%; z-index: 2; margin: 0; padding: 8px 10px; border-radius: 10px; background: #fff; box-shadow: var(--panel-shadow); }
