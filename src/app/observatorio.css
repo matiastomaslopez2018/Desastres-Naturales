@@ -260,3 +260,5 @@ body { background: #fafaf8; color: #141414; }
 .type-row-wrap:has(.info-i)::after { display: none; }
 .info-i { position: static; transform: none; flex: none; width: 16px; height: 16px; margin-left: 4px; }
 .type-row-wrap > .info-pop { position: absolute; left: 0; right: 0; top: 100%; z-index: 2; margin: 0; padding: 8px 10px; border-radius: 10px; background: #fff; box-shadow: var(--panel-shadow); }
+/* Anchos intermedios: la ayuda va arriba (sin estirarse entre top y bottom). */
+@media (min-width: 761px) and (max-width: 1250px) { .map-help { bottom: auto; top: 72px; } }

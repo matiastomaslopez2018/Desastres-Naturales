@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { geoDistance } from 'd3-geo';
 import { Globe } from './Globe';
@@ -482,6 +482,24 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
   const [coarse, setCoarse] = useState(false);
   // Táctil: puntero grueso o pantalla táctil (algunos navegadores no informan uno de los dos).
   useEffect(() => setCoarse(!!window.matchMedia?.('(pointer: coarse)').matches || navigator.maxTouchPoints > 0 || 'ontouchstart' in window), []);
+  // Titular en la barra superior: entre 1100 y 1300 px, si el texto completo no entra en dos líneas,
+  // solo la primera frase con "…" (el completo queda en el title, al pasar el mouse).
+  const hlRef = useRef<HTMLParagraphElement>(null);
+  const [hlShort, setHlShort] = useState(false);
+  const [vw, setVw] = useState(0);
+  useEffect(() => {
+    const on = () => setVw(window.innerWidth);
+    on(); window.addEventListener('resize', on);
+    return () => window.removeEventListener('resize', on);
+  }, []);
+  // Ante un cambio de ancho o de titular se vuelve al texto completo y se mide de nuevo.
+  useLayoutEffect(() => setHlShort(false), [headline, vw]);
+  useLayoutEffect(() => {
+    const el = hlRef.current;
+    if (hlShort || !el || vw < 1100 || vw > 1300) return;
+    if (el.scrollHeight > el.clientHeight + 1) setHlShort(true);
+  }, [hlShort, headline, vw]);
+  const hlFirst = headline ? `${headline.split(/(?<=\.)\s/)[0].replace(/\.$/, '')}…` : '';
   const helpText = pitched ? (coarse ? t.helpTerrainTouch : t.helpTerrain) : coarse ? t.helpTouch : t.help;
   const ri = rangeInfo(range, year);
   const rangeNote = range === 'year' ? `${t.noteLong} ${t.noteYear}` : ri.days > 31 ? t.noteLong : t.noteShort;
@@ -602,7 +620,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
 
         <header className="map-top">
           <Link href={`/${lang}`} className="map-brand logo"><LogoMark /><span className="logo-text">{t.brand}</span></Link>
-          {headline && <p className="map-top-headline" title={headline}>{headline}</p>}
+          {headline && <p ref={hlRef} className="map-top-headline" title={headline}>{hlShort ? hlFirst : headline}</p>}
           <span className={`live${allOk ? '' : ' degraded'}`} title={t.dataStatus}>
             <span className="live-dot" />
             <span className="live-text">
