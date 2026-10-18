@@ -81,6 +81,9 @@ export const MORE_3: LearnArticle[] = [
       { label: 'NOAA SPC · Enhanced Fujita scale', url: 'https://www.spc.noaa.gov/efscale/' },
       { label: 'NOAA SPC · Outlook categories', url: 'https://www.spc.noaa.gov/misc/about.html' },
       { label: 'NWS · Tornado safety', url: 'https://www.weather.gov/safety/tornado' },
+      { label: 'NWS Norman · Moore, 20 de mayo de 2013 (EF5)', url: 'https://www.weather.gov/oun/events-20130520' },
+      { label: 'NWS Nashville · 2–3 de marzo de 2020 (EF3 y EF4)', url: 'https://www.weather.gov/ohx/20200303' },
+      { label: 'NWS Birmingham · 12 de enero de 2023 (Selma, EF2)', url: 'https://www.weather.gov/bmx/event_01122023' },
       { label: 'Ready.gov (FEMA) · Tornadoes', url: 'https://www.ready.gov/tornadoes' },
     ],
     es: {
@@ -90,11 +93,14 @@ export const MORE_3: LearnArticle[] = [
       lead: 'Un tornado es una columna de aire que gira violentamente y toca el suelo desde la base de una tormenta. Se forman sobre todo en tormentas de gran desarrollo (supercelulares) y pueden tener vientos de más de 300 km/h.',
       sections: [
         { h: 'La escala EF', p: ['Los tornados se clasifican después de que pasan, por el daño que dejaron: el Servicio Meteorológico de EE. UU. releva los destrozos y estima la ráfaga de 3 segundos. Por eso los reportes de las primeras horas no tienen categoría.'], table: {
-          head: ['Categoría', 'Ráfaga estimada', 'Daño típico'],
+          head: ['Categoría', 'Ráfaga estimada', 'Daño típico', 'Ejemplo (calificación del NWS)'],
           rows: [
-            ['EF0', '105–137 km/h', 'Tejas y ramas'], ['EF1', '138–177 km/h', 'Techos dañados, casas rodantes volcadas'],
-            ['EF2', '178–217 km/h', 'Techos arrancados, árboles grandes quebrados'], ['EF3', '218–266 km/h', 'Pisos enteros destruidos'],
-            ['EF4', '267–322 km/h', 'Casas bien construidas arrasadas'], ['EF5', 'más de 322 km/h', 'Destrucción total'],
+            ['EF0', '105–137 km/h', 'Tejas y ramas', 'La categoría más frecuente; rara vez tiene nombre propio'],
+            ['EF1', '138–177 km/h', 'Techos dañados, casas rodantes volcadas', 'Muy frecuente; rara vez tiene nombre propio'],
+            ['EF2', '178–217 km/h', 'Techos arrancados, árboles grandes quebrados', 'Selma, Alabama, 12 de enero de 2023'],
+            ['EF3', '218–266 km/h', 'Pisos enteros destruidos', 'Nashville, Tennessee, 3 de marzo de 2020'],
+            ['EF4', '267–322 km/h', 'Casas bien construidas arrasadas', 'Cookeville (condado de Putnam), Tennessee, 3 de marzo de 2020'],
+            ['EF5', 'más de 322 km/h', 'Destrucción total', 'Moore, Oklahoma, 20 de mayo de 2013'],
           ] } },
         { h: 'Vigilancia y aviso', list: [
           'Vigilancia de tornado (tornado watch): el Storm Prediction Center indica que las condiciones son favorables en una región durante varias horas. Hay que estar atento.',
@@ -117,11 +123,14 @@ export const MORE_3: LearnArticle[] = [
       lead: 'A tornado is a violently rotating column of air that touches the ground from the base of a thunderstorm. Most form in supercell storms, and winds can exceed 300 km/h.',
       sections: [
         { h: 'The EF scale', p: ['Tornadoes are rated after they pass, by the damage they leave: the US National Weather Service surveys it and estimates the 3-second gust. That is why reports from the first hours have no rating.'], table: {
-          head: ['Rating', 'Estimated gust', 'Typical damage'],
+          head: ['Rating', 'Estimated gust', 'Typical damage', 'Example (NWS rating)'],
           rows: [
-            ['EF0', '65–85 mph (105–137 km/h)', 'Shingles and branches'], ['EF1', '86–110 mph (138–177 km/h)', 'Roofs damaged, mobile homes overturned'],
-            ['EF2', '111–135 mph (178–217 km/h)', 'Roofs torn off, large trees snapped'], ['EF3', '136–165 mph (218–266 km/h)', 'Entire stories destroyed'],
-            ['EF4', '166–200 mph (267–322 km/h)', 'Well-built houses leveled'], ['EF5', 'over 200 mph (322 km/h)', 'Total destruction'],
+            ['EF0', '65–85 mph (105–137 km/h)', 'Shingles and branches', 'The most common rating; rarely named'],
+            ['EF1', '86–110 mph (138–177 km/h)', 'Roofs damaged, mobile homes overturned', 'Very common; rarely named'],
+            ['EF2', '111–135 mph (178–217 km/h)', 'Roofs torn off, large trees snapped', 'Selma, Alabama, January 12, 2023'],
+            ['EF3', '136–165 mph (218–266 km/h)', 'Entire stories destroyed', 'Nashville, Tennessee, March 3, 2020'],
+            ['EF4', '166–200 mph (267–322 km/h)', 'Well-built houses leveled', 'Cookeville (Putnam County), Tennessee, March 3, 2020'],
+            ['EF5', 'over 200 mph (322 km/h)', 'Total destruction', 'Moore, Oklahoma, May 20, 2013'],
           ] } },
         { h: 'Watch and warning', list: [
           'Tornado watch: the Storm Prediction Center says conditions are favorable in a region for several hours. Stay alert.',

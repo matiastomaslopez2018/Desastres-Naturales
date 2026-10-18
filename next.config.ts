@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // El indicador "N" de Next.js solo aparece en desarrollo, pero tapa el botón de play del mapa.
+  devIndicators: false,
   // Google Search Console (método "archivo HTML"): /google<código>.html lo sirve una ruta de API.
   async rewrites() {
     return [{ source: "/:file(google[0-9a-f]+\\.html)", destination: "/api/google-verification?file=:file" }];

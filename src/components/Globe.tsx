@@ -20,7 +20,7 @@ export type Layers = {
   lhasa: boolean; glc: boolean; spc: boolean;
 };
 export type SpcReport = { id: string; type: 'spc'; kind: 'tornado' | 'wind' | 'hail'; title: string; lon: number; lat: number; time: number; magnitude: string; county: string; state: string; comments: string };
-export type GlcSlide = { id: string; type: 'glc'; title: string; lon: number; lat: number; time: number | null; deaths: number; trigger: string | null; link: string | null; country: string | null };
+export type GlcSlide = { id: string; type: 'glc'; title: string; lon: number; lat: number; time: number | null; deaths: number; trigger: string | null; link: string | null; country: string | null; category: string | null };
 export type ColoredArea = { fill: string; stroke: string; geometry: GeoJSON.Geometry };
 export type DartBuoy = { id: string; type: 'dart'; title: string; lon: number; lat: number; reporting: boolean; owner: string };
 type Raster = { w: number; h: number; data: Uint8ClampedArray };
@@ -44,12 +44,17 @@ export type Overlays = {
 export const SPC_COLORS = { tornado: '#ff3030', wind: '#3a8dff', hail: '#2fbf4f' } as const;
 const NO_OVERLAYS: Overlays = { storms: [], heat: [], volcanoes: [], tracks: [] };
 
-/** Amenaza sísmica GSHAP: niveles de PGA (m/s²) y su color, de menor a mayor (se apilan). */
+/**
+ * Amenaza sísmica GEM 2023: límite inferior de cada clase de PGA (g) y su color, de la paleta
+ * oficial del README del mapa. Las curvas se apilan (cada una cubre "≥ valor"), así que se
+ * pintan opacas en un lienzo aparte y se componen con transparencia una sola vez.
+ */
 export const HAZARD_LEVELS: [number, string][] = [
-  [0.2, 'rgba(46,160,67,.30)'], [0.4, 'rgba(124,179,66,.32)'], [0.8, 'rgba(205,220,57,.34)'], [1.6, 'rgba(255,193,7,.38)'],
-  [2.4, 'rgba(255,152,0,.42)'], [3.2, 'rgba(244,81,30,.46)'], [4.0, 'rgba(211,47,47,.50)'], [4.8, 'rgba(136,14,79,.58)'],
+  [0.02, 'rgb(181,202,255)'], [0.03, 'rgb(143,179,255)'], [0.05, 'rgb(127,151,255)'], [0.08, 'rgb(171,207,99)'], [0.13, 'rgb(232,245,158)'],
+  [0.2, 'rgb(255,250,20)'], [0.35, 'rgb(255,209,33)'], [0.55, 'rgb(255,163,10)'], [0.9, 'rgb(255,76,0)'],
 ];
-const hazardColor = (pga: number) => HAZARD_LEVELS.find(([v]) => Math.abs(v - pga) < 1e-6)?.[1] ?? 'rgba(255,255,255,.1)';
+const hazardColor = (pga: number) => HAZARD_LEVELS.find(([v]) => Math.abs(v - pga) < 1e-6)?.[1] ?? 'transparent';
+let hazardCanvas: HTMLCanvasElement | null = null;
 
 /** Escala Saffir-Simpson (viento sostenido en kt) con los colores habituales de los mapas de ciclones. */
 export const SS_SCALE: [number, string, string][] = [
@@ -168,11 +173,17 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
         ctx.fillStyle = a.fill; ctx.fill(); ctx.strokeStyle = a.stroke; ctx.lineWidth = 1.6; ctx.stroke();
       }
     }
-    // Amenaza sísmica (GSHAP): curvas de nivel rellenas, debajo de fronteras y placas.
+    // Amenaza sísmica (GEM 2023): curvas de nivel rellenas, debajo de fronteras y placas.
     if (layers.hazard && ov.hazard) {
+      hazardCanvas ??= document.createElement('canvas');
+      if (hazardCanvas.width !== c.width || hazardCanvas.height !== c.height) { hazardCanvas.width = c.width; hazardCanvas.height = c.height; }
+      const hc = hazardCanvas.getContext('2d')!;
+      hc.setTransform(dpr, 0, 0, dpr, 0, 0); hc.clearRect(0, 0, W, H);
+      const hpath = geoPath(proj, hc);
       for (const f of ov.hazard.features) {
-        ctx.beginPath(); path(f); ctx.fillStyle = hazardColor((f.properties as { pga: number }).pga); ctx.fill();
+        hc.beginPath(); hpath(f); hc.fillStyle = hazardColor((f.properties as { pga: number }).pga); hc.fill();
       }
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 0.5; ctx.drawImage(hazardCanvas, 0, 0); ctx.restore();
     }
     if (layers.borders) { ctx.beginPath(); path(BORDERS); ctx.strokeStyle = NIGHT.borders; ctx.lineWidth = 0.5; ctx.stroke(); }
     if (layers.ring) {
@@ -238,9 +249,10 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
     }
 
     // ── Capas de otras fuentes (bloque B) ──
-    // IBTrACS: trayectorias históricas del año, coloreadas por intensidad.
+    // IBTrACS: trayectorias históricas del año, coloreadas por intensidad. Capa histórica:
+    // más fina y tenue que los eventos en vivo para no taparlos.
     if (layers.ibtracs && ov.tracks.length) {
-      ctx.lineWidth = 1.1; ctx.globalAlpha = 0.75;
+      ctx.lineWidth = 0.8; ctx.globalAlpha = 0.4;
       for (const tr of ov.tracks) {
         for (let i = 1; i < tr.points.length; i++) {
           const a = tr.points[i - 1], b = tr.points[i];
@@ -248,13 +260,14 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
           ctx.strokeStyle = ssColor(b[2]); ctx.stroke();
         }
       }
-      ctx.globalAlpha = 1;
+      ctx.globalAlpha = 0.6;
       for (const tr of ov.tracks) {
         if (!front(tr.lon, tr.lat)) continue;
         const [x, y] = proj([tr.lon, tr.lat])!;
-        ctx.beginPath(); ctx.arc(x, y, 2.5, 0, TAU); ctx.fillStyle = ssColor(tr.windKt); ctx.fill();
+        ctx.beginPath(); ctx.arc(x, y, 1.8, 0, TAU); ctx.fillStyle = ssColor(tr.windKt); ctx.fill();
         pts.push({ e: tr, x, y, r: 3 });
       }
+      ctx.globalAlpha = 1;
     }
     // FIRMS: mapa de calor de focos (halos aditivos, tamaño por cantidad de focos).
     if (layers.firms && ov.heat.length) {
@@ -327,16 +340,16 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
         }
       }
     }
-    // Deslizamientos con víctimas (NASA GLC): triángulos invertidos ocres, tamaño según muertes.
+    // Deslizamientos con víctimas (NASA GLC), capa histórica: puntos chicos y tenues, por
+    // debajo de los eventos en vivo; crecen un poco con las muertes y con el zoom.
     if (layers.glc && ov.glc?.length) {
+      ctx.fillStyle = 'rgba(196,150,96,.42)';
       for (const g of ov.glc) {
         if (!front(g.lon, g.lat)) continue;
         const [x, y] = proj([g.lon, g.lat])!;
-        const r = (1.6 + Math.min(4, Math.log10(1 + g.deaths) * 1.6)) * Math.pow(k, 0.25);
-        drawShape(ctx, 'triDown', x, y, r);
-        ctx.fillStyle = 'rgba(214,150,70,.85)'; ctx.fill();
-        if (r > 3) { ctx.strokeStyle = '#06080c'; ctx.lineWidth = 0.6; ctx.stroke(); }
-        pts.push({ e: g, x, y, r: r + 2 });
+        const r = (0.9 + Math.min(1.8, Math.log10(1 + g.deaths) * 0.7)) * Math.pow(k, 0.3);
+        ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+        pts.push({ e: g, x, y, r: r + 3 });
       }
     }
     // Reportes preliminares de SPC: círculo rojo (tornado), azul (viento) o verde (granizo).

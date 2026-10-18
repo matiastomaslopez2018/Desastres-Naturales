@@ -88,10 +88,16 @@ En producción serverless el archivo local no persiste. Usar Turso (`STORAGE_URL
 | `src/components/Atlas.tsx` | Filtros, overlays, "Más relevantes", ficha, cercanos y estado de fuentes |
 | `src/app/industry.css` | Sistema de diseño Industry (copiado del handoff) |
 
+## Licencias de datos con restricciones
+
+- **Amenaza sísmica: GEM Global Seismic Hazard Map v2023.1** (`public/data/gem.json`, generado con `npm run gem -- <ruta al GeoTIFF>` desde [Zenodo, doi:10.5281/zenodo.8409647](https://doi.org/10.5281/zenodo.8409647)). Licencia **CC BY-NC-SA 4.0: solo uso no comercial**, con atribución a la GEM Foundation y compartiendo las obras derivadas con la misma licencia. Si el sitio pasa a tener fines comerciales (publicidad, venta, servicios pagos), hay que quitar la capa o pedir una licencia comercial a GEM (https://www.globalquakemodel.org/ · licensing@globalquakemodel.org). La atribución se muestra en la leyenda de la capa y en Metodología.
+- **Catálogo de deslizamientos de NASA (COOLR/GLC)**: permiso de uso, reproducción y distribución de NASA Goddard, con atribución.
+- El resto de las fuentes son de dominio público (USGS, NOAA, NASA) o de uso libre con atribución (Copernicus, GDACS, Smithsonian GVP); el detalle está en `src/lib/methodSources.ts` y en la página Metodología.
+
 ## Pendiente (según README del handoff)
 
 - Definir `NEXT_PUBLIC_SITE_URL` en producción (base de las URLs absolutas de OG y canonical).
 - `/api/events?range=1y` pesa ~6,6 MB de JSON: conviene recortar campos para la lista o paginar por tipo.
 - Ranking y país recalculan la agregación en cada pedido (~0,2 s para 1 año); si crece, materializar por país y período en la ingesta.
 - Páginas `/comparar`, `/linea-de-tiempo`, `/metodologia` y `/aprender/*`.
-- Riesgo sísmico GEM (revisar la licencia) y víctimas históricas EM-DAT (requiere registro).
+- Víctimas históricas EM-DAT (requiere registro).

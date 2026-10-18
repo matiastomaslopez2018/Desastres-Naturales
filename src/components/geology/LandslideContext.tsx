@@ -1,4 +1,5 @@
 import { fmtNum, fmtTime } from '@/lib/format';
+import { landslideCategory } from '@/lib/landslideText';
 import { glcNear, lhasaAt, LHASA_VIEWER, usgsGroundFailure } from '@/lib/server/landslides';
 import type { DisasterEvent, Lang } from '@/lib/types';
 
@@ -9,7 +10,6 @@ import type { DisasterEvent, Lang } from '@/lib/types';
  */
 
 const DAY = 864e5;
-const short = (s: string) => (!s ? '—' : s.length > 90 ? `${s.slice(0, 88).trimEnd()}…` : s);
 type Alert = 'green' | 'yellow' | 'orange' | 'red';
 
 const TXT = {
@@ -29,7 +29,7 @@ const TXT = {
     glc: 'Deslizamientos registrados en la zona',
     glcCount: (n: string, d: string) => `${n} deslizamientos registrados a 50 km o menos, ${d === '0' ? 'sin muertes informadas' : `con ${d} muertes informadas en total`}.`,
     glcNone: 'El catálogo de NASA no tiene deslizamientos registrados a 50 km o menos.',
-    glcNote: 'Catálogo de deslizamientos de NASA (Global Landslide Catalog y otros inventarios de COOLR), armado a partir de noticias e informes, sobre todo de 2007 a 2024. Faltan muchos eventos.',
+    glcNote: 'Catálogo de deslizamientos de NASA (Global Landslide Catalog y otros inventarios de COOLR), armado a partir de noticias e informes, sobre todo de 2007 a 2024. Faltan muchos eventos. Los títulos son los originales del catálogo, en inglés.',
     deaths: (n: number) => (n === 1 ? '1 muerte' : `${n} muertes`), noDate: 'sin fecha',
   },
   en: {
@@ -48,7 +48,7 @@ const TXT = {
     glc: 'Landslides recorded in the area',
     glcCount: (n: string, d: string) => `${n} landslides recorded within 50 km, ${d === '0' ? 'with no reported deaths' : `with ${d} reported deaths in total`}.`,
     glcNone: 'The NASA catalog has no landslides recorded within 50 km.',
-    glcNote: 'NASA landslide catalog (Global Landslide Catalog and other COOLR inventories), compiled from news and reports, mostly 2007 to 2024. Many events are missing.',
+    glcNote: 'NASA landslide catalog (Global Landslide Catalog and other COOLR inventories), compiled from news and reports, mostly 2007 to 2024. Many events are missing. Titles are the catalog originals.',
     deaths: (n: number) => (n === 1 ? '1 death' : `${n} deaths`), noDate: 'no date',
   },
 };
@@ -111,9 +111,14 @@ export async function LandslideContext({ lang, e }: { lang: Lang; e: DisasterEve
             <ul className="ls-list">
               {top.map((r) => (
                 <li key={r.id}>
-                  <strong>{r.time != null ? fmtTime(lang, r.time, 'UTC').split(' · ')[0] : x.noDate}</strong>
-                  {' · '}{r.link ? <a href={r.link} target="_blank" rel="noopener noreferrer">{short(r.title)}</a> : short(r.title)}
-                  {r.deaths ? ` · ${x.deaths(r.deaths)}` : ''}{` · ${nf(r.km)} km`}
+                  {/* Fecha, tipo traducido, muertes y distancia; debajo, el título original (inglés) en una línea con "…" y completo al pasar el mouse. */}
+                  <span>
+                    <strong>{r.time != null ? fmtTime(lang, r.time, 'UTC').split(' · ')[0] : x.noDate}</strong>
+                    {[landslideCategory(lang, r.category), r.deaths ? x.deaths(r.deaths) : '', `${nf(r.km)} km`].filter(Boolean).map((p) => ` · ${p}`).join('')}
+                  </span>
+                  {r.title && (r.link
+                    ? <a className="ls-title" href={r.link} target="_blank" rel="noopener noreferrer" title={r.title}>{r.title}</a>
+                    : <span className="ls-title" title={r.title}>{r.title}</span>)}
                 </li>
               ))}
             </ul>

@@ -172,3 +172,4 @@ button, input, select { font: inherit; color: inherit; }
 .ba:has(.ba-range:focus-visible) .ba-line { background: var(--accent); }
 .theme-paper .media-frame { border-radius: 0; }
 .theme-paper .media-tab { border-radius: 0; }
+.ev-title-1 { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }

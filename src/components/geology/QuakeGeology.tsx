@@ -75,8 +75,11 @@ export async function QuakeGeology({ lang, e }: { lang: Lang; e: DisasterEvent }
           {translated ? (
             <>
               {translated.map((t) => <p key={t}>{t}</p>)}
-              <p className="ed-note">{g.summaryAuto}</p>
-              <details className="geo-orig"><summary>{g.summaryOriginal}</summary>{geo.summary.map((t) => <p key={t} lang="en">{t}</p>)}</details>
+              <details className="geo-orig">
+                <summary>{g.summaryAuto}</summary>
+                <p className="ed-note">{g.summaryAutoNote}</p>
+                {geo.summary.map((t) => <p key={t} lang="en">{t}</p>)}
+              </details>
             </>
           ) : (
             <>

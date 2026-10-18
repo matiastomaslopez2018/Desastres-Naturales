@@ -67,7 +67,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
     () => Object.fromEntries(TYPE_ORDER.map((k) => [k, !initialType || !(TYPE_ORDER as string[]).includes(initialType) || k === initialType])) as Record<FilterType, boolean>,
   );
   const [layers, setLayers] = useState<Layers>({
-    nhc: true, wvolc: true, firms: false, ibtracs: true, borders: true, plates: true, ring: true, gvp: false, hazard: false,
+    nhc: true, wvolc: true, firms: false, ibtracs: false, borders: true, plates: true, ring: true, gvp: false, hazard: false,
     slab: false, platevec: false, dart: false, fwi: false, wind: false, lhasa: false, glc: false, spc: false,
   });
   const [storms, setStorms] = useState<NhcStorm[]>([]);
@@ -205,11 +205,11 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
     return () => ctrl.abort();
   }, [ibtracsOn, year]);
 
-  // Amenaza sísmica GSHAP (~750 kB): se baja recién al encender la capa.
+  // Amenaza sísmica GEM 2023 (~900 kB): se baja recién al encender la capa.
   const [hazard, setHazard] = useState<GeoJSON.FeatureCollection | null>(null);
   useEffect(() => {
     if (!layers.hazard || hazard) return;
-    fetch('/data/gshap.json').then((r) => r.json()).then(setHazard).catch(() => {});
+    fetch('/data/gem.json').then((r) => r.json()).then(setHazard).catch(() => {});
   }, [layers.hazard, hazard]);
 
   // Animación de la trayectoria de un ciclón (observada y pronosticada), unos 8 segundos.
@@ -272,8 +272,8 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
   }, [layers.lhasa, lhasa]);
   useEffect(() => {
     if (!layers.glc || glc.length) return;
-    fetch('/data/glc_fatal.json').then((r) => r.json()).then((rows: [number, number, number | null, number, string | null, string, string | null, string | null][]) =>
-      setGlc(rows.map(([lon, lat, time, deaths, trigger, title, link, country], i) => ({ id: `glc-${i}`, type: 'glc', title: title || 'Landslide', lon, lat, time, deaths, trigger, link, country })))).catch(() => {});
+    fetch('/data/glc_fatal.json').then((r) => r.json()).then((rows: [number, number, number | null, number, string | null, string, string | null, string | null, string | null][]) =>
+      setGlc(rows.map(([lon, lat, time, deaths, trigger, title, link, country, category], i) => ({ id: `glc-${i}`, type: 'glc', title: title || 'Landslide', lon, lat, time, deaths, trigger, link, country, category })))).catch(() => {});
   }, [layers.glc, glc.length]);
   useEffect(() => {
     if (!layers.spc || severe) return;
@@ -350,6 +350,13 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
     }
     return c;
   }, [events, minMag, focus, bs]);
+  // Volcanes con actividad según GVP (reporte semanal o erupciones en curso) que no estén ya en
+  // los eventos de EONET: se suman al contador de volcanes cuando se mira el presente.
+  const gvpActive = useMemo(() => {
+    if (!isNow || focus != null) return 0;
+    const names = events.filter((e) => e.type === 'volcano').map((e) => e.title.toLowerCase());
+    return new Set(volcanoes.filter((v) => !names.some((n) => n.includes(v.title.toLowerCase()))).map((v) => v.title)).size;
+  }, [volcanoes, events, isNow, focus]);
 
   // Play: recorre los tramos uno por uno y vuelve a "todo el período" al final.
   useEffect(() => {
@@ -576,7 +583,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
               <button key={k} className="type-row" aria-pressed={types[k]} onClick={() => toggleType(k)}>
                 <Glyph shape={SHAPE[k]} type={k} />
                 <span className="type-name">{t.T[k]}</span>
-                <span className="mono faint">{nf(counts[k])}</span>
+                <span className="mono faint" title={k === 'volcano' && gvpActive ? t.volcCountNote(gvpActive) : undefined}>{nf(counts[k] + (k === 'volcano' ? gvpActive : 0))}</span>
               </button>
             ))}
           </div>
@@ -643,13 +650,18 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
             )}
             {layers.hazard && (
               <div className="hazard-legend">
-                <div className="hazard-scale" role="img" aria-label={t.hazardLegend}>
+                <div className="hazard-scale" role="img" aria-label={t.hazardLegend} style={{ gridTemplateColumns: `repeat(${HAZARD_LEVELS.length}, 1fr)` }}>
                   {HAZARD_LEVELS.map(([v, c]) => (
-                    <span key={v} style={{ background: c }}><span className="mono">{nf(v, 1)}</span></span>
+                    <span key={v} style={{ background: c }}><span className="mono">{nf(v, 2)}</span></span>
                   ))}
                 </div>
                 <span className="faint small">{t.hazardUnit}</span>
                 <p className="note">{t.hazardHelp}</p>
+                {/* Atribución exigida por la licencia CC BY-NC-SA 4.0. */}
+                <p className="note">
+                  © <a href="https://doi.org/10.5281/zenodo.8409647" target="_blank" rel="noopener noreferrer">GEM Foundation, Global Seismic Hazard Map v2023.1</a>
+                  {' · '}<a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener noreferrer">CC BY-NC-SA 4.0</a>
+                </p>
               </div>
             )}
             {layers.fwi && (

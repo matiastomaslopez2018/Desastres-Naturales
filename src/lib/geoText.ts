@@ -32,7 +32,7 @@ type G = {
   velocity: (of: string, rel: string, cm: string, dir: string, az: string) => string; velocityNote: string;
   slab: string; slabDepth: (d: string, region: string) => string; slabEq: (d: string) => string;
   relation: Record<string, { name: string; text: string }>; slabCriteria: string; noSlab: string;
-  summary: string; summaryAuto: string; summaryOriginal: string; summaryTranslate: string;
+  summary: string; summaryAuto: string; summaryAutoNote: string; summaryOriginal: string; summaryTranslate: string;
   section: string; sectionNote: (az: string) => string; sectionAxis: { dist: string; depth: string }; sectionLegend: { slab: string; quake: string; aft: (n: string) => string };
   oaf: string; oafNote: string; oafWindow: string; oafMag: (m: string) => string; oafRange: (lo: string, hi: string) => string; oafModel: string;
   whatIs: (k: string) => string;
@@ -65,7 +65,7 @@ export const GEO: Record<Lang, G> = {
     },
     slabCriteria: 'Criterio: si la profundidad del sismo está a 15 km o menos de la losa y no supera los 70 km, interplaca; más de 15 km por debajo, intraplaca; más de 15 km por encima y hasta 40 km, cortical. Las profundidades tienen incertidumbre.',
     noSlab: 'El epicentro no está sobre una zona de subducción del modelo Slab2.',
-    summary: 'Resumen tectónico del USGS', summaryAuto: 'Traducción automática (IA) del texto oficial del USGS. Ante cualquier duda, vale el original.',
+    summary: 'Resumen tectónico del USGS', summaryAuto: 'Traducción automática; ver original', summaryAutoNote: 'Traducción hecha con IA (Claude, de Anthropic) del texto oficial del USGS, una sola vez. Ante cualquier duda, vale el original:',
     summaryOriginal: 'Texto original (USGS)', summaryTranslate: 'Traducir con Google',
     section: 'Corte transversal', sectionNote: (az) => `Perfil de la losa en la dirección en que se hunde (rumbo ${az}°), con el sismo y las réplicas de USGS a menos de 100 km del perfil. Distancias desde el epicentro.`,
     sectionAxis: { dist: 'Distancia (km)', depth: 'Profundidad (km)' },
@@ -101,7 +101,7 @@ export const GEO: Record<Lang, G> = {
     },
     slabCriteria: 'Criteria: within 15 km of the slab and no deeper than 70 km, interface; more than 15 km below, intraslab; more than 15 km above and down to 40 km, crustal. Depths are uncertain.',
     noSlab: 'The epicenter is not over a subduction zone in the Slab2 model.',
-    summary: 'USGS tectonic summary', summaryAuto: 'Machine translation (AI) of the official USGS text. When in doubt, the original prevails.',
+    summary: 'USGS tectonic summary', summaryAuto: 'Machine translation; see original', summaryAutoNote: 'AI translation (Claude, by Anthropic) of the official USGS text, made once. When in doubt, the original prevails:',
     summaryOriginal: 'Original text (USGS)', summaryTranslate: 'Translate with Google',
     section: 'Cross-section', sectionNote: (az) => `Slab profile along its dip direction (azimuth ${az}°), with the earthquake and USGS aftershocks within 100 km of the profile. Distances from the epicenter.`,
     sectionAxis: { dist: 'Distance (km)', depth: 'Depth (km)' },

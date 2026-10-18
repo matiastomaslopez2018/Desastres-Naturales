@@ -1,4 +1,5 @@
 import 'server-only';
+import { cleanGlcTitle } from '../landslideText';
 import { kvCached } from './kvCache';
 
 /*
@@ -28,13 +29,13 @@ export async function lhasaAt(lon: number, lat: number): Promise<number | null> 
   return r?.value ?? null;
 }
 
-export type GlcRecord = { id: string; title: string; time: number | null; deaths: number | null; trigger: string | null; size: string | null; link: string | null; km: number };
+export type GlcRecord = { id: string; title: string; time: number | null; deaths: number | null; trigger: string | null; size: string | null; category: string | null; link: string | null; km: number };
 
 /** Deslizamientos del catálogo de NASA (GLC y otros inventarios de COOLR) a `radiusKm` o menos. */
 export async function glcNear(lon: number, lat: number, radiusKm = 50): Promise<GlcRecord[] | null> {
-  const r = await kvCached(`glc1:${lon.toFixed(1)}:${lat.toFixed(1)}:${radiusKm}`, 30 * 864e5, async () => {
+  const r = await kvCached(`glc3:${lon.toFixed(1)}:${lat.toFixed(1)}:${radiusKm}`, 30 * 864e5, async () => {
     const geom = encodeURIComponent(JSON.stringify({ x: lon, y: lat, spatialReference: { wkid: 4326 } }));
-    const fields = 'objectid,event_title,event_date,fatality_count,landslide_trigger,landslide_size,source_link,latitude,longitude';
+    const fields = 'objectid,event_title,event_date,fatality_count,landslide_trigger,landslide_size,landslide_category,source_link,latitude,longitude';
     const res = await fetch(`${BASE}/COOLR_Reports_Points/FeatureServer/0/query?where=1%3D1&geometry=${geom}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&distance=${radiusKm}&units=esriSRUnit_Kilometer&outFields=${fields}&orderByFields=event_date%20DESC&resultRecordCount=200&returnGeometry=false&f=json`,
       { signal: AbortSignal.timeout(25000) });
     if (!res.ok) throw new Error(`COOLR ${res.status}`);
@@ -45,9 +46,9 @@ export async function glcNear(lon: number, lat: number, radiusKm = 50): Promise<
       const la = Number(a.latitude), lo = Number(a.longitude);
       const d = 2 * R * Math.asin(Math.sqrt(Math.sin(((la - lat) * rad) / 2) ** 2 + Math.cos(lat * rad) * Math.cos(la * rad) * Math.sin(((lo - lon) * rad) / 2) ** 2));
       return {
-        id: String(a.objectid), title: String(a.event_title ?? '').trim(), time: a.event_date != null ? Number(a.event_date) : null,
+        id: String(a.objectid), title: cleanGlcTitle(String(a.event_title ?? '')), time: a.event_date != null ? Number(a.event_date) : null,
         deaths: a.fatality_count != null ? Number(a.fatality_count) : null, trigger: (a.landslide_trigger as string | null)?.toLowerCase() ?? null,
-        size: (a.landslide_size as string | null)?.toLowerCase() ?? null, link: (a.source_link as string | null) || null, km: Math.round(d),
+        size: (a.landslide_size as string | null)?.toLowerCase() ?? null, category: (a.landslide_category as string | null) ?? null, link: (a.source_link as string | null) || null, km: Math.round(d),
       };
     });
   }).catch(() => null);

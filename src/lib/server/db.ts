@@ -265,3 +265,15 @@ export async function unlock(key: string): Promise<void> {
   const c = await db();
   await c.execute({ sql: 'DELETE FROM kv WHERE key = ?', args: [key] });
 }
+
+/** Suma 1 a un contador guardado en kv (atómico en la base) y devuelve el valor nuevo. */
+export async function kvIncr(key: string): Promise<number> {
+  const c = await db();
+  const r = await c.execute({
+    sql: `INSERT INTO kv (key, value, updated_at) VALUES (?, '1', ?)
+          ON CONFLICT(key) DO UPDATE SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT), updated_at = excluded.updated_at
+          RETURNING value`,
+    args: [key, Date.now()],
+  });
+  return Number(r.rows[0]?.value ?? 0);
+}

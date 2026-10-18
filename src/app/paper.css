@@ -380,3 +380,6 @@ button.ed-button { background: none; cursor: pointer; color: inherit; font-famil
 .ls-facts li, .ls-list li { margin: .2em 0; }
 .ls-dot { display: inline-block; width: .7em; height: .7em; border-radius: 50%; margin-right: .45em; vertical-align: -.05em; }
 .ls-green { background: #2e9e4f; } .ls-yellow { background: #e8c200; } .ls-orange { background: #f08a00; } .ls-red { background: #c8102e; }
+.learn-table thead th, .learn-table td { text-align: left; }
+.ls-list li { list-style: none; margin-left: -1.1em; padding: .35em 0; border-bottom: 1px solid var(--rule); }
+.ls-title { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 100%; font-size: .92em; }
