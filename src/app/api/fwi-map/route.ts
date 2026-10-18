@@ -13,6 +13,6 @@ export async function GET() {
   const res = await fetch(url, { signal: AbortSignal.timeout(45000) }).catch(() => null);
   if (!res?.ok || !/image/.test(res.headers.get('content-type') ?? '')) return NextResponse.json({ error: 'upstream' }, { status: 502 });
   return new NextResponse(await res.arrayBuffer(), {
-    headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, s-maxage=21600', 'X-Data-Date': day },
+    headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=10800, s-maxage=21600', 'X-Data-Date': day },
   });
 }

@@ -435,7 +435,8 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
   }, [visible, range, year, lang, t, nf]);
   // Pantalla táctil: se lee después de montar (en el servidor no se sabe) para no romper la hidratación.
   const [coarse, setCoarse] = useState(false);
-  useEffect(() => setCoarse(window.matchMedia?.('(pointer: coarse)').matches ?? false), []);
+  // Táctil: puntero grueso o pantalla táctil (algunos navegadores no informan uno de los dos).
+  useEffect(() => setCoarse(!!window.matchMedia?.('(pointer: coarse)').matches || navigator.maxTouchPoints > 0 || 'ontouchstart' in window), []);
   const helpText = pitched ? (coarse ? t.helpTerrainTouch : t.helpTerrain) : coarse ? t.helpTouch : t.help;
   const ri = rangeInfo(range, year);
   const rangeNote = range === 'year' ? `${t.noteLong} ${t.noteYear}` : ri.days > 31 ? t.noteLong : t.noteShort;
@@ -530,7 +531,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
         <div className="globe-area">
           <Globe ref={globe} events={drawn} gvp={gvpShown} layers={drawLayers} overlays={overlays} selected={sel} showTsunami={types.tsunami}
             terrain={terrain} onSelect={select} onHover={setHover} onCarto={onCarto} onView={setView}
-            onPitch={setPitched} onLowFps={onLowFps} onRaster={onRaster} />
+            onPitch={setPitched} onLowFps={onLowFps} onRaster={onRaster} loadingText={t.loadingRelief} />
         </div>
 
         {headline && !sel && <p className="map-headline">{headline}</p>}

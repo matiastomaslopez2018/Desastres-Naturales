@@ -39,6 +39,8 @@ type Props = {
   onLowFps?(fps: number): void;
   /** Estado de las capas ráster (amenaza GEM, FWI, LHASA). */
   onRaster?(id: 'hazard' | 'fwi' | 'lhasa', state: 'wait' | 'ok' | 'err'): void;
+  /** Texto del indicador que aparece junto al evento mientras cargan las teselas del destino. */
+  loadingText?: string;
 };
 
 /* ───────────── Fondo y relieve ───────────── */
@@ -46,6 +48,21 @@ type Props = {
 const INITIAL = { center: [-62, -8] as [number, number], zoom: 1.75, pitch: 0, bearing: 0 };
 const isNarrow = () => typeof window !== 'undefined' && window.innerWidth < 600;
 const initialZoom = () => (isNarrow() ? 1.1 : INITIAL.zoom);
+
+/**
+ * Celular (pantalla angosta, o táctil y de menos de 1024 px) y conexión lenta (3G o peor según
+ * navigator.connection): vuelos un 30 % más lentos, relieve menos exagerado y teselas de
+ * elevación hasta zoom 12 (13 en la compu).
+ */
+type Profile = { mobile: boolean; slow: boolean };
+function deviceProfile(): Profile {
+  const coarse = window.matchMedia?.('(pointer: coarse)').matches || navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
+  const mobile = isNarrow() || (coarse && window.innerWidth < 1024);
+  const et = (navigator as Navigator & { connection?: { effectiveType?: string } }).connection?.effectiveType ?? '';
+  return { mobile, slow: /^(slow-2g|2g|3g)$/.test(et) };
+}
+const demMaxZoom = (p: Profile) => (p.mobile ? 12 : 13);
+const exaggeration = (p: Profile) => (p.mobile || p.slow ? 1.1 : 1.4);
 
 /**
  * Imágenes de cerca. Por defecto Sentinel-2 cloudless 2020 de EOX (CC BY-NC-SA 4.0: solo uso no
@@ -69,7 +86,8 @@ const IMAGERY = (() => {
  * (el Blue Marble ya trae relieve sombreado) y bajarlas cuesta ~1,5 MB en la primera carga.
  */
 const TERRAIN_MIN_ZOOM = 4;
-const DEM = { type: 'raster-dem' as const, tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'], encoding: 'terrarium' as const, tileSize: 256, maxzoom: 15,
+const DEM_URL = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
+const DEM = { type: 'raster-dem' as const, tiles: [DEM_URL], encoding: 'terrarium' as const, tileSize: 256, maxzoom: 13,
   attribution: '<a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noopener">Terrain Tiles</a> (Mapzen, AWS Open Data)' };
 
 /** Imágenes en Web Mercator (±85,05°) que se apoyan sobre el globo. */
@@ -150,13 +168,34 @@ function makeIcon(name: string): ImageData | null {
 
 const zoomScaled = (base: unknown, f = 1.8): unknown => ['interpolate', ['linear'], ['zoom'], 1, base, 8, ['*', f, base]];
 
-function buildStyle(): StyleSpecification {
+/** Teselas (z, x, y) alrededor de un punto: 3 columnas y 4 filas, con más filas hacia el norte (lo que se ve al inclinar). */
+function tilesAround(lon: number, lat: number, z: number) {
+  const n = 2 ** z, x = Math.floor(((lon + 180) / 360) * n);
+  const r = (lat * Math.PI) / 180, y = Math.floor(((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * n);
+  const out: [number, number, number][] = [];
+  for (let dy = -2; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    const yy = y + dy;
+    if (yy >= 0 && yy < n) out.push([z, ((x + dx) % n + n) % n, yy]);
+  }
+  return out;
+}
+/** Precarga las teselas del destino (imágenes y elevación) mientras el mapa vuela: quedan en la caché del navegador. */
+function prefetchTiles(lon: number, lat: number, zoom: number, p: Profile) {
+  const urls: string[] = [];
+  const fill = (tpl: string, [z, x, y]: [number, number, number]) => tpl.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y));
+  if (IMAGERY && zoom >= 4.5) for (const t of tilesAround(lon, lat, Math.min(Math.round(zoom), IMAGERY.maxzoom))) urls.push(fill(IMAGERY.tiles[0], t));
+  else for (const t of tilesAround(lon, lat, Math.min(Math.round(zoom), 8))) urls.push(fill('https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg', t));
+  if (zoom >= TERRAIN_MIN_ZOOM) for (const t of tilesAround(lon, lat, Math.min(Math.round(zoom), demMaxZoom(p)))) urls.push(fill(DEM_URL, t));
+  for (const u of urls) fetch(u, { mode: 'cors', credentials: 'omit' }).catch(() => {});
+}
+
+function buildStyle(p: Profile): StyleSpecification {
   const geo = (id: string, extra: Record<string, unknown> = {}) => [id, { type: 'geojson', data: EMPTY, ...extra }] as const;
   const sources = Object.fromEntries([
     ['bm', { type: 'raster', tiles: ['https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg'], tileSize: 256, maxzoom: 8,
       attribution: '<a href="https://earthdata.nasa.gov/gibs" target="_blank" rel="noopener">NASA GIBS</a> Blue Marble' }],
     ...(IMAGERY ? [['s2', { type: 'raster', tiles: IMAGERY.tiles, tileSize: 256, maxzoom: IMAGERY.maxzoom, attribution: IMAGERY.attribution }]] : []),
-    ['dem', DEM],
+    ['dem', { ...DEM, maxzoom: demMaxZoom(p) }],
     geo('borders'), geo('ring'), geo('plates'), geo('slab'), geo('platevec'), geo('platehead'), geo('ibt-lines'), geo('ibt-pts'), geo('heat'),
     geo('storm-areas'), geo('storm-lines'), geo('storm-pts'), geo('ev-tracks'), geo('glc'), geo('gvp'), geo('wvolc'), geo('dart'),
     geo('spc-areas'), geo('nws'), geo('spc-pts'), geo('wind'),
@@ -259,19 +298,64 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
   propsRef.current = props;
   /** pid (propiedad de cada punto) → objeto original, para devolverlo al tocarlo. */
   const pick = useRef(new Map<string, Pickable>());
+  const profile = useRef<Profile>({ mobile: false, slow: false });
+  const terrainRef = useRef(props.terrain);
+  terrainRef.current = props.terrain;
   const cleanupTerrain = useRef<() => void>(() => {});
 
   /** Ejecuta cuando el estilo ya tiene sus fuentes (los datos se cargan en paralelo y se aplican al llegar). */
   const whenReady = (fn: () => void) => { if (ready.current && mapRef.current) fn(); else queue.current.push(fn); };
   const setData = (id: string, data: GeoJSON.FeatureCollection) => whenReady(() => (mapRef.current!.getSource(id) as GeoJSONSource | undefined)?.setData(data));
 
+  /**
+   * Vuelo al evento en dos etapas, para que las teselas lleguen a tiempo:
+   *  1. acercamiento suave sin inclinar hasta zoom ~5 (≈2 s), mientras se precargan las teselas del destino;
+   *  2. cuando el mapa queda quieto con todo cargado (o a los 1,5 s), zoom final e inclinación (≈2,5 s).
+   * En el celular o con conexión lenta, un 30 % más lento. Si el usuario toca o arrastra, se cancela.
+   */
+  const flight = useRef(0);
+  const loadingMarker = useRef<maplibregl.Marker | null>(null);
+  const hideLoading = () => { loadingMarker.current?.remove(); loadingMarker.current = null; };
+  const showLoading = (lon: number, lat: number) => {
+    const m = mapRef.current;
+    if (!m || !terrainRef.current) return;
+    hideLoading();
+    const el = document.createElement('div');
+    el.className = 'relief-loading';
+    el.textContent = propsRef.current.loadingText ?? '…';
+    loadingMarker.current = new maplibregl.Marker({ element: el, anchor: 'bottom', offset: [0, -22] }).setLngLat([lon, lat]).addTo(m);
+  };
+  const cancelFlight = () => { flight.current++; hideLoading(); };
   const focus = (p: Pickable) => {
     const m = mapRef.current;
     if (!m) return;
-    const t = p.type === 'eq' || p.type === 'volcano' || p.type === 'fire' ? p.type : p.type;
-    m.flyTo({ center: [p.lon, p.lat], zoom: ZOOM_FOR[t] ?? 6.5, pitch: 58, bearing: -20, duration: 3000, curve: 1.5 });
+    const id = ++flight.current;
+    const prof = profile.current, k = prof.mobile || prof.slow ? 1.3 : 1;
+    const center: [number, number] = [p.lon, p.lat];
+    const zFinal = ZOOM_FOR[p.type] ?? 6.5;
+    // En el celular el relieve levanta la cima por encima del centro: más margen arriba y menos inclinación.
+    const h = m.getContainer().clientHeight;
+    const padding = prof.mobile ? { top: Math.round(h * 0.3), bottom: 0, left: 0, right: 0 } : { top: 0, bottom: 0, left: 0, right: 0 };
+    const pitch = prof.mobile ? 50 : 58;
+    prefetchTiles(p.lon, p.lat, zFinal, prof);
+    const stage2 = () => {
+      if (id !== flight.current) return;
+      m.flyTo({ center, zoom: zFinal, pitch, bearing: -20, padding, duration: 2500 * k, curve: 1.2 });
+      m.once('moveend', () => { if (id === flight.current) m.once('idle', () => { if (id === flight.current) hideLoading(); }); });
+    };
+    const near = m.getZoom() >= 4.5 && Math.abs(m.getCenter().lng - p.lon) < 3 && Math.abs(m.getCenter().lat - p.lat) < 3;
+    if (near) { showLoading(p.lon, p.lat); stage2(); return; }
+    m.flyTo({ center, zoom: Math.min(5, zFinal), pitch: 0, bearing: 0, padding, duration: 2000 * k, curve: 1.2 });
+    m.once('moveend', () => {
+      if (id !== flight.current) return;
+      showLoading(p.lon, p.lat);
+      let done = false;
+      const go = () => { if (done) return; done = true; clearTimeout(timer); stage2(); };
+      const timer = setTimeout(go, 1500);
+      m.once('idle', go);
+    });
   };
-  const reset = () => mapRef.current?.flyTo({ center: INITIAL.center, zoom: initialZoom(), pitch: 0, bearing: 0, duration: 2200 });
+  const reset = () => { cancelFlight(); mapRef.current?.flyTo({ center: INITIAL.center, zoom: initialZoom(), pitch: 0, bearing: 0, padding: { top: 0, bottom: 0, left: 0, right: 0 }, duration: 2200 }); };
   useImperativeHandle(ref, () => ({
     focus,
     zoomBy: (f) => { const m = mapRef.current; if (m) m.easeTo({ zoom: m.getZoom() + Math.log2(f), duration: 400 }); },
@@ -284,9 +368,10 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
     // ?v=lon,lat,zoom,pitch guarda la vista.
     const v = new URLSearchParams(window.location.search).get('v')?.split(',').map(Number);
     const fromUrl = v && v.length >= 3 && v.every(Number.isFinite);
+    profile.current = deviceProfile();
     const m = new maplibregl.Map({
       container: wrap,
-      style: buildStyle(),
+      style: buildStyle(profile.current),
       center: fromUrl ? [v[0], v[1]] : INITIAL.center,
       zoom: fromUrl ? v[2] : initialZoom(),
       pitch: fromUrl ? v[3] ?? 0 : 0,
@@ -347,6 +432,10 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
       window.history.replaceState(window.history.state, '', url);
     });
 
+    // El usuario toma el control: se cancela el vuelo en curso sin trabas.
+    const interrupt = () => { if (loadingMarker.current || m.isMoving()) { cancelFlight(); m.stop(); } };
+    for (const ev of ['mousedown', 'touchstart', 'wheel'] as const) wrap.addEventListener(ev, interrupt, { passive: true, capture: true });
+
     const ro = new ResizeObserver(() => m.resize());
     ro.observe(wrap);
     return () => { ro.disconnect(); m.remove(); mapRef.current = null; ready.current = false; };
@@ -368,14 +457,12 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
   }, []);
 
   /* ── Terreno 3D: solo con el interruptor encendido y desde TERRAIN_MIN_ZOOM ── */
-  const terrainRef = useRef(props.terrain);
-  terrainRef.current = props.terrain;
   useEffect(() => {
     whenReady(() => {
       const m = mapRef.current!;
       const apply = () => {
         const want = terrainRef.current && m.getZoom() >= TERRAIN_MIN_ZOOM - 0.5;
-        if (want !== !!m.getTerrain()) m.setTerrain(want ? { source: 'dem', exaggeration: 1.4 } : null);
+        if (want !== !!m.getTerrain()) m.setTerrain(want ? { source: 'dem', exaggeration: exaggeration(profile.current) } : null);
       };
       apply();
       m.on('zoom', apply);

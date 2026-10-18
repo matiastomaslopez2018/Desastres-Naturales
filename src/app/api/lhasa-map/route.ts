@@ -29,7 +29,7 @@ export async function GET() {
     const { width, height, data } = decodePng(new Uint8Array(await res.arrayBuffer()));
     const idx = new Uint8Array(width * height);
     for (let i = 0; i < idx.length; i++) idx[i] = data[i * 4];
-    return new NextResponse(new Uint8Array(encodeIndexed(width, height, idx, PALETTE)), { headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, s-maxage=10800' } });
+    return new NextResponse(new Uint8Array(encodeIndexed(width, height, idx, PALETTE)), { headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600, s-maxage=10800' } });
   } catch {
     return NextResponse.json({ error: 'decode' }, { status: 502 });
   }

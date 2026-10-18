@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [{ source: "/:file(google[0-9a-f]+\\.html)", destination: "/api/google-verification?file=:file" }];
   },
+  // Datos estáticos del mapa (GEM, losas, vectores, catálogos): caché larga en el navegador y en la CDN.
+  async headers() {
+    return [{ source: "/data/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" }] }];
+  },
   // Cliente libSQL con binarios nativos: no empaquetarlo.
   serverExternalPackages: ["@libsql/client", "libsql"],
   // La imagen OG lee las fuentes con fs: incluirlas en el bundle serverless (Vercel).

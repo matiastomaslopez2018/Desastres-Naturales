@@ -133,6 +133,28 @@ body { background: #fafaf8; color: #141414; }
 .ed-headline, .ed-h2, .ed-h3, .ed-display { font-family: var(--font-serif); font-weight: 400; }
 .theme-paper .ev-big-num { font-family: var(--font-serif); font-weight: 400; }
 .ed-panel, .theme-paper .ev-card { border-radius: 14px; }
-/* Atribuciones entre los paneles (en escritorio el panel derecho tapa la esquina). */
-@media (min-width: 761px) { .globe-gl .maplibregl-ctrl-bottom-right { right: 452px; } }
-@media (min-width: 761px) and (max-width: 1100px) { .globe-gl .maplibregl-ctrl-bottom-right { right: 412px; } }
+/*
+ * Atribuciones (i) en la misma columna que los botones de zoom, justo encima, para que nunca
+ * se tapen en ningún ancho: misma distancia al borde que .map-zoom y 3 botones + huecos de alto.
+ * En el celular el zoom está arriba a la derecha, así que el (i) va abajo a la izquierda.
+ */
+@media (min-width: 761px) {
+  .globe-gl .maplibregl-ctrl-bottom-right { right: 404px; bottom: calc(116px - 96px + 3 * 38px + 2 * 6px + 10px); }
+  .globe-gl .maplibregl-ctrl-bottom-right .maplibregl-ctrl { margin: 0; }
+}
+@media (min-width: 761px) and (max-width: 1100px) { .globe-gl .maplibregl-ctrl-bottom-right { right: 364px; } }
+@media (max-width: 760px) {
+  .globe-gl .maplibregl-ctrl-bottom-right { right: auto; left: 0; }
+}
+
+/* Indicador "Cargando relieve…" junto al evento mientras llegan las teselas del destino. */
+.relief-loading { padding: 4px 10px; border-radius: 999px; background: rgba(255, 255, 255, .92); box-shadow: 0 1px 6px rgba(0, 0, 0, .15); font: 500 12px var(--font-sans); color: #5a5a5a; white-space: nowrap; pointer-events: none; animation: relief-pulse 1.2s ease-in-out infinite; }
+@keyframes relief-pulse { 50% { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { .relief-loading { animation: none; } }
+@media (max-width: 760px) { .map-help { white-space: normal; text-align: center; width: max-content; max-width: calc(100% - 120px); } }
+/* Anchos intermedios: el titular no entra y la ayuda abajo chocaría con los botones de zoom; va arriba, entre los paneles. */
+@media (min-width: 761px) and (max-width: 1250px) {
+  .map-help { bottom: auto; top: 72px; white-space: normal; text-align: center; width: max-content; max-width: min(300px, calc(100% - 640px)); }
+}
+@media (min-width: 761px) and (max-width: 1100px) { .map-help { max-width: min(260px, calc(100% - 600px)); } }
+@media (min-width: 761px) and (max-width: 1000px) { .map-help { display: none; } }
