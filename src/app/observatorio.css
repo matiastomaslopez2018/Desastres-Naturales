@@ -134,5 +134,5 @@ body { background: #fafaf8; color: #141414; }
 .theme-paper .ev-big-num { font-family: var(--font-serif); font-weight: 400; }
 .ed-panel, .theme-paper .ev-card { border-radius: 14px; }
 /* Atribuciones entre los paneles (en escritorio el panel derecho tapa la esquina). */
-@media (min-width: 761px) { .globe-gl .maplibregl-ctrl-bottom-right { right: 392px; } }
-@media (min-width: 761px) and (max-width: 1100px) { .globe-gl .maplibregl-ctrl-bottom-right { right: 352px; } }
+@media (min-width: 761px) { .globe-gl .maplibregl-ctrl-bottom-right { right: 452px; } }
+@media (min-width: 761px) and (max-width: 1100px) { .globe-gl .maplibregl-ctrl-bottom-right { right: 412px; } }

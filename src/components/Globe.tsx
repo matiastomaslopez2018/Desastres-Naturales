@@ -64,6 +64,11 @@ const IMAGERY = (() => {
   };
 })();
 
+/**
+ * Desde este zoom se piden las teselas de elevación: de más lejos el relieve 3D no se distingue
+ * (el Blue Marble ya trae relieve sombreado) y bajarlas cuesta ~1,5 MB en la primera carga.
+ */
+const TERRAIN_MIN_ZOOM = 4;
 const DEM = { type: 'raster-dem' as const, tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'], encoding: 'terrarium' as const, tileSize: 256, maxzoom: 15,
   attribution: '<a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noopener">Terrain Tiles</a> (Mapzen, AWS Open Data)' };
 
@@ -151,7 +156,7 @@ function buildStyle(): StyleSpecification {
     ['bm', { type: 'raster', tiles: ['https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg'], tileSize: 256, maxzoom: 8,
       attribution: '<a href="https://earthdata.nasa.gov/gibs" target="_blank" rel="noopener">NASA GIBS</a> Blue Marble' }],
     ...(IMAGERY ? [['s2', { type: 'raster', tiles: IMAGERY.tiles, tileSize: 256, maxzoom: IMAGERY.maxzoom, attribution: IMAGERY.attribution }]] : []),
-    ['dem', DEM], ['dem-hs', DEM],
+    ['dem', DEM],
     geo('borders'), geo('ring'), geo('plates'), geo('slab'), geo('platevec'), geo('platehead'), geo('ibt-lines'), geo('ibt-pts'), geo('heat'),
     geo('storm-areas'), geo('storm-lines'), geo('storm-pts'), geo('ev-tracks'), geo('glc'), geo('gvp'), geo('wvolc'), geo('dart'),
     geo('spc-areas'), geo('nws'), geo('spc-pts'), geo('wind'),
@@ -163,7 +168,7 @@ function buildStyle(): StyleSpecification {
     { id: 'bg', type: 'background', paint: { 'background-color': '#fafaf8' } },
     { id: 'bm', type: 'raster', source: 'bm', paint: { 'raster-opacity': IMAGERY ? ['interpolate', ['linear'], ['zoom'], 4.5, 1, 6, 0] : 1, 'raster-fade-duration': 200 } },
     ...(IMAGERY ? [{ id: 's2', type: 'raster', source: 's2', minzoom: 4.5, paint: { 'raster-opacity': ['interpolate', ['linear'], ['zoom'], 4.5, 0, 6, 1], 'raster-fade-duration': 200 } }] : []),
-    { id: 'hillshade', type: 'hillshade', source: 'dem-hs', paint: { 'hillshade-exaggeration': 0.3, 'hillshade-shadow-color': '#4a4a46', 'hillshade-highlight-color': '#ffffff', 'hillshade-accent-color': '#5a5a5a' } },
+    { id: 'hillshade', type: 'hillshade', source: 'dem', minzoom: TERRAIN_MIN_ZOOM, paint: { 'hillshade-exaggeration': 0.3, 'hillshade-shadow-color': '#4a4a46', 'hillshade-highlight-color': '#ffffff', 'hillshade-accent-color': '#5a5a5a' } },
     // (aquí se insertan los rásteres GEM, FWI y LHASA, antes de "spc-fill")
     { id: 'spc-fill', type: 'fill', source: 'spc-areas', layout: vis(), paint: { 'fill-color': ['get', 'fill'], 'fill-opacity': 0.35 } },
     { id: 'spc-line', type: 'line', source: 'spc-areas', layout: vis(), paint: { 'line-color': ['get', 'stroke'], 'line-width': 1 } },
@@ -254,6 +259,7 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
   propsRef.current = props;
   /** pid (propiedad de cada punto) → objeto original, para devolverlo al tocarlo. */
   const pick = useRef(new Map<string, Pickable>());
+  const cleanupTerrain = useRef<() => void>(() => {});
 
   /** Ejecuta cuando el estilo ya tiene sus fuentes (los datos se cargan en paralelo y se aplican al llegar). */
   const whenReady = (fn: () => void) => { if (ready.current && mapRef.current) fn(); else queue.current.push(fn); };
@@ -361,9 +367,21 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ── Terreno 3D ── */
+  /* ── Terreno 3D: solo con el interruptor encendido y desde TERRAIN_MIN_ZOOM ── */
+  const terrainRef = useRef(props.terrain);
+  terrainRef.current = props.terrain;
   useEffect(() => {
-    whenReady(() => mapRef.current!.setTerrain(props.terrain ? { source: 'dem', exaggeration: 1.4 } : null));
+    whenReady(() => {
+      const m = mapRef.current!;
+      const apply = () => {
+        const want = terrainRef.current && m.getZoom() >= TERRAIN_MIN_ZOOM - 0.5;
+        if (want !== !!m.getTerrain()) m.setTerrain(want ? { source: 'dem', exaggeration: 1.4 } : null);
+      };
+      apply();
+      m.on('zoom', apply);
+      cleanupTerrain.current = () => m.off('zoom', apply);
+    });
+    return () => cleanupTerrain.current();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.terrain]);
 
