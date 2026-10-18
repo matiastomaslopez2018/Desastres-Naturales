@@ -1,24 +1,24 @@
 import type { Metadata, Viewport } from 'next';
 import { notFound } from 'next/navigation';
-import { IBM_Plex_Mono, IBM_Plex_Sans, Newsreader, Source_Sans_3 } from 'next/font/google';
+import { Instrument_Sans, Instrument_Serif } from 'next/font/google';
 import { LANGS, T, isLang } from '@/lib/i18n';
 import { SITE_URL } from '@/lib/site';
 import '../base.css';
 import '../night.css';
 import '../paper.css';
+import '../observatorio.css';
 
-// 2a "Satélite nocturno" (mapa): IBM Plex. 2b "Periodístico" (editorial): Newsreader + Source Sans 3.
-const plexSans = IBM_Plex_Sans({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-plex-sans' });
-const plexMono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-plex-mono' });
-const newsreader = Newsreader({ subsets: ['latin'], weight: ['400', '600'], variable: '--font-newsreader' });
-const sourceSans = Source_Sans_3({ subsets: ['latin'], weight: ['400', '600'], variable: '--font-source-sans' });
+// "Observatorio claro": Instrument Sans para la interfaz y el texto, Instrument Serif para los
+// números grandes y los titulares, en todo el sitio.
+const sans = Instrument_Sans({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-isans' });
+const serif = Instrument_Serif({ subsets: ['latin'], weight: ['400'], style: ['normal', 'italic'], variable: '--font-iserif' });
 
 export function generateStaticParams() {
   return LANGS.map((lang) => ({ lang }));
 }
 
 export const viewport: Viewport = {
-  themeColor: [{ color: '#06080c' }],
+  themeColor: [{ color: '#fafaf8' }],
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
@@ -43,7 +43,7 @@ export default async function RootLayout({ children, params }: { children: React
   const { lang } = await params;
   if (!isLang(lang)) notFound();
   return (
-    <html lang={lang} className={`${plexSans.variable} ${plexMono.variable} ${newsreader.variable} ${sourceSans.variable}`}>
+    <html lang={lang} className={`${sans.variable} ${serif.variable}`}>
       <body>{children}</body>
     </html>
   );

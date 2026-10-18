@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { geoDistance } from 'd3-geo';
-import { Globe, HAZARD_LEVELS, SPC_COLORS, SS_SCALE, type ColoredArea, type DartBuoy, type GlcSlide, type SpcReport, type GlobeHandle, type Layers, type Overlays, type Pickable } from './Globe';
+import { Globe } from './Globe';
+import { HAZARD_LEVELS, SPC_COLORS, SS_SCALE, type ColoredArea, type DartBuoy, type GlcSlide, type GlobeHandle, type Layers, type Overlays, type Pickable, type SpcReport } from '@/lib/mapTypes';
 import { Glyph, TypeDot } from './Glyph';
+import { LogoMark } from './Logo';
 import { EventCard } from './EventCard';
 import { FeatureCard } from './FeatureCard';
 import { ShareButtons } from './ShareButtons';
@@ -38,17 +40,13 @@ type FirmsState = 'idle' | 'wait' | 'ok' | 'needsKey' | 'err';
 /** initialType: ?tipo=eq|volcano|… desde Aprender, para abrir el mapa filtrado por un tipo. */
 type Props = { lang: Lang; initialRange: RangeKey; initialYear: number; initialSel?: string; initialType?: string };
 
-/** Rampa del visor oficial de LHASA (NASA): azul → celeste → amarillo → rojo, de 0 a 1. */
-const LHASA_STOPS: [number, number, number][] = [[0, 0, 255], [0, 255, 255], [255, 255, 0], [255, 0, 0]];
-const lhasaRamp = (p: number) => {
-  const x = Math.max(0, Math.min(1, p)) * 3, i = Math.min(2, Math.floor(x)), f = x - i, a = LHASA_STOPS[i], b = LHASA_STOPS[i + 1];
-  return [0, 1, 2].map((k) => Math.round(a[k] + (b[k] - a[k]) * f)) as [number, number, number];
-};
-/** Debajo de esta probabilidad no se pinta, para que se vea el mapa (se explica en la leyenda). */
-const LHASA_MIN = 0.05;
 /** Leyenda oficial del mapa FWI de GWIS: color y límite inferior de cada clase. */
 const FWI_LEGEND: [string, string][] = [['#9cffc0', '<11'], ['#cde24e', '11'], ['#e6ac00', '21'], ['#d97010', '38'], ['#ad060e', '50'], ['#3a0015', '70']];
 const LAYER_KEYS = ['nhc', 'wvolc', 'firms', 'fwi', 'wind', 'ibtracs', 'borders', 'plates', 'platevec', 'slab', 'ring', 'gvp', 'dart', 'hazard', 'lhasa', 'glc', 'spc'] as const;
+/** Etiqueta de las capas históricas y de referencia (vienen apagadas, salvo fronteras y placas). */
+const LAYER_TAG: Partial<Record<(typeof LAYER_KEYS)[number], 'hist' | 'ref'>> = {
+  ibtracs: 'hist', glc: 'hist', borders: 'ref', plates: 'ref', platevec: 'ref', slab: 'ref', ring: 'ref', gvp: 'ref', hazard: 'ref',
+};
 const SRC_NAME: Record<SourceKey, string> = { usgs: 'USGS', eonet: 'EONET', gdacs: 'GDACS', gvp: 'GVP', carto: 'PB2002' };
 /** Un tramo de la línea de tiempo por cuadro de reproducción, a 1×. */
 const PLAY_MS = 900;
@@ -67,7 +65,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
     () => Object.fromEntries(TYPE_ORDER.map((k) => [k, !initialType || !(TYPE_ORDER as string[]).includes(initialType) || k === initialType])) as Record<FilterType, boolean>,
   );
   const [layers, setLayers] = useState<Layers>({
-    nhc: true, wvolc: true, firms: false, ibtracs: false, borders: true, plates: true, ring: true, gvp: false, hazard: false,
+    nhc: true, wvolc: true, firms: false, ibtracs: false, borders: true, plates: true, ring: false, gvp: false, hazard: false,
     slab: false, platevec: false, dart: false, fwi: false, wind: false, lhasa: false, glc: false, spc: false,
   });
   const [storms, setStorms] = useState<NhcStorm[]>([]);
@@ -118,7 +116,9 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
     return s ? `?${s}` : '';
   }, [range, year, selParam]);
   useEffect(() => {
-    window.history.replaceState(null, '', `/${lang}${qs}${window.location.hash}`);
+    const v = new URLSearchParams(window.location.search).get('v');
+    const q = v ? `${qs ? `${qs}&` : '?'}v=${v}` : qs;
+    window.history.replaceState(window.history.state, '', `/${lang}${q}${window.location.hash}`);
   }, [lang, qs]);
 
   // `?e=id`: abrir ese evento al cargar, esté o no dentro del período.
@@ -130,7 +130,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
         if (selId.current) return; // el usuario ya eligió otro
         selId.current = event.id;
         setSel(event); setDetail(detail); setDetailLoading(false);
-        globe.current?.flyTo(event.lon, event.lat, 3);
+        globe.current?.focus(event);
       })
       .catch((err) => console.warn('[atlas] evento inicial', initialSel, err));
   }, [initialSel]);
@@ -207,13 +207,6 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
     return () => ctrl.abort();
   }, [ibtracsOn, year]);
 
-  // Amenaza sísmica GEM 2023 (~900 kB): se baja recién al encender la capa.
-  const [hazard, setHazard] = useState<GeoJSON.FeatureCollection | null>(null);
-  useEffect(() => {
-    if (!layers.hazard || hazard) return;
-    fetch('/data/gem.json').then((r) => r.json()).then(setHazard).catch(() => {});
-  }, [layers.hazard, hazard]);
-
   // Animación de la trayectoria de un ciclón (observada y pronosticada), unos 8 segundos.
   const [stormAnim, setStormAnim] = useState<{ id: string; t: number } | null>(null);
   const animateStorm = useCallback((st: NhcStorm) => {
@@ -235,7 +228,6 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
   const [slab, setSlab] = useState<Overlays['slab']>(null);
   const [vectors, setVectors] = useState<Overlays['vectors']>(null);
   const [darts, setDarts] = useState<DartBuoy[]>([]);
-  const [fwi, setFwi] = useState<Overlays['fwi']>(null);
   const [wind, setWind] = useState<Overlays['wind']>(null);
   useEffect(() => { if (layers.slab && !slab) fetch('/data/slab2.json').then((r) => r.json()).then(setSlab).catch(() => {}); }, [layers.slab, slab]);
   useEffect(() => { if (layers.platevec && !vectors) fetch('/data/plate_vectors.json').then((r) => r.json()).then(setVectors).catch(() => {}); }, [layers.platevec, vectors]);
@@ -244,34 +236,11 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
     fetch('/api/dart').then((r) => r.json()).then((j: { buoys: { id: string; name: string; lat: number; lon: number; reporting: boolean; owner: string }[] }) =>
       setDarts(j.buoys.map((b) => ({ id: b.id, type: 'dart', title: b.name, lon: b.lon, lat: b.lat, reporting: b.reporting, owner: b.owner })))).catch(() => {});
   }, [layers.dart, darts.length]);
-  useEffect(() => {
-    if (!layers.fwi || fwi) return;
-    // Mapa global de FWI del día (mismo origen): se leen sus píxeles para reproyectarlo en el globo.
-    fetch('/api/fwi-map').then((r) => (r.ok ? r.blob() : Promise.reject(r.status))).then(createImageBitmap).then((bmp) => {
-      const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
-      const cx = c.getContext('2d')!; cx.drawImage(bmp, 0, 0);
-      setFwi({ w: bmp.width, h: bmp.height, data: cx.getImageData(0, 0, bmp.width, bmp.height).data });
-    }).catch(() => {});
-  }, [layers.fwi, fwi]);
   // Fase 3 · D: deslizamientos (LHASA y GLC) y tormentas severas de EE. UU. (SPC y NWS).
-  const [lhasa, setLhasa] = useState<Overlays['lhasa']>(null);
+  const [raster, setRaster] = useState<Partial<Record<'hazard' | 'fwi' | 'lhasa', 'wait' | 'ok' | 'err'>>>({});
+  const onRaster = useCallback((id: 'hazard' | 'fwi' | 'lhasa', st: 'wait' | 'ok' | 'err') => setRaster((r) => ({ ...r, [id]: st })), []);
   const [glc, setGlc] = useState<GlcSlide[]>([]);
   const [severe, setSevere] = useState<{ outlook: ColoredArea[]; reports: SpcReport[]; warnings: ColoredArea[]; issued: number | null; expires: number | null } | null>(null);
-  useEffect(() => {
-    if (!layers.lhasa || lhasa) return;
-    // Probabilidad 0–1 como gris: se pinta con la rampa del visor de NASA (azul, celeste, amarillo, rojo).
-    fetch('/api/lhasa-map').then((r) => (r.ok ? r.blob() : Promise.reject(r.status))).then(createImageBitmap).then((bmp) => {
-      const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
-      const cx = c.getContext('2d')!; cx.drawImage(bmp, 0, 0);
-      const img = cx.getImageData(0, 0, bmp.width, bmp.height), d = img.data;
-      for (let i = 0; i < d.length; i += 4) {
-        const p = d[i] / 255;
-        const [r, g, b] = lhasaRamp(p);
-        d[i] = r; d[i + 1] = g; d[i + 2] = b; d[i + 3] = p < LHASA_MIN ? 0 : Math.round(120 + 135 * Math.min(1, p / 0.5));
-      }
-      setLhasa({ w: bmp.width, h: bmp.height, data: d });
-    }).catch(() => {});
-  }, [layers.lhasa, lhasa]);
   useEffect(() => {
     if (!layers.glc || glc.length) return;
     fetch('/data/glc_fatal.json').then((r) => r.json()).then((rows: [number, number, number | null, number, string | null, string, string | null, string | null, string | null][]) =>
@@ -304,9 +273,25 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
     return () => ctrl.abort();
   }, [layers.wind, view]);
 
-  const overlays = useMemo<Overlays>(() => ({ storms, heat, volcanoes, tracks, hazard, stormAnim, slab, vectors, darts, fwi, wind, lhasa, glc,
+  const overlays = useMemo<Overlays>(() => ({ storms, heat, volcanoes, tracks, stormAnim, slab, vectors, darts, wind, glc,
     spcOutlook: severe?.outlook, spcReports: severe?.reports, nwsWarnings: severe?.warnings }),
-  [storms, heat, volcanoes, tracks, hazard, stormAnim, slab, vectors, darts, fwi, wind, lhasa, glc, severe]);
+  [storms, heat, volcanoes, tracks, stormAnim, slab, vectors, darts, wind, glc, severe]);
+
+  // Relieve 3D: apagado de entrada en equipos de gama baja (≤ 4 núcleos o ≤ 4 GB), y también si
+  // un movimiento del mapa baja de 24 cuadros por segundo. Se puede cambiar a mano en el panel.
+  const [terrain, setTerrain] = useState(true);
+  const [lowFps, setLowFps] = useState<number | null>(null);
+  const terrainTouched = useRef(false);
+  useEffect(() => {
+    const nav = navigator as Navigator & { deviceMemory?: number };
+    if ((nav.hardwareConcurrency ?? 8) <= 4 || (nav.deviceMemory ?? 8) <= 4) setTerrain(false);
+  }, []);
+  const onLowFps = useCallback((fps: number) => {
+    if (terrainTouched.current) return;
+    setLowFps(fps); setTerrain(false);
+  }, []);
+  const toggleTerrain = () => { terrainTouched.current = true; setTerrain((x) => !x); };
+  const [pitched, setPitched] = useState(false);
 
   const passesFilters = useCallback((e: DisasterEvent) => {
     if (e.type === 'eq') {
@@ -388,10 +373,13 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
     return parts.join(' · ');
   };
 
+  /** Cierra la ficha y vuela a la vista inicial del globo. */
+  const backToGlobe = useCallback(() => { animStop.current(); setSel(null); setDetail(null); selId.current = null; globe.current?.reset(); }, []);
+
   const select = useCallback((e: Pickable) => {
     selId.current = e.id;
     setSel(e); setDetail(null); setHover(null); setFiltersOpen(false);
-    globe.current?.flyTo(e.lon, e.lat, 3);
+    globe.current?.focus(e);
     const isUsgs = e.type === 'eq' && e.src === 'USGS';
     setDetailLoading(isUsgs);
     if (isUsgs) {
@@ -436,6 +424,19 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
   }, [visible, sel]);
 
   const rangeLabel = focus != null && bs[focus] ? bs[focus].title : range === 'year' ? `${t.inYear} ${year}` : `${t.last} ${t[`r${range}`]}`;
+  // Titular automático con datos reales: cuántos sismos hubo en el período y dónde fue el mayor.
+  const headline = useMemo(() => {
+    const eqs = visible.filter((e) => e.type === 'eq');
+    if (!eqs.length) return null;
+    const top = eqs.reduce((a, b) => ((b.mag ?? 0) > (a.mag ?? 0) ? b : a));
+    if (top.mag == null) return null;
+    const when = range === 'year' ? t.hlYear(year) : t.hlRange[range];
+    return t.headline(nf(eqs.length), when, nf(top.mag, 1), localTitle(top, lang));
+  }, [visible, range, year, lang, t, nf]);
+  // Pantalla táctil: se lee después de montar (en el servidor no se sabe) para no romper la hidratación.
+  const [coarse, setCoarse] = useState(false);
+  useEffect(() => setCoarse(window.matchMedia?.('(pointer: coarse)').matches ?? false), []);
+  const helpText = pitched ? (coarse ? t.helpTerrainTouch : t.helpTerrain) : coarse ? t.helpTouch : t.help;
   const ri = rangeInfo(range, year);
   const rangeNote = range === 'year' ? `${t.noteLong} ${t.noteYear}` : ri.days > 31 ? t.noteLong : t.noteShort;
   const years = useMemo(() => {
@@ -509,7 +510,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
     if (k === 'nhc') return storms.length ? ` · ${nf(storms.length)}` : '';
     if (k === 'wvolc') return volcanoes.length ? ` · ${nf(volcanoes.length)}` : '';
     if (k === 'wind') return view && view.k >= 3 ? (wind ? ` · ${t.windAt(fmtHour(lang, Date.now()))}` : ` · ${t.loadingLayer}`) : ` · ${t.windZoom}`;
-    if (k === 'lhasa') return layers.lhasa && !lhasa ? ` · ${t.loadingLayer}` : '';
+    if (k === 'lhasa' || k === 'fwi' || k === 'hazard') return layers[k] && raster[k] === 'wait' ? ` · ${t.loadingLayer}` : raster[k] === 'err' ? ` · ${t.err}` : '';
     if (k === 'glc') return glc.length ? ` · ${nf(glc.length)}` : '';
     if (k === 'spc') return severe ? ` · ${t.spcCount(severe.reports.filter((r) => r.kind === 'tornado').length, severe.reports.length, severe.warnings.length)}` : layers.spc ? ` · ${t.loadingLayer}` : '';
     if (k === 'dart') return darts.length ? ` · ${nf(darts.filter((d) => d.reporting).length)}/${nf(darts.length)}` : '';
@@ -528,8 +529,12 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
         {/* El globo vive entre la barra superior y la línea de tiempo: nada lo tapa. */}
         <div className="globe-area">
           <Globe ref={globe} events={drawn} gvp={gvpShown} layers={drawLayers} overlays={overlays} selected={sel} showTsunami={types.tsunami}
-            onSelect={select} onHover={setHover} onCarto={onCarto} onView={setView} />
+            terrain={terrain} onSelect={select} onHover={setHover} onCarto={onCarto} onView={setView}
+            onPitch={setPitched} onLowFps={onLowFps} onRaster={onRaster} />
         </div>
+
+        {headline && !sel && <p className="map-headline">{headline}</p>}
+        <p className="map-help">{helpText}</p>
 
         {tsunami && tsunami.active.length > 0 && (
           <div className="tsunami-banner" role="alert">
@@ -542,7 +547,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
         )}
 
         <header className="map-top">
-          <Link href={`/${lang}`} className="map-brand">{t.brand}</Link>
+          <Link href={`/${lang}`} className="map-brand logo"><LogoMark /><span className="logo-text">{t.brand}</span></Link>
           <div className="chips" role="group" aria-label={t.types}>
             {TYPE_ORDER.map((k) => (
               <button key={k} className="chip" aria-pressed={types[k]} onClick={() => toggleType(k)}>
@@ -591,8 +596,10 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
           </div>
           {weeklyDown != null && gvpActive > 0 && <p className="note faint small">{t.weeklyDownNote(fmtDay(lang, weeklyDown))}.</p>}
 
-          <div className="stack">
-            <span className="panel-label">{t.period}</span>
+          <details className="layers" open>
+            <summary className="panel-label">{t.periodFilters}</summary>
+          <div className="stack" style={{ marginTop: 10 }}>
+            <span className="sr-only">{t.period}</span>
             <div className="seg" role="radiogroup" aria-label={t.period}>
               {RANGES.map((k) => (
                 <label key={k} className="seg-opt">
@@ -617,10 +624,16 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
             <input id="minmag" className="night-range" type="range" min={magFloor} max={8} step={0.1} value={minMag}
               onChange={(e) => setMinMag(+e.target.value)} />
           </div>
+          </details>
 
           <div className="night-legend" aria-label={t.legSize}>
-            <span className="row"><svg width="34" height="14" viewBox="0 0 34 14" aria-hidden="true"><circle cx="3" cy="7" r="2" fill="#ff7a3d" /><circle cx="12" cy="7" r="3.5" fill="#ff7a3d" /><circle cx="26" cy="7" r="6" fill="#ff7a3d" /></svg>{t.legendMag}</span>
-            <span className="row"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3.5" fill="#ff7a3d" /><circle cx="8" cy="8" r="7" fill="none" stroke="#ff9a5c" strokeWidth="1.2" /></svg>{t.legendRing}</span>
+            <span className="row"><svg width="34" height="16" viewBox="0 0 34 16" aria-hidden="true"><circle cx="3.5" cy="8" r="2.5" fill="#e8590c" stroke="#fff" /><circle cx="12" cy="8" r="4" fill="#e8590c" stroke="#fff" /><circle cx="26" cy="8" r="7" fill="#e8590c" stroke="#fff" /></svg>{t.legendMag}</span>
+            <span className="row"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#5a5a5a" opacity=".25" /><circle cx="10" cy="10" r="4" fill="#e8590c" stroke="#fff" /><circle cx="10" cy="10" r="7" fill="none" stroke="#fff" strokeWidth="2" /></svg>{t.legendRing}</span>
+            <span className="row"><span className="legend-plates" aria-hidden="true" />{t.legendPlates}</span>
+            <button type="button" className="switch-row" role="switch" aria-checked={terrain} onClick={toggleTerrain}>
+              <span className="switch" aria-hidden="true" />
+              <span className="stack-2"><span>{t.terrain3d}</span>{lowFps != null && !terrain && <span className="faint small">{t.terrainLow(lowFps)}</span>}</span>
+            </button>
           </div>
 
           <details className="layers">
@@ -630,7 +643,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
                 onClick={() => setLayers((s) => ({ ...s, [k]: !s[k] }))}>
                 <span className="check" aria-hidden="true" />
                 <span className="stack-2">
-                  <span>{t.L[k]}</span>
+                  <span>{t.L[k]}{LAYER_TAG[k] && <span className="layer-tag">{LAYER_TAG[k] === 'hist' ? t.tagHist : t.tagRef}</span>}</span>
                   <span className="faint small">{t.N[k]}{layerNote(k)}</span>
                 </span>
               </button>
@@ -675,7 +688,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
                   {FWI_LEGEND.map(([c, k]) => <span key={k} style={{ background: c }}><span className="mono">{k}</span></span>)}
                 </div>
                 <span className="faint small">{t.fwiLegend}</span>
-                <p className="note">{fwi ? t.fwiHelp : t.loadingLayer}</p>
+                <p className="note">{raster.fwi === 'wait' ? t.loadingLayer : t.fwiHelp}</p>
               </div>
             )}
             {layers.wind && <p className="note">{t.windHelp}</p>}
@@ -712,7 +725,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
           {sel ? (
             <>
               {isEvent(sel) || sel.type === 'gvp' ? (
-              <EventCard lang={lang} e={sel} detail={detail} detailLoading={detailLoading} onClose={() => { setSel(null); setDetail(null); }}
+              <EventCard lang={lang} e={sel} detail={detail} detailLoading={detailLoading} onClose={backToGlobe}
                 tsunami={tsunami?.messages ?? null}
                 actions={isEvent(sel) && (
                   <>
@@ -720,9 +733,10 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
                     <ShareButtons lang={lang} path={`/${lang}/evento/${encodeURIComponent(sel.id)}`} text={t.shareEvent(eventTitle(lang, sel))} />
                   </>
                 )} />
-              ) : <FeatureCard lang={lang} f={sel} onClose={() => { animStop.current(); setSel(null); }}
+              ) : <FeatureCard lang={lang} f={sel} onClose={backToGlobe}
                 animating={!!stormAnim && stormAnim.id === sel.id}
                 onAnimate={sel.type === 'nhc' ? () => (stormAnim ? animStop.current() : animateStorm(sel)) : undefined} />}
+              <button type="button" className="back-globe" onClick={backToGlobe}>{t.backGlobe}</button>
               {nearby.length > 0 && (
                 <div className="stack-4">
                   <span className="panel-label">{t.nearby}</span>

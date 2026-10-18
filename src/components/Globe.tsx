@@ -1,67 +1,23 @@
 'use client';
 
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
-import { geoDistance, geoGraticule10, geoOrthographic, geoPath, type GeoPermissibleObjects, type GeoProjection } from 'd3-geo';
-import { easeCubicInOut } from 'd3-ease';
-import { feature, mesh } from 'topojson-client';
+import maplibregl, { type GeoJSONSource, type LayerSpecification, type Map as MLMap, type MapGeoJSONFeature, type StyleSpecification } from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
+import { mesh } from 'topojson-client';
 import type { Topology, GeometryCollection } from 'topojson-specification';
 import world from 'world-atlas/countries-110m.json';
-import { NIGHT, RING, SHAPE, alertLevel, drawShape, isHighlighted, sizeFor } from '@/lib/symbols';
-import type { DisasterEvent, GvpVolcano, HeatBin, HistTrack, NhcStorm, SourceStatus, VolcanoActivity } from '@/lib/types';
 
-export type Pickable = DisasterEvent | GvpVolcano | NhcStorm | HeatBin | VolcanoActivity | HistTrack | DartBuoy | SpcReport | GlcSlide;
-export type Layers = {
-  borders: boolean; plates: boolean; ring: boolean; gvp: boolean; hazard: boolean;
-  /** Fase 2: ciclones NHC, focos FIRMS, volcanes con actividad, trayectorias IBTrACS. */
-  nhc: boolean; firms: boolean; wvolc: boolean; ibtracs: boolean;
-  /** Fase 3 · F: losas Slab2, vectores de placas, boyas DART, peligro de incendio FWI y viento GFS. */
-  slab: boolean; platevec: boolean; dart: boolean; fwi: boolean; wind: boolean;
-  /** Fase 3 · D: deslizamientos (LHASA hoy y catálogo GLC) y tormentas severas de EE. UU. (SPC y NWS). */
-  lhasa: boolean; glc: boolean; spc: boolean;
-};
-export type SpcReport = { id: string; type: 'spc'; kind: 'tornado' | 'wind' | 'hail'; title: string; lon: number; lat: number; time: number; magnitude: string; county: string; state: string; comments: string };
-export type GlcSlide = { id: string; type: 'glc'; title: string; lon: number; lat: number; time: number | null; deaths: number; trigger: string | null; link: string | null; country: string | null; category: string | null };
-export type ColoredArea = { fill: string; stroke: string; geometry: GeoJSON.Geometry };
-export type DartBuoy = { id: string; type: 'dart'; title: string; lon: number; lat: number; reporting: boolean; owner: string };
-type Raster = { w: number; h: number; data: Uint8ClampedArray };
-/** Capas de otras fuentes (bloque B) que dibuja el globo además de los eventos. */
-export type Overlays = {
-  storms: NhcStorm[]; heat: HeatBin[]; volcanoes: VolcanoActivity[]; tracks: HistTrack[]; hazard?: GeoJSON.FeatureCollection | null;
-  /** Animación de la trayectoria de un ciclón: se dibuja hasta el instante t (ms). */
-  stormAnim?: { id: string; t: number } | null;
-  slab?: [string, number, number[][][]][] | null;
-  vectors?: [number, number, number, number, string][] | null;
-  darts?: DartBuoy[];
-  fwi?: Raster | null;
-  wind?: { points: [number, number, number, number][] } | null;
-  lhasa?: Raster | null;
-  glc?: GlcSlide[];
-  spcOutlook?: ColoredArea[];
-  spcReports?: SpcReport[];
-  nwsWarnings?: ColoredArea[];
-};
-/** Colores de los reportes de SPC (los mismos que usa SPC en sus mapas). */
-export const SPC_COLORS = { tornado: '#ff3030', wind: '#3a8dff', hail: '#2fbf4f' } as const;
-const NO_OVERLAYS: Overlays = { storms: [], heat: [], volcanoes: [], tracks: [] };
+import { RING, alertLevel } from '@/lib/symbols';
+import { SPC_COLORS, TYPE_COLOR, ssColor, type GlobeHandle, type Layers, type Overlays, type Pickable } from '@/lib/mapTypes';
+import type { DisasterEvent, GvpVolcano, SourceStatus } from '@/lib/types';
 
-/**
- * Amenaza sísmica GEM 2023: límite inferior de cada clase de PGA (g) y su color, de la paleta
- * oficial del README del mapa. Las curvas se apilan (cada una cubre "≥ valor"), así que se
- * pintan opacas en un lienzo aparte y se componen con transparencia una sola vez.
+/*
+ * Globo 3D (MapLibre GL, proyección "globe"): imágenes NASA GIBS Blue Marble de lejos y
+ * Sentinel-2 cloudless (EOX) de cerca, relieve AWS Terrain Tiles (Terrarium) con terreno 3D y
+ * sombreado, y todas las capas de datos como capas nativas de MapLibre.
  */
-export const HAZARD_LEVELS: [number, string][] = [
-  [0.02, 'rgb(181,202,255)'], [0.03, 'rgb(143,179,255)'], [0.05, 'rgb(127,151,255)'], [0.08, 'rgb(171,207,99)'], [0.13, 'rgb(232,245,158)'],
-  [0.2, 'rgb(255,250,20)'], [0.35, 'rgb(255,209,33)'], [0.55, 'rgb(255,163,10)'], [0.9, 'rgb(255,76,0)'],
-];
-const hazardColor = (pga: number) => HAZARD_LEVELS.find(([v]) => Math.abs(v - pga) < 1e-6)?.[1] ?? 'transparent';
-let hazardCanvas: HTMLCanvasElement | null = null;
 
-/** Escala Saffir-Simpson (viento sostenido en kt) con los colores habituales de los mapas de ciclones. */
-export const SS_SCALE: [number, string, string][] = [
-  [0, '#5ebaff', 'TD'], [34, '#00faf4', 'TS'], [64, '#ffffcc', '1'], [83, '#ffe775', '2'], [96, '#ffc140', '3'], [113, '#ff8f20', '4'], [137, '#ff6060', '5'],
-];
-export const ssColor = (kt: number | null) => (kt == null ? 'rgba(255,255,255,.85)' : [...SS_SCALE].reverse().find(([v]) => kt >= v)![1]);
-export interface GlobeHandle { flyTo(lon: number, lat: number, k?: number): void; zoomBy(f: number): void; reset(): void }
+export type { GlobeHandle } from '@/lib/mapTypes';
 
 type Props = {
   events: DisasterEvent[];
@@ -70,583 +26,459 @@ type Props = {
   layers: Layers;
   selected: Pickable | null;
   showTsunami: boolean;
+  /** Terreno 3D (si es false, solo sombreado del relieve: modo liviano). */
+  terrain: boolean;
   onSelect(e: Pickable): void;
   onHover(h: { e: Pickable; x: number; y: number } | null): void;
   onCarto(s: SourceStatus): void;
-  /** Vista del globo al quedar quieto (centro y zoom), para pedir datos de la zona visible. */
+  /** Vista al quedar quieto el mapa: centro y "k" (2^(zoom − zoom inicial)), para pedir datos de la zona visible. */
   onView?(v: { lon: number; lat: number; k: number }): void;
+  /** Cámara inclinada (vista de terreno) o no, para el texto de ayuda. */
+  onPitch?(pitched: boolean): void;
+  /** Cuadros por segundo bajos durante un movimiento: el Atlas pasa a modo liviano. */
+  onLowFps?(fps: number): void;
+  /** Estado de las capas ráster (amenaza GEM, FWI, LHASA). */
+  onRaster?(id: 'hazard' | 'fwi' | 'lhasa', state: 'wait' | 'ok' | 'err'): void;
 };
 
-const INITIAL_ROT: [number, number, number] = [70, 8, 0];
-const HALO_DPR = 2;
-const RAD = Math.PI / 180;
+/* ───────────── Fondo y relieve ───────────── */
 
-/** [λ en radianes, sen φ, cos φ] por evento, calculado una vez. */
-const trigCache = new WeakMap<DisasterEvent, [number, number, number]>();
-const trig = (e: DisasterEvent) => {
-  let t = trigCache.get(e);
-  if (!t) { const p = e.lat * RAD; t = [e.lon * RAD, Math.sin(p), Math.cos(p)]; trigCache.set(e, t); }
-  return t;
-};
-const K_MIN = 1, K_MAX = 16;
-const clampK = (k: number) => Math.max(K_MIN, Math.min(K_MAX, k));
+const INITIAL = { center: [-62, -8] as [number, number], zoom: 1.75, pitch: 0, bearing: 0 };
+const isNarrow = () => typeof window !== 'undefined' && window.innerWidth < 600;
+const initialZoom = () => (isNarrow() ? 1.1 : INITIAL.zoom);
 
-const topo = world as unknown as Topology<{ countries: GeometryCollection; land: GeometryCollection }>;
-const LAND = feature(topo, topo.objects.land);
+/**
+ * Imágenes de cerca. Por defecto Sentinel-2 cloudless 2020 de EOX (CC BY-NC-SA 4.0: solo uso no
+ * comercial). Para uso comercial, NEXT_PUBLIC_IMAGERY_URL (plantilla {z}/{x}/{y} de un proveedor
+ * con licencia) y NEXT_PUBLIC_IMAGERY_ATTRIBUTION; o NEXT_PUBLIC_IMAGERY=gibs para quedarse solo
+ * con NASA GIBS (dominio público, menos detalle).
+ */
+const IMAGERY = (() => {
+  const url = process.env.NEXT_PUBLIC_IMAGERY_URL;
+  if (url) return { tiles: [url], maxzoom: 18, attribution: process.env.NEXT_PUBLIC_IMAGERY_ATTRIBUTION ?? '' };
+  if (process.env.NEXT_PUBLIC_IMAGERY === 'gibs') return null;
+  return {
+    tiles: ['https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg'],
+    maxzoom: 15,
+    attribution: '<a href="https://s2maps.eu" target="_blank" rel="noopener">Sentinel-2 cloudless 2020</a> © EOX IT Services GmbH (CC BY-NC-SA 4.0; datos Copernicus Sentinel modificados)',
+  };
+})();
+
+const DEM = { type: 'raster-dem' as const, tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'], encoding: 'terrarium' as const, tileSize: 256, maxzoom: 15,
+  attribution: '<a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noopener">Terrain Tiles</a> (Mapzen, AWS Open Data)' };
+
+/** Imágenes en Web Mercator (±85,05°) que se apoyan sobre el globo. */
+const MERC: [[number, number], [number, number], [number, number], [number, number]] = [[-180, 85.0511], [180, 85.0511], [180, -85.0511], [-180, -85.0511]];
+const RASTERS = {
+  hazard: { url: '/data/gem-3857.png', opacity: 0.55, attribution: '© GEM Foundation, Global Seismic Hazard Map v2023.1 (CC BY-NC-SA 4.0)' },
+  fwi: { url: '/api/fwi-map', opacity: 0.6, attribution: 'Copernicus GWIS · FWI (ECMWF)' },
+  lhasa: { url: '/api/lhasa-map', opacity: 0.85, attribution: 'NASA LHASA' },
+} as const;
+type RasterId = keyof typeof RASTERS;
+
+/* ───────────── Geometrías fijas ───────────── */
+
+const topo = world as unknown as Topology<{ countries: GeometryCollection }>;
 const BORDERS = mesh(topo, topo.objects.countries, (a, b) => a !== b);
-const GRAT = geoGraticule10();
+
+
+const fc = (features: GeoJSON.Feature[]): GeoJSON.FeatureCollection => ({ type: 'FeatureCollection', features });
+const pt = (lon: number, lat: number, properties: Record<string, unknown>): GeoJSON.Feature => ({ type: 'Feature', properties, geometry: { type: 'Point', coordinates: [lon, lat] } });
+/** Longitudes continuas (178 → 185 en vez de 178 → −175) para que la línea no dé la vuelta al mundo. */
+const unwrap = (c: number[][]) => {
+  const out: number[][] = [];
+  for (const p of c) {
+    const q = out[out.length - 1];
+    let x = p[0];
+    if (q) { while (x - q[0] > 180) x -= 360; while (x - q[0] < -180) x += 360; }
+    out.push([x, ...p.slice(1)]);
+  }
+  return out;
+};
+const line = (coordinates: number[][], properties: Record<string, unknown> = {}): GeoJSON.Feature => ({ type: 'Feature', properties, geometry: { type: 'LineString', coordinates: unwrap(coordinates) } });
+const multiline = (lines: number[][][], properties: Record<string, unknown> = {}): GeoJSON.Feature => ({ type: 'Feature', properties, geometry: { type: 'MultiLineString', coordinates: lines.map(unwrap) } });
+const EMPTY = fc([]);
+
+/** Radio base del evento (px): en sismos según magnitud (2,5→2,5; 4,5→5; 6→9; 7,5→15), fijo en el resto. */
+function baseRadius(e: DisasterEvent) {
+  if (e.type !== 'eq') return e.type === 'fire' ? 4.5 : 6;
+  const m = e.mag ?? 2.5, P: [number, number][] = [[2.5, 2.5], [4.5, 5], [6, 9], [7.5, 15]];
+  if (m <= P[0][0]) return P[0][1];
+  for (let i = 1; i < P.length; i++) if (m <= P[i][0]) return P[i - 1][1] + ((m - P[i - 1][0]) / (P[i][0] - P[i - 1][0])) * (P[i][1] - P[i - 1][1]);
+  return P[3][1] + (m - 7.5) * 4;
+}
+/** Anillo blanco: sismo M6+ o alerta oficial (PAGER/GDACS) distinta de verde. */
+const hasRing = (e: DisasterEvent) => (e.type === 'eq' && (e.mag ?? 0) >= 6) || alertLevel(e) >= 1;
+/** Zoom del vuelo según el tipo. */
+const ZOOM_FOR: Record<string, number> = { eq: 7, volcano: 10.5, gvp: 10.5, wvolc: 10.5, fire: 9, heat: 9 };
+
+/* ───────────── Íconos (dibujados con su color, a 2× para pantallas densas) ───────────── */
+
+const ICONS: Record<string, { shape: 'tri' | 'diamond' | 'arrow' | 'head'; fill: string; stroke: string; sw: number; size: number }> = {
+  'tri-volc': { shape: 'tri', fill: TYPE_COLOR.volcano, stroke: '#ffffff', sw: 3, size: 30 },
+  'tri-gvp': { shape: 'tri', fill: '#ffffff', stroke: '#5a5a5a', sw: 2.5, size: 22 },
+  'dia-dart': { shape: 'diamond', fill: TYPE_COLOR.tsunami, stroke: '#ffffff', sw: 2.5, size: 24 },
+  'arrow-1': { shape: 'arrow', fill: '#1c7ed6', stroke: '#ffffff', sw: 2, size: 30 },
+  'arrow-2': { shape: 'arrow', fill: '#f59f00', stroke: '#ffffff', sw: 2, size: 30 },
+  'arrow-3': { shape: 'arrow', fill: '#e03131', stroke: '#ffffff', sw: 2, size: 30 },
+  head: { shape: 'head', fill: '#ffffff', stroke: '#141414', sw: 1.5, size: 20 },
+};
+
+function makeIcon(name: string): ImageData | null {
+  const d = ICONS[name];
+  if (!d) return null;
+  const S = d.size * 2, p = d.sw * 2, c = document.createElement('canvas');
+  c.width = c.height = S;
+  const g = c.getContext('2d')!;
+  g.beginPath();
+  if (d.shape === 'tri') { g.moveTo(S / 2, p); g.lineTo(S - p, S - p * 1.2); g.lineTo(p, S - p * 1.2); }
+  else if (d.shape === 'diamond') { g.moveTo(S / 2, p); g.lineTo(S - p, S / 2); g.lineTo(S / 2, S - p); g.lineTo(p, S / 2); }
+  else if (d.shape === 'arrow') { const w = S * 0.12; g.moveTo(S / 2, p); g.lineTo(S - p * 2.5, S * 0.42); g.lineTo(S / 2 + w, S * 0.38); g.lineTo(S / 2 + w, S - p); g.lineTo(S / 2 - w, S - p); g.lineTo(S / 2 - w, S * 0.38); g.lineTo(p * 2.5, S * 0.42); }
+  else { g.moveTo(S / 2, p); g.lineTo(S - p, S - p); g.lineTo(S / 2, S * 0.7); g.lineTo(p, S - p); }
+  g.closePath();
+  g.lineJoin = 'round'; g.lineWidth = p; g.strokeStyle = d.stroke; g.stroke();
+  g.fillStyle = d.fill; g.fill();
+  return g.getImageData(0, 0, S, S);
+}
+
+/* ───────────── Estilo ───────────── */
+
+const zoomScaled = (base: unknown, f = 1.8): unknown => ['interpolate', ['linear'], ['zoom'], 1, base, 8, ['*', f, base]];
+
+function buildStyle(): StyleSpecification {
+  const geo = (id: string, extra: Record<string, unknown> = {}) => [id, { type: 'geojson', data: EMPTY, ...extra }] as const;
+  const sources = Object.fromEntries([
+    ['bm', { type: 'raster', tiles: ['https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg'], tileSize: 256, maxzoom: 8,
+      attribution: '<a href="https://earthdata.nasa.gov/gibs" target="_blank" rel="noopener">NASA GIBS</a> Blue Marble' }],
+    ...(IMAGERY ? [['s2', { type: 'raster', tiles: IMAGERY.tiles, tileSize: 256, maxzoom: IMAGERY.maxzoom, attribution: IMAGERY.attribution }]] : []),
+    ['dem', DEM], ['dem-hs', DEM],
+    geo('borders'), geo('ring'), geo('plates'), geo('slab'), geo('platevec'), geo('platehead'), geo('ibt-lines'), geo('ibt-pts'), geo('heat'),
+    geo('storm-areas'), geo('storm-lines'), geo('storm-pts'), geo('ev-tracks'), geo('glc'), geo('gvp'), geo('wvolc'), geo('dart'),
+    geo('spc-areas'), geo('nws'), geo('spc-pts'), geo('wind'),
+    geo('ev'), geo('evc', { cluster: true, clusterRadius: 38, clusterMaxZoom: 6 }), geo('sel'),
+  ]) as StyleSpecification['sources'];
+
+  const vis = (on = false) => ({ visibility: on ? 'visible' : 'none' } as const);
+  const L: Record<string, unknown>[] = [
+    { id: 'bg', type: 'background', paint: { 'background-color': '#fafaf8' } },
+    { id: 'bm', type: 'raster', source: 'bm', paint: { 'raster-opacity': IMAGERY ? ['interpolate', ['linear'], ['zoom'], 4.5, 1, 6, 0] : 1, 'raster-fade-duration': 200 } },
+    ...(IMAGERY ? [{ id: 's2', type: 'raster', source: 's2', minzoom: 4.5, paint: { 'raster-opacity': ['interpolate', ['linear'], ['zoom'], 4.5, 0, 6, 1], 'raster-fade-duration': 200 } }] : []),
+    { id: 'hillshade', type: 'hillshade', source: 'dem-hs', paint: { 'hillshade-exaggeration': 0.3, 'hillshade-shadow-color': '#4a4a46', 'hillshade-highlight-color': '#ffffff', 'hillshade-accent-color': '#5a5a5a' } },
+    // (aquí se insertan los rásteres GEM, FWI y LHASA, antes de "spc-fill")
+    { id: 'spc-fill', type: 'fill', source: 'spc-areas', layout: vis(), paint: { 'fill-color': ['get', 'fill'], 'fill-opacity': 0.35 } },
+    { id: 'spc-line', type: 'line', source: 'spc-areas', layout: vis(), paint: { 'line-color': ['get', 'stroke'], 'line-width': 1 } },
+    { id: 'nws-fill', type: 'fill', source: 'nws', layout: vis(), paint: { 'fill-color': ['get', 'fill'], 'fill-opacity': 0.3 } },
+    { id: 'nws-line', type: 'line', source: 'nws', layout: vis(), paint: { 'line-color': ['get', 'stroke'], 'line-width': 1.6 } },
+    { id: 'borders', type: 'line', source: 'borders', layout: vis(true), paint: { 'line-color': '#ffffff', 'line-opacity': 0.55, 'line-width': ['interpolate', ['linear'], ['zoom'], 1, 0.4, 6, 1] } },
+    { id: 'ring', type: 'line', source: 'ring', layout: { ...vis(true), 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#e8590c', 'line-opacity': 0.13, 'line-width': ['interpolate', ['exponential', 2], ['zoom'], 1, 8, 6, 120] } },
+    { id: 'plates', type: 'line', source: 'plates', layout: vis(true), paint: { 'line-color': '#ffffff', 'line-opacity': 0.9, 'line-dasharray': [2, 2], 'line-width': ['interpolate', ['linear'], ['zoom'], 1, 0.8, 8, 1.6] } },
+    { id: 'slab', type: 'line', source: 'slab', layout: vis(), paint: { 'line-color': ['get', 'c'], 'line-opacity': ['case', ['get', 'major'], 0.95, 0.5], 'line-width': 1 } },
+    { id: 'slab-label', type: 'symbol', source: 'slab', minzoom: 4, filter: ['get', 'major'], layout: { ...vis(), 'symbol-placement': 'line', 'text-field': ['concat', ['to-string', ['get', 'd']], ' km'], 'text-font': ['Noto Sans Regular'], 'text-size': 10 },
+      paint: { 'text-color': '#141414', 'text-halo-color': '#ffffff', 'text-halo-width': 1.2 } },
+    { id: 'platevec', type: 'line', source: 'platevec', layout: vis(), paint: { 'line-color': '#ffffff', 'line-width': 1.4, 'line-opacity': 0.9 } },
+    { id: 'platehead', type: 'symbol', source: 'platehead', layout: { ...vis(), 'icon-image': 'head', 'icon-size': 0.6, 'icon-rotate': ['get', 'rot'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true } },
+    { id: 'ibt-lines', type: 'line', source: 'ibt-lines', layout: vis(), paint: { 'line-color': ['get', 'c'], 'line-width': 0.9, 'line-opacity': 0.45 } },
+    { id: 'ibt-pts', type: 'circle', source: 'ibt-pts', layout: vis(), paint: { 'circle-color': ['get', 'c'], 'circle-radius': 2.2, 'circle-opacity': 0.6 } },
+    { id: 'heat-map', type: 'heatmap', source: 'heat', maxzoom: 8, layout: vis(), paint: {
+      'heatmap-weight': ['interpolate', ['linear'], ['get', 'n'], 1, 0.3, 50, 1], 'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 1, 0.8, 7, 2],
+      'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 1, 6, 7, 22], 'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 6, 0.9, 8, 0],
+      'heatmap-color': ['interpolate', ['linear'], ['heatmap-density'], 0, 'rgba(255,200,0,0)', 0.2, 'rgba(255,200,0,.6)', 0.5, '#ff8c00', 0.8, '#f03e3e', 1, '#c92a2a'] } },
+    { id: 'heat-pt', type: 'circle', source: 'heat', minzoom: 3, layout: vis(), paint: {
+      'circle-color': ['case', ['>=', ['get', 'frp'], 100], '#e03131', '#f76707'], 'circle-radius': zoomScaled(['get', 'r'], 2) as never,
+      'circle-opacity': ['interpolate', ['linear'], ['zoom'], 3, 0.15, 7, 0.9], 'circle-stroke-color': '#ffffff', 'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 5, 0, 8, 0.8] } },
+    { id: 'storm-wind', type: 'fill', source: 'storm-areas', filter: ['==', ['get', 'k'], 'wind'], layout: vis(true), paint: { 'fill-color': ['get', 'c'], 'fill-opacity': ['get', 'o'] } },
+    { id: 'storm-cone', type: 'fill', source: 'storm-areas', filter: ['==', ['get', 'k'], 'cone'], layout: vis(true), paint: { 'fill-color': '#ffffff', 'fill-opacity': 0.28 } },
+    { id: 'storm-cone-line', type: 'line', source: 'storm-areas', filter: ['==', ['get', 'k'], 'cone'], layout: vis(true), paint: { 'line-color': '#141414', 'line-opacity': 0.7, 'line-width': 1.2, 'line-dasharray': [3, 2] } },
+    { id: 'storm-past', type: 'line', source: 'storm-lines', filter: ['==', ['get', 'k'], 'past'], layout: { ...vis(true), 'line-cap': 'round' }, paint: { 'line-color': ['get', 'c'], 'line-width': 3 } },
+    { id: 'storm-fc', type: 'line', source: 'storm-lines', filter: ['==', ['get', 'k'], 'fc'], layout: vis(true), paint: { 'line-color': '#141414', 'line-width': 1.4, 'line-dasharray': [1, 2] } },
+    { id: 'storm-fpts', type: 'circle', source: 'storm-pts', filter: ['==', ['get', 'k'], 'fc'], layout: vis(true), paint: { 'circle-color': ['get', 'c'], 'circle-radius': 4, 'circle-stroke-color': '#141414', 'circle-stroke-width': 1 } },
+    { id: 'storm-mark', type: 'circle', source: 'storm-pts', filter: ['==', ['get', 'k'], 'now'], layout: vis(true), paint: {
+      'circle-color': TYPE_COLOR.storm, 'circle-radius': zoomScaled(8) as never, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2.4 } },
+    { id: 'ev-tracks', type: 'line', source: 'ev-tracks', layout: vis(true), paint: { 'line-color': TYPE_COLOR.storm, 'line-width': 1.4, 'line-opacity': 0.6 } },
+    { id: 'glc', type: 'circle', source: 'glc', layout: vis(), paint: { 'circle-color': TYPE_COLOR.landslide, 'circle-opacity': 0.4, 'circle-radius': zoomScaled(['get', 'r'], 2.4) as never } },
+    { id: 'gvp', type: 'symbol', source: 'gvp', layout: { ...vis(), 'icon-image': 'tri-gvp', 'icon-size': ['interpolate', ['linear'], ['zoom'], 1, 0.4, 8, 0.8], 'icon-allow-overlap': true },
+      paint: { 'icon-opacity': 0.85 } },
+    { id: 'dart', type: 'symbol', source: 'dart', layout: { ...vis(), 'icon-image': 'dia-dart', 'icon-size': ['interpolate', ['linear'], ['zoom'], 1, 0.5, 8, 0.9], 'icon-allow-overlap': true },
+      paint: { 'icon-opacity': ['case', ['get', 'on'], 1, 0.35] } },
+    { id: 'spc-pts', type: 'circle', source: 'spc-pts', layout: vis(), paint: { 'circle-color': ['get', 'c'], 'circle-radius': zoomScaled(['get', 'r']) as never, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 1 } },
+    { id: 'wind', type: 'symbol', source: 'wind', minzoom: 3.3, layout: { ...vis(), 'icon-image': ['step', ['get', 'kmh'], 'arrow-1', 30, 'arrow-2', 60, 'arrow-3'], 'icon-size': ['interpolate', ['linear'], ['get', 'kmh'], 0, 0.5, 60, 0.95], 'icon-rotate': ['get', 'to'],
+      'icon-rotation-alignment': 'map', 'icon-allow-overlap': true } },
+    { id: 'wvolc-new', type: 'circle', source: 'wvolc', filter: ['get', 'isNew'], layout: vis(true), paint: { 'circle-color': 'rgba(0,0,0,0)', 'circle-radius': zoomScaled(11) as never, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2 } },
+    { id: 'wvolc', type: 'symbol', source: 'wvolc', layout: { ...vis(true), 'icon-image': 'tri-volc', 'icon-size': ['interpolate', ['linear'], ['zoom'], 1, 0.55, 8, 1], 'icon-allow-overlap': true } },
+    // Eventos
+    { id: 'ev', type: 'circle', source: 'ev', layout: { 'circle-sort-key': ['get', 'r'] }, paint: {
+      'circle-color': ['get', 'c'], 'circle-radius': zoomScaled(['get', 'r']) as never, 'circle-opacity': 0.92, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 1.2 } },
+    { id: 'ev-ring', type: 'circle', source: 'ev', filter: ['get', 'ring'], paint: {
+      'circle-color': 'rgba(0,0,0,0)', 'circle-radius': zoomScaled(['+', ['get', 'r'], 5]) as never, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2 } },
+    { id: 'ev-tsu', type: 'circle', source: 'ev', filter: ['get', 'tsu'], paint: {
+      'circle-color': 'rgba(0,0,0,0)', 'circle-radius': zoomScaled(['+', ['get', 'r'], 3]) as never, 'circle-stroke-color': TYPE_COLOR.tsunami, 'circle-stroke-width': 1.5 } },
+    { id: 'evc-cluster', type: 'circle', source: 'evc', filter: ['has', 'point_count'], paint: {
+      'circle-color': '#141414', 'circle-opacity': 0.82, 'circle-radius': ['step', ['get', 'point_count'], 12, 50, 16, 300, 22], 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 1.5 } },
+    { id: 'evc-count', type: 'symbol', source: 'evc', filter: ['has', 'point_count'], layout: { 'text-field': ['get', 'point_count_abbreviated'], 'text-font': ['Noto Sans Regular'], 'text-size': 11, 'text-allow-overlap': true },
+      paint: { 'text-color': '#ffffff' } },
+    { id: 'evc-pt', type: 'circle', source: 'evc', filter: ['!', ['has', 'point_count']], layout: { 'circle-sort-key': ['get', 'r'] }, paint: {
+      'circle-color': ['get', 'c'], 'circle-radius': zoomScaled(['get', 'r']) as never, 'circle-opacity': 0.92, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 1.2 } },
+    { id: 'evc-ring', type: 'circle', source: 'evc', filter: ['all', ['!', ['has', 'point_count']], ['get', 'ring']], paint: {
+      'circle-color': 'rgba(0,0,0,0)', 'circle-radius': zoomScaled(['+', ['get', 'r'], 5]) as never, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2 } },
+    { id: 'sel', type: 'circle', source: 'sel', paint: { 'circle-color': 'rgba(0,0,0,0)', 'circle-radius': zoomScaled(['+', ['get', 'r'], 8]) as never, 'circle-stroke-color': '#141414', 'circle-stroke-width': 2.2 } },
+  ];
+
+  return {
+    version: 8,
+    projection: { type: 'globe' },
+    glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+    sky: {
+      'sky-color': '#ffffff', 'horizon-color': '#f4f6f8', 'fog-color': '#ffffff', 'sky-horizon-blend': 0.6, 'horizon-fog-blend': 0.6, 'fog-ground-blend': 0.85,
+      'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 1, 5, 1, 7, 0],
+    },
+    sources,
+    layers: L as unknown as LayerSpecification[],
+  } as StyleSpecification;
+}
+
+/** Capas que se pueden tocar, de arriba hacia abajo. */
+const PICK_LAYERS = ['sel', 'evc-cluster', 'ev', 'evc-pt', 'storm-mark', 'storm-fpts', 'wvolc', 'spc-pts', 'dart', 'heat-pt', 'gvp', 'ibt-pts', 'glc'];
+/** Capa del Atlas → capas de MapLibre que muestra. */
+const LAYER_MAP: Partial<Record<keyof Layers, string[]>> = {
+  borders: ['borders'], plates: ['plates'], ring: ['ring'], gvp: ['gvp'], nhc: ['storm-wind', 'storm-cone', 'storm-cone-line', 'storm-past', 'storm-fc', 'storm-fpts', 'storm-mark'],
+  firms: ['heat-map', 'heat-pt'], wvolc: ['wvolc', 'wvolc-new'], ibtracs: ['ibt-lines', 'ibt-pts'], slab: ['slab', 'slab-label'], platevec: ['platevec', 'platehead'],
+  dart: ['dart'], wind: ['wind'], glc: ['glc'], spc: ['spc-fill', 'spc-line', 'nws-fill', 'nws-line', 'spc-pts'],
+};
 
 export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
   const wrapRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const mapRef = useRef<MLMap | null>(null);
+  const ready = useRef(false);
+  const queue = useRef<(() => void)[]>([]);
   const propsRef = useRef(props);
   propsRef.current = props;
+  /** pid (propiedad de cada punto) → objeto original, para devolverlo al tocarlo. */
+  const pick = useRef(new Map<string, Pickable>());
 
-  // Estado de cámara fuera de React.
-  const cam = useRef({ rot: [...INITIAL_ROT] as [number, number, number], k: 1, W: 0, H: 0, dpr: 1 });
-  const plates = useRef<GeoPermissibleObjects | null>(null);
-  const screenPts = useRef<{ e: Pickable; x: number; y: number; r: number }[]>([]);
-  const raf = useRef(0);
-  const anim = useRef(0);
-  const projRef = useRef<GeoProjection>(geoOrthographic().clipAngle(90).precision(0.4));
-  // Mientras se arrastra, hace zoom o vuela: cuadros livianos (sin halos ni desenfoque de paneles).
-  const moving = useRef(false);
-  const idleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const halos = useRef(new Map<string, HTMLCanvasElement>());
-  const tracksFor = useRef<{ src: DisasterEvent[] | null; geom: GeoJSON.MultiLineString | null }>({ src: null, geom: null });
+  /** Ejecuta cuando el estilo ya tiene sus fuentes (los datos se cargan en paralelo y se aplican al llegar). */
+  const whenReady = (fn: () => void) => { if (ready.current && mapRef.current) fn(); else queue.current.push(fn); };
+  const setData = (id: string, data: GeoJSON.FeatureCollection) => whenReady(() => (mapRef.current!.getSource(id) as GeoJSONSource | undefined)?.setData(data));
 
-  const draw = () => {
-    const c = canvasRef.current;
-    const ctx = c?.getContext('2d');
-    const { rot, k, W, H, dpr } = cam.current;
-    if (!c || !ctx || !W) return;
-    const { events, gvp, layers, selected, showTsunami } = propsRef.current;
-    const ov = propsRef.current.overlays ?? NO_OVERLAYS;
-    const proj = projRef.current;
-    const path = geoPath(proj, ctx);
-
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, W, H);
-    // En pantallas angostas el globo ocupa casi todo el ancho.
-    const R = (Math.min(W, H) / 2) * (W < 600 ? 0.96 : 0.86) * k;
-    const cx = W / 2, cy = H / 2;
-    // En movimiento, contornos con menos remuestreo (más rápido, imperceptible mientras gira).
-    proj.scale(R).translate([cx, cy]).rotate(rot).precision(moving.current ? 2 : 0.4);
-    const TAU = Math.PI * 2;
-
-    // Atmósfera: halo azul alrededor de la esfera (solo si la esfera entra en pantalla).
-    if (R < Math.max(W, H)) {
-      const g = ctx.createRadialGradient(cx, cy, R * 0.92, cx, cy, R * 1.22);
-      g.addColorStop(0, NIGHT.glow); g.addColorStop(1, 'rgba(80,140,255,0)');
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R * 1.22, 0, TAU); ctx.fill();
-    }
-    ctx.beginPath(); path({ type: 'Sphere' }); ctx.fillStyle = NIGHT.sphere; ctx.fill();
-    ctx.beginPath(); path(GRAT); ctx.strokeStyle = NIGHT.grat; ctx.lineWidth = 0.6; ctx.stroke();
-    ctx.beginPath(); path(LAND); ctx.fillStyle = NIGHT.land; ctx.fill();
-    const center0: [number, number] = [-rot[0], -rot[1]];
-    // Peligro de incendio FWI (GWIS): ráster global reproyectado píxel a píxel; en movimiento no se dibuja.
-    for (const raster of [layers.fwi ? ov.fwi : null, layers.lhasa ? ov.lhasa : null]) {
-      if (!raster || moving.current) continue;
-      const { w: rw, h: rh, data } = raster;
-      const step = 4;
-      for (let y = Math.max(0, cy - R); y < Math.min(H, cy + R); y += step) {
-        for (let x = Math.max(0, cx - R); x < Math.min(W, cx + R); x += step) {
-          const ll = proj.invert!([x, y]);
-          if (!ll || geoDistance(ll, center0) > 1.57) continue;
-          const px = Math.floor(((ll[0] + 180) / 360) * rw), py = Math.floor(((90 - ll[1]) / 180) * rh);
-          const k4 = (Math.min(rh - 1, Math.max(0, py)) * rw + Math.min(rw - 1, Math.max(0, px))) * 4;
-          if (data[k4 + 3] < 40) continue;
-          ctx.fillStyle = `rgba(${data[k4]},${data[k4 + 1]},${data[k4 + 2]},${((data[k4 + 3] / 255) * 0.7).toFixed(2)})`;
-          ctx.fillRect(x, y, step, step);
-        }
-      }
-    }
-    // Pronóstico convectivo de SPC (colores oficiales) y avisos vigentes de NWS.
-    if (layers.spc) {
-      for (const a of ov.spcOutlook ?? []) {
-        ctx.beginPath(); path(a.geometry as GeoPermissibleObjects);
-        ctx.globalAlpha = 0.35; ctx.fillStyle = a.fill; ctx.fill(); ctx.globalAlpha = 0.9;
-        ctx.strokeStyle = a.stroke; ctx.lineWidth = 1; ctx.stroke(); ctx.globalAlpha = 1;
-      }
-      for (const a of ov.nwsWarnings ?? []) {
-        ctx.beginPath(); path(a.geometry as GeoPermissibleObjects);
-        ctx.fillStyle = a.fill; ctx.fill(); ctx.strokeStyle = a.stroke; ctx.lineWidth = 1.6; ctx.stroke();
-      }
-    }
-    // Amenaza sísmica (GEM 2023): curvas de nivel rellenas, debajo de fronteras y placas.
-    if (layers.hazard && ov.hazard) {
-      hazardCanvas ??= document.createElement('canvas');
-      if (hazardCanvas.width !== c.width || hazardCanvas.height !== c.height) { hazardCanvas.width = c.width; hazardCanvas.height = c.height; }
-      const hc = hazardCanvas.getContext('2d')!;
-      hc.setTransform(dpr, 0, 0, dpr, 0, 0); hc.clearRect(0, 0, W, H);
-      const hpath = geoPath(proj, hc);
-      for (const f of ov.hazard.features) {
-        hc.beginPath(); hpath(f); hc.fillStyle = hazardColor((f.properties as { pga: number }).pga); hc.fill();
-      }
-      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 0.5; ctx.drawImage(hazardCanvas, 0, 0); ctx.restore();
-    }
-    if (layers.borders) { ctx.beginPath(); path(BORDERS); ctx.strokeStyle = NIGHT.borders; ctx.lineWidth = 0.5; ctx.stroke(); }
-    if (layers.ring) {
-      ctx.beginPath(); path(RING); ctx.strokeStyle = NIGHT.ring; ctx.lineWidth = Math.max(8, 0.02 * R);
-      ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
-    }
-    if (layers.plates && plates.current) {
-      ctx.beginPath(); path(plates.current); ctx.strokeStyle = NIGHT.plates; ctx.lineWidth = 0.8; ctx.stroke();
-    }
-    // Losas de subducción (Slab2): curvas cada 20 km, más oscuras cuanto más profundas.
-    if (layers.slab && ov.slab) {
-      ctx.lineWidth = 1;
-      for (const [, depth, lines] of ov.slab) {
-        const t = Math.min(1, depth / 600);
-        ctx.strokeStyle = `rgba(${Math.round(255 - 120 * t)},${Math.round(170 - 120 * t)},${Math.round(90 + 140 * t)},${depth % 100 === 0 ? 0.9 : 0.45})`;
-        ctx.beginPath(); path({ type: 'MultiLineString', coordinates: lines }); ctx.stroke();
-      }
-      if (k >= 3 && !moving.current) {
-        ctx.font = '600 9px var(--font-plex-mono), monospace'; ctx.fillStyle = 'rgba(230,237,245,.85)';
-        for (const [, depth, lines] of ov.slab) {
-          if (depth % 100 !== 0) continue;
-          const p = lines[0]?.[Math.floor(lines[0].length / 2)];
-          if (!p || geoDistance(p as [number, number], center0) > 1.5) continue;
-          const xy = proj(p as [number, number]);
-          if (xy) ctx.fillText(`${depth} km`, xy[0] + 3, xy[1] - 3);
-        }
-      }
-    }
-    // Movimiento de placas (NNR-MORVEL56): flecha proporcional a la velocidad.
-    if (layers.platevec && ov.vectors) {
-      ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 1.2;
-      const s = 0.22 * Math.pow(k, 0.5);
-      for (const [lon, lat, ve, vn] of ov.vectors) {
-        if (geoDistance([lon, lat], center0) > 1.45) continue;
-        const a = proj([lon, lat]);
-        // Punta: un paso pequeño en la dirección del movimiento, proyectado.
-        const d = 0.02;
-        const b = proj([lon + (ve * d) / Math.max(0.2, Math.cos((lat * Math.PI) / 180)), lat + vn * d]);
-        if (!a || !b) continue;
-        const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1;
-        const L2 = Math.hypot(ve, vn) * s;
-        const ux = dx / len, uy = dy / len;
-        const tx = a[0] + ux * L2, ty = a[1] + uy * L2;
-        ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(tx, ty); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(tx - ux * 5 - uy * 3, ty - uy * 5 + ux * 3); ctx.lineTo(tx - ux * 5 + uy * 3, ty - uy * 5 - ux * 3); ctx.closePath(); ctx.fill();
-      }
-    }
-    ctx.beginPath(); path({ type: 'Sphere' }); ctx.strokeStyle = NIGHT.rim; ctx.lineWidth = 1; ctx.stroke();
-
-    const center: [number, number] = [-rot[0], -rot[1]];
-    const front = (lon: number, lat: number) => geoDistance([lon, lat], center) < 1.55;
-    const pts: typeof screenPts.current = [];
-
-    if (layers.gvp) {
-      ctx.strokeStyle = NIGHT.gvp; ctx.lineWidth = 0.8;
-      const r = 2.6 * Math.pow(k, 0.2);
-      for (const v of gvp) {
-        if (!front(v.lon, v.lat)) continue;
-        const [x, y] = proj([v.lon, v.lat])!;
-        drawShape(ctx, 'triangle', x, y, r); ctx.stroke();
-        pts.push({ e: v, x, y, r });
-      }
-    }
-
-    // ── Capas de otras fuentes (bloque B) ──
-    // IBTrACS: trayectorias históricas del año, coloreadas por intensidad. Capa histórica:
-    // más fina y tenue que los eventos en vivo para no taparlos.
-    if (layers.ibtracs && ov.tracks.length) {
-      ctx.lineWidth = 0.8; ctx.globalAlpha = 0.4;
-      for (const tr of ov.tracks) {
-        for (let i = 1; i < tr.points.length; i++) {
-          const a = tr.points[i - 1], b = tr.points[i];
-          ctx.beginPath(); path({ type: 'LineString', coordinates: [[a[0], a[1]], [b[0], b[1]]] });
-          ctx.strokeStyle = ssColor(b[2]); ctx.stroke();
-        }
-      }
-      ctx.globalAlpha = 0.6;
-      for (const tr of ov.tracks) {
-        if (!front(tr.lon, tr.lat)) continue;
-        const [x, y] = proj([tr.lon, tr.lat])!;
-        ctx.beginPath(); ctx.arc(x, y, 1.8, 0, TAU); ctx.fillStyle = ssColor(tr.windKt); ctx.fill();
-        pts.push({ e: tr, x, y, r: 3 });
-      }
-      ctx.globalAlpha = 1;
-    }
-    // FIRMS: mapa de calor de focos (halos aditivos, tamaño por cantidad de focos).
-    if (layers.firms && ov.heat.length) {
-      ctx.globalCompositeOperation = 'lighter';
-      for (const h of ov.heat) {
-        if (!front(h.lon, h.lat)) continue;
-        const [x, y] = proj([h.lon, h.lat])!;
-        const r = Math.min(14, 1.5 + Math.sqrt(h.count) * 0.9) * Math.pow(k, 0.3);
-        const sprite = halo(h.frpMax >= 100 ? '#ff3d3d' : '#ff7a1f', r, h.frpMax >= 100);
-        ctx.drawImage(sprite, x - sprite.width / 2 / HALO_DPR, y - sprite.height / 2 / HALO_DPR, sprite.width / HALO_DPR, sprite.height / HALO_DPR);
-        pts.push({ e: h, x, y, r: Math.max(4, r * 0.6) });
-      }
-      ctx.globalCompositeOperation = 'source-over';
-    }
-    // NHC: cono de pronóstico, trayectoria pasada y pronosticada.
-    if (layers.nhc && ov.storms.length) {
-      const anim = ov.stormAnim ?? null;
-      for (const st of ov.storms) {
-        const playing = anim && anim.id === st.id ? anim.t : null;
-        // Radios de viento (34/50/64 kt): áreas con vientos de esa intensidad o más, ahora.
-        if (playing == null) {
-          for (const w of st.windField ?? []) {
-            ctx.beginPath(); path(w.geometry as GeoPermissibleObjects);
-            ctx.fillStyle = w.kt >= 64 ? 'rgba(255,96,96,.22)' : w.kt >= 50 ? 'rgba(255,143,32,.16)' : 'rgba(255,231,117,.12)'; ctx.fill();
-          }
-        }
-        if (st.cone) {
-          ctx.beginPath(); path(st.cone as GeoPermissibleObjects);
-          ctx.fillStyle = 'rgba(255,255,255,.08)'; ctx.fill();
-          ctx.setLineDash([4, 3]); ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
-        }
-        // Trayectoria observada coloreada por Saffir-Simpson (si hay intensidad por punto).
-        const pp = (st.pastPoints ?? []).filter((p) => playing == null || p.time <= playing);
-        if (pp.length > 1 && pp.some((p) => p.kt != null)) {
-          ctx.lineWidth = 2.4; ctx.lineCap = 'round';
-          for (let i = 1; i < pp.length; i++) {
-            ctx.beginPath(); path({ type: 'LineString', coordinates: [[pp[i - 1].lon, pp[i - 1].lat], [pp[i].lon, pp[i].lat]] });
-            ctx.strokeStyle = ssColor(pp[i].kt); ctx.stroke();
-          }
-        } else {
-          ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 1.4;
-          if (playing == null) for (const line of st.pastTrack ?? []) { ctx.beginPath(); path({ type: 'LineString', coordinates: line }); ctx.stroke(); }
-          else if (pp.length > 1) { ctx.beginPath(); path({ type: 'LineString', coordinates: pp.map((p) => [p.lon, p.lat]) }); ctx.stroke(); }
-        }
-        const fp = (st.forecastPoints ?? []).filter((p) => playing == null || (p.time ?? 0) <= playing);
-        if (st.forecastTrack?.length && (playing == null || fp.length)) {
-          const coords = playing == null ? st.forecastTrack : [[st.lon, st.lat], ...fp.map((p) => [p.lon, p.lat])];
-          ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 1.4;
-          ctx.setLineDash([2, 3]); ctx.beginPath(); path({ type: 'LineString', coordinates: coords }); ctx.stroke(); ctx.setLineDash([]);
-        }
-        for (const p of fp) {
-          if (!front(p.lon, p.lat)) continue;
-          const [x, y] = proj([p.lon, p.lat])!;
-          ctx.beginPath(); ctx.arc(x, y, 3, 0, TAU); ctx.fillStyle = p.windKt != null ? ssColor(p.windKt) : '#06080c'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
-          if (k >= 2 && p.cat) { ctx.fillStyle = '#fff'; ctx.font = '600 9px var(--font-plex-mono), monospace'; ctx.fillText(p.cat, x + 5, y - 4); }
-        }
-        // Marcador: posición actual, o la del momento de la animación.
-        let mx = st.lon, my = st.lat;
-        if (playing != null) {
-          const seq = [...(st.pastPoints ?? []).map((p) => ({ lon: p.lon, lat: p.lat, t: p.time })), ...(st.forecastPoints ?? []).filter((p) => p.time != null).map((p) => ({ lon: p.lon, lat: p.lat, t: p.time! }))];
-          const last = seq.filter((p) => p.t <= playing).pop();
-          if (last) { mx = last.lon; my = last.lat; }
-        }
-        if (front(mx, my)) {
-          const [x, y] = proj([mx, my])!;
-          const r = 6 * Math.pow(k, 0.22);
-          drawShape(ctx, 'square', x, y, r); ctx.fillStyle = NIGHT.type.storm; ctx.fill();
-          ctx.beginPath(); ctx.arc(x, y, r + 5, 0, TAU); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.2; ctx.stroke();
-          if (playing == null) pts.push({ e: st, x, y, r: r + 2 });
-        }
-      }
-    }
-    // Deslizamientos con víctimas (NASA GLC), capa histórica: puntos chicos y tenues, por
-    // debajo de los eventos en vivo; crecen un poco con las muertes y con el zoom.
-    if (layers.glc && ov.glc?.length) {
-      ctx.fillStyle = 'rgba(196,150,96,.42)';
-      for (const g of ov.glc) {
-        if (!front(g.lon, g.lat)) continue;
-        const [x, y] = proj([g.lon, g.lat])!;
-        const r = (0.9 + Math.min(1.8, Math.log10(1 + g.deaths) * 0.7)) * Math.pow(k, 0.3);
-        ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
-        pts.push({ e: g, x, y, r: r + 3 });
-      }
-    }
-    // Reportes preliminares de SPC: círculo rojo (tornado), azul (viento) o verde (granizo).
-    if (layers.spc && ov.spcReports?.length) {
-      for (const p of ov.spcReports) {
-        if (!front(p.lon, p.lat)) continue;
-        const [x, y] = proj([p.lon, p.lat])!;
-        const r = (p.kind === 'tornado' ? 3.6 : 2.4) * Math.pow(k, 0.2);
-        drawShape(ctx, p.kind === 'tornado' ? 'triDown' : 'circle', x, y, r);
-        ctx.fillStyle = SPC_COLORS[p.kind]; ctx.fill();
-        ctx.strokeStyle = '#06080c'; ctx.lineWidth = 0.7; ctx.stroke();
-        pts.push({ e: p, x, y, r: r + 2 });
-      }
-    }
-    // Boyas DART (NOAA NDBC): rombos celestes; apagados si no transmiten.
-    if (layers.dart && ov.darts?.length) {
-      for (const b of ov.darts) {
-        if (!front(b.lon, b.lat)) continue;
-        const [x, y] = proj([b.lon, b.lat])!;
-        const r = 3.4 * Math.pow(k, 0.2);
-        drawShape(ctx, 'diamond', x, y, r);
-        ctx.fillStyle = b.reporting ? '#7af0e0' : 'rgba(122,240,224,.25)'; ctx.fill();
-        ctx.strokeStyle = '#06080c'; ctx.lineWidth = 0.8; ctx.stroke();
-        pts.push({ e: b, x, y, r: r + 2 });
-      }
-    }
-    // Viento GFS (solo con zoom): flecha hacia donde sopla, color por velocidad.
-    if (layers.wind && ov.wind && k >= 3) {
-      ctx.lineWidth = 1.3;
-      for (const [lon, lat, kmh, to] of ov.wind.points) {
-        if (!front(lon, lat)) continue;
-        const [x, y] = proj([lon, lat])!;
-        const a = (to * Math.PI) / 180, L = 6 + Math.min(14, kmh / 4);
-        const ux = Math.sin(a), uy = -Math.cos(a);
-        ctx.strokeStyle = kmh >= 60 ? '#ff6060' : kmh >= 30 ? '#ffc140' : '#9ecbff';
-        ctx.beginPath(); ctx.moveTo(x - ux * L / 2, y - uy * L / 2); ctx.lineTo(x + ux * L / 2, y + uy * L / 2);
-        ctx.lineTo(x + ux * L / 2 - ux * 4 - uy * 3, y + uy * L / 2 - uy * 4 + ux * 3); ctx.stroke();
-      }
-    }
-    // Volcanes con actividad (reporte semanal o erupción en curso).
-    if (layers.wvolc && ov.volcanoes.length) {
-      for (const v of ov.volcanoes) {
-        if (!front(v.lon, v.lat)) continue;
-        const [x, y] = proj([v.lon, v.lat])!;
-        const r = 4.5 * Math.pow(k, 0.22);
-        drawShape(ctx, 'triangle', x, y, r); ctx.fillStyle = NIGHT.type.volcano; ctx.globalAlpha = 0.85; ctx.fill(); ctx.globalAlpha = 1;
-        if (v.status === 'new') { ctx.beginPath(); ctx.arc(x, y, r + 4, 0, TAU); ctx.strokeStyle = NIGHT.alertOrange; ctx.lineWidth = 1.1; ctx.stroke(); }
-        pts.push({ e: v, x, y, r });
-      }
-    }
-
-    // Trayectorias de ciclones.
-    ctx.strokeStyle = NIGHT.type.storm; ctx.lineWidth = 1; ctx.globalAlpha = 0.45;
-    if (tracksFor.current.src !== events) {
-      const lines = events.filter((e) => e.track && e.track.length > 1).map((e) => e.track!);
-      tracksFor.current = { src: events, geom: lines.length ? { type: 'MultiLineString', coordinates: lines } : null };
-    }
-    if (tracksFor.current.geom) { ctx.beginPath(); path(tracksFor.current.geom); ctx.stroke(); }
-    ctx.globalAlpha = 1;
-
-    // Eventos: color por tipo, tamaño por magnitud, brillo aditivo con halos precalculados
-    // (sprites). En movimiento o con miles de puntos en pantalla se dibujan sin halo.
-    // Proyección ortográfica directa con seno/coseno precalculados por evento: con un año
-    // de datos (~13.000 eventos) es varias veces más rápida que proj() + geoDistance().
-    const lam0 = -rot[0] * RAD, phi0 = -rot[1] * RAD;
-    const sp0 = Math.sin(phi0), cp0 = Math.cos(phi0);
-    const shown: { e: DisasterEvent; x: number; y: number; r: number }[] = [];
-    for (const e of events) {
-      const t = trig(e);
-      const dl = t[0] - lam0, cdl = Math.cos(dl);
-      if (sp0 * t[1] + cp0 * t[2] * cdl < 0.02) continue; // cara oculta
-      const x = cx + R * t[2] * Math.sin(dl);
-      const y = cy - R * (cp0 * t[1] - sp0 * t[2] * cdl);
-      shown.push({ e, x, y, r: sizeFor(e, k) });
-    }
-    const glow = !moving.current && shown.length <= 4000;
-    ctx.globalCompositeOperation = 'lighter';
-    if (glow) {
-      for (const { e, x, y, r } of shown) {
-        const h = halo(NIGHT.type[e.type], r, isHighlighted(e));
-        ctx.drawImage(h, x - h.width / 2 / HALO_DPR, y - h.height / 2 / HALO_DPR, h.width / HALO_DPR, h.height / HALO_DPR);
-      }
-    }
-    for (const { e, x, y, r } of shown) {
-      const col = NIGHT.type[e.type];
-      const sh = SHAPE[e.type];
-      drawShape(ctx, sh, x, y, r);
-      if (sh === 'cross') { ctx.strokeStyle = col; ctx.lineWidth = 1.6; ctx.stroke(); }
-      else { ctx.fillStyle = col; ctx.globalAlpha = 0.72; ctx.fill(); ctx.globalAlpha = 1; }
-    }
-    ctx.globalCompositeOperation = 'source-over';
-
-    // Destacados (alerta oficial naranja/roja o sismo M6+, el mismo criterio que el rojo del
-    // periodístico) llevan anillo; el indicador de tsunami, anillo punteado.
-    for (const { e, x, y, r } of shown) {
-      if (isHighlighted(e)) {
-        const red = alertLevel(e) >= 3;
-        ctx.beginPath(); ctx.arc(x, y, r + 4, 0, TAU);
-        ctx.strokeStyle = red ? NIGHT.alertRed : NIGHT.alertOrange; ctx.lineWidth = red ? 1.6 : 1.1; ctx.stroke();
-      }
-      if (e.tsunami && showTsunami) {
-        ctx.beginPath(); ctx.arc(x, y, r + 3, 0, TAU); ctx.setLineDash([2, 2]);
-        ctx.strokeStyle = NIGHT.type.tsunami; ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
-      }
-      pts.push({ e, x, y, r });
-    }
-    screenPts.current = pts;
-
-    // Selección: dos anillos concéntricos (2a).
-    if (selected && front(selected.lon, selected.lat)) {
-      const [x, y] = proj([selected.lon, selected.lat])!;
-      const r = (selected.type === 'gvp' || selected.type === 'ibtracs' ? 4 : selected.type === 'heat' || selected.type === 'wvolc' || selected.type === 'nhc' ? 6 : sizeFor(selected, k)) + 8;
-      ctx.strokeStyle = NIGHT.select; ctx.lineWidth = 1;
-      ctx.globalAlpha = 0.95; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke();
-      ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.arc(x, y, r + 10, 0, TAU); ctx.stroke();
-      ctx.globalAlpha = 1;
-    }
+  const focus = (p: Pickable) => {
+    const m = mapRef.current;
+    if (!m) return;
+    const t = p.type === 'eq' || p.type === 'volcano' || p.type === 'fire' ? p.type : p.type;
+    m.flyTo({ center: [p.lon, p.lat], zoom: ZOOM_FOR[t] ?? 6.5, pitch: 58, bearing: -20, duration: 3000, curve: 1.5 });
   };
-
-  /**
-   * Halo radial de un color y radio (redondeado a 0,5 px), dibujado una sola vez.
-   * "soft": brillo tenue para todos; "strong": solo destacados (M6+ o alerta oficial).
-   */
-  const halo = (color: string, r: number, strong: boolean) => {
-    const rr = Math.min(40, Math.round(r * 2) / 2);
-    const key = color + rr + (strong ? 's' : 'w');
-    let h = halos.current.get(key);
-    if (!h) {
-      const R = strong ? rr * 2.6 + 6 : rr * 2 + 3;
-      h = document.createElement('canvas');
-      h.width = h.height = Math.ceil(R * 2 * HALO_DPR);
-      const g = h.getContext('2d')!;
-      const c = h.width / 2;
-      const grad = g.createRadialGradient(c, c, rr * 0.6 * HALO_DPR, c, c, R * HALO_DPR);
-      grad.addColorStop(0, color + (strong ? '73' : '33')); grad.addColorStop(1, color + '00');
-      g.fillStyle = grad; g.fillRect(0, 0, h.width, h.height);
-      halos.current.set(key, h);
-    }
-    return h;
-  };
-
-  /** Marca la cámara en movimiento; al quedar quieta 160 ms, redibuja con calidad completa. */
-  const markMoving = () => {
-    if (!moving.current) { moving.current = true; wrapRef.current?.setAttribute('data-moving', ''); }
-    clearTimeout(idleTimer.current);
-    idleTimer.current = setTimeout(() => {
-      moving.current = false; wrapRef.current?.removeAttribute('data-moving'); req();
-      const { rot, k } = cam.current;
-      propsRef.current.onView?.({ lon: -rot[0], lat: -rot[1], k });
-    }, 160);
-  };
-
-  const req = () => {
-    if (raf.current) return;
-    raf.current = requestAnimationFrame(() => { raf.current = 0; draw(); });
-  };
-
-  const flyTo = (lon: number, lat: number, k2 = cam.current.k) => {
-    cancelAnimationFrame(anim.current);
-    const r0 = [...cam.current.rot];
-    const k0 = cam.current.k;
-    let tx = -lon;
-    const ty = -lat;
-    while (tx - r0[0] > 180) tx -= 360;
-    while (tx - r0[0] < -180) tx += 360;
-    const t0 = performance.now(), dur = 900;
-    const target = clampK(k2);
-    const step = (now: number) => {
-      const t = Math.min(1, (now - t0) / dur), e = easeCubicInOut(t);
-      cam.current.rot = [r0[0] + (tx - r0[0]) * e, r0[1] + (ty - r0[1]) * e, 0];
-      cam.current.k = k0 + (target - k0) * e;
-      markMoving(); req();
-      if (t < 1) anim.current = requestAnimationFrame(step);
-    };
-    anim.current = requestAnimationFrame(step);
-  };
-
+  const reset = () => mapRef.current?.flyTo({ center: INITIAL.center, zoom: initialZoom(), pitch: 0, bearing: 0, duration: 2200 });
   useImperativeHandle(ref, () => ({
-    flyTo: (lon, lat, k) => flyTo(lon, lat, Math.max(cam.current.k, k ?? 0)),
-    zoomBy: (f) => flyTo(-cam.current.rot[0], -cam.current.rot[1], cam.current.k * f),
-    reset: () => flyTo(-INITIAL_ROT[0], -INITIAL_ROT[1], 1),
+    focus,
+    zoomBy: (f) => { const m = mapRef.current; if (m) m.easeTo({ zoom: m.getZoom() + Math.log2(f), duration: 400 }); },
+    reset,
   }));
 
-  // Redibujar cuando cambian datos, capas o selección.
-  useEffect(req);
-
-  // Solo en desarrollo: window.__globeBench(60) → ms promedio por cuadro girando el globo.
+  /* ── Mapa ── */
   useEffect(() => {
-    if (process.env.NODE_ENV === 'production') return;
-    const w = window as unknown as { __globeBench?: (n?: number, asMoving?: boolean) => number };
-    w.__globeBench = (n = 60, asMoving = false) => {
-      moving.current = asMoving;
-      const t0 = performance.now();
-      for (let i = 0; i < n; i++) { cam.current.rot = [cam.current.rot[0] + 2, cam.current.rot[1], 0]; draw(); }
-      moving.current = false;
-      return +((performance.now() - t0) / n).toFixed(2);
+    const wrap = wrapRef.current!;
+    // ?v=lon,lat,zoom,pitch guarda la vista.
+    const v = new URLSearchParams(window.location.search).get('v')?.split(',').map(Number);
+    const fromUrl = v && v.length >= 3 && v.every(Number.isFinite);
+    const m = new maplibregl.Map({
+      container: wrap,
+      style: buildStyle(),
+      center: fromUrl ? [v[0], v[1]] : INITIAL.center,
+      zoom: fromUrl ? v[2] : initialZoom(),
+      pitch: fromUrl ? v[3] ?? 0 : 0,
+      maxPitch: 75,
+      attributionControl: { compact: true },
+      dragRotate: true,
+      touchPitch: true,
+      fadeDuration: 150,
+    });
+    mapRef.current = m;
+    m.on('styleimagemissing', (e) => { const img = makeIcon(e.id); if (img && !m.hasImage(e.id)) m.addImage(e.id, img, { pixelRatio: 2 }); });
+    m.on('load', () => {
+      // Atribución compacta: el botón (i) la despliega; de entrada queda cerrada.
+      wrap.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show');
+      ready.current = true;
+      const q = queue.current; queue.current = [];
+      q.forEach((fn) => fn());
+    });
+
+    // Tocar / pasar el mouse.
+    const hit = (pt: maplibregl.PointLike): MapGeoJSONFeature | null => {
+      const layers = PICK_LAYERS.filter((id) => m.getLayer(id) && m.getLayoutProperty(id, 'visibility') !== 'none');
+      return m.queryRenderedFeatures(pt, { layers })[0] ?? null;
     };
-    return () => { delete w.__globeBench; };
+    m.on('click', (e) => {
+      const f = hit(e.point);
+      if (!f) return;
+      if (f.layer.id === 'evc-cluster') {
+        (m.getSource('evc') as GeoJSONSource).getClusterExpansionZoom(f.properties.cluster_id as number)
+          .then((z) => m.easeTo({ center: (f.geometry as GeoJSON.Point).coordinates as [number, number], zoom: z + 0.5, duration: 700 })).catch(() => {});
+        return;
+      }
+      const p = pick.current.get(String(f.properties.pid));
+      if (p) propsRef.current.onSelect(p);
+    });
+    let hoverId: string | null = null;
+    m.on('mousemove', (e) => {
+      const f = hit(e.point);
+      const p = f && f.layer.id !== 'evc-cluster' ? pick.current.get(String(f.properties.pid)) ?? null : null;
+      m.getCanvas().style.cursor = f ? 'pointer' : '';
+      const id = p ? `${p.type}:${p.id}` : null;
+      if (id !== hoverId) { hoverId = id; propsRef.current.onHover(p ? { e: p, x: e.point.x, y: e.point.y } : null); }
+    });
+    m.on('mouseout', () => { hoverId = null; propsRef.current.onHover(null); });
+
+    // Vista: avisar al quedar quieto, guardar ?v= y medir los cuadros por segundo de cada movimiento.
+    let frames = 0, t0 = 0;
+    m.on('movestart', () => { frames = 0; t0 = performance.now(); });
+    m.on('render', () => { if (m.isMoving()) frames++; });
+    m.on('pitch', () => propsRef.current.onPitch?.(m.getPitch() > 10));
+    m.on('moveend', () => {
+      const dt = (performance.now() - t0) / 1000;
+      if (dt > 1 && frames / dt < 24) propsRef.current.onLowFps?.(Math.round(frames / dt));
+      const c = m.getCenter(), z = m.getZoom();
+      propsRef.current.onView?.({ lon: c.lng, lat: c.lat, k: Math.pow(2, z - INITIAL.zoom) });
+      const url = new URL(window.location.href);
+      url.searchParams.set('v', [c.lng.toFixed(2), c.lat.toFixed(2), z.toFixed(2), Math.round(m.getPitch())].join(','));
+      window.history.replaceState(window.history.state, '', url);
+    });
+
+    const ro = new ResizeObserver(() => m.resize());
+    ro.observe(wrap);
+    return () => { ro.disconnect(); m.remove(); mapRef.current = null; ready.current = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Placas tectónicas desde la API propia.
+  /* ── Geometrías fijas y placas (en paralelo con el estilo) ── */
   useEffect(() => {
+    setData('borders', fc([{ type: 'Feature', properties: {}, geometry: BORDERS }]));
+    setData('ring', fc([multiline(RING.coordinates)]));
     propsRef.current.onCarto({ state: 'wait' });
-    fetch('/api/plates')
-      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
-      .then((j) => { plates.current = j; propsRef.current.onCarto({ state: 'ok' }); req(); })
+    fetch('/api/plates').then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then((j: GeoJSON.FeatureCollection | GeoJSON.Geometry) => {
+        setData('plates', 'type' in j && j.type === 'FeatureCollection' ? j : fc([{ type: 'Feature', properties: {}, geometry: j as GeoJSON.Geometry }]));
+        propsRef.current.onCarto({ state: 'ok' });
+      })
       .catch(() => propsRef.current.onCarto({ state: 'err' }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Tamaño, punteros, rueda, pellizco.
+  /* ── Terreno 3D ── */
   useEffect(() => {
-    const wrap = wrapRef.current!, c = canvasRef.current!;
-    const resize = () => {
-      const r = wrap.getBoundingClientRect();
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      c.width = Math.round(r.width * dpr); c.height = Math.round(r.height * dpr);
-      Object.assign(cam.current, { W: r.width, H: r.height, dpr });
-      req();
-    };
-    const ro = new ResizeObserver(resize);
-    ro.observe(wrap); resize();
-
-    const ptrs = new Map<number, { x: number; y: number }>();
-    let moved = 0, multi = false;
-    const rel = (e: PointerEvent) => { const b = c.getBoundingClientRect(); return { x: e.clientX - b.left, y: e.clientY - b.top }; };
-    const pick = (x: number, y: number) => {
-      let best: Pickable | null = null, bd = Infinity;
-      for (const s of screenPts.current) {
-        const d = Math.hypot(s.x - x, s.y - y);
-        if (d <= Math.max(s.r + 3, 8) && d < bd) { bd = d; best = s.e; }
-      }
-      return best;
-    };
-    let hoverId: string | null = null;
-    const setHover = (h: { e: Pickable; x: number; y: number } | null) => {
-      const id = h?.e.id ?? null;
-      if (id !== hoverId) { hoverId = id; propsRef.current.onHover(h); }
-    };
-
-    const down = (e: PointerEvent) => {
-      c.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, rel(e)); moved = 0; multi = ptrs.size > 1;
-      cancelAnimationFrame(anim.current); c.style.cursor = 'grabbing'; setHover(null);
-    };
-    const move = (e: PointerEvent) => {
-      const p = rel(e);
-      if (!ptrs.has(e.pointerId)) {
-        if (e.pointerType !== 'mouse') return;
-        const hit = pick(p.x, p.y);
-        setHover(hit ? { e: hit, x: p.x, y: p.y } : null);
-        c.style.cursor = hit ? 'pointer' : 'grab';
-        return;
-      }
-      const prev = ptrs.get(e.pointerId)!;
-      if (ptrs.size === 1) {
-        const dx = p.x - prev.x, dy = p.y - prev.y; moved += Math.abs(dx) + Math.abs(dy);
-        const s = 0.28 / cam.current.k;
-        const [rx, ry] = cam.current.rot;
-        cam.current.rot = [rx + dx * s, Math.max(-89, Math.min(89, ry - dy * s)), 0];
-      } else if (ptrs.size === 2) {
-        const other = [...ptrs.entries()].find(([id]) => id !== e.pointerId)![1];
-        const d0 = Math.hypot(prev.x - other.x, prev.y - other.y), d1 = Math.hypot(p.x - other.x, p.y - other.y);
-        if (d0 > 0) cam.current.k = clampK(cam.current.k * d1 / d0);
-        moved += 10;
-      }
-      ptrs.set(e.pointerId, p); markMoving(); req();
-    };
-    const up = (e: PointerEvent) => {
-      const p = rel(e); const wasSingle = !multi;
-      ptrs.delete(e.pointerId); c.style.cursor = 'grab';
-      if (ptrs.size === 0 && wasSingle && moved < 6 && e.type === 'pointerup') {
-        const hit = pick(p.x, p.y);
-        if (hit) propsRef.current.onSelect(hit);
-      }
-    };
-    const wheel = (e: WheelEvent) => {
-      e.preventDefault(); cancelAnimationFrame(anim.current);
-      cam.current.k = clampK(cam.current.k * Math.exp(-e.deltaY * 0.0015)); markMoving(); req();
-    };
-    const leave = () => setHover(null);
-
-    c.addEventListener('pointerdown', down); c.addEventListener('pointermove', move);
-    c.addEventListener('pointerup', up); c.addEventListener('pointercancel', up);
-    c.addEventListener('wheel', wheel, { passive: false }); c.addEventListener('pointerleave', leave);
-    return () => {
-      ro.disconnect(); cancelAnimationFrame(raf.current); cancelAnimationFrame(anim.current); clearTimeout(idleTimer.current);
-      c.removeEventListener('pointerdown', down); c.removeEventListener('pointermove', move);
-      c.removeEventListener('pointerup', up); c.removeEventListener('pointercancel', up);
-      c.removeEventListener('wheel', wheel); c.removeEventListener('pointerleave', leave);
-    };
+    whenReady(() => mapRef.current!.setTerrain(props.terrain ? { source: 'dem', exaggeration: 1.4 } : null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [props.terrain]);
 
-  return (
-    <div ref={wrapRef} style={{ position: 'absolute', inset: 0 }}>
-      <canvas ref={canvasRef} style={{ display: 'block', width: '100%', height: '100%', touchAction: 'none', cursor: 'grab' }} />
-    </div>
-  );
+  /* ── Visibilidad de capas ── */
+  useEffect(() => {
+    whenReady(() => {
+      const m = mapRef.current!;
+      for (const [k, ids] of Object.entries(LAYER_MAP)) for (const id of ids!) if (m.getLayer(id)) m.setLayoutProperty(id, 'visibility', props.layers[k as keyof Layers] ? 'visible' : 'none');
+      // Rásteres: se agregan la primera vez que se encienden.
+      for (const id of Object.keys(RASTERS) as RasterId[]) {
+        const on = props.layers[id];
+        if (!m.getSource(id)) {
+          if (!on) continue;
+          propsRef.current.onRaster?.(id, 'wait');
+          m.addSource(id, { type: 'image', url: RASTERS[id].url, coordinates: MERC });
+          m.addLayer({ id, type: 'raster', source: id, paint: { 'raster-opacity': RASTERS[id].opacity, 'raster-fade-duration': 0 } }, 'spc-fill');
+          const done = (e: maplibregl.MapSourceDataEvent) => { if (e.sourceId === id && e.isSourceLoaded) { propsRef.current.onRaster?.(id, 'ok'); m.off('sourcedata', done); } };
+          m.on('sourcedata', done);
+          m.on('error', (e) => { if ((e as unknown as { sourceId?: string }).sourceId === id) propsRef.current.onRaster?.(id, 'err'); });
+        } else m.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none');
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.layers]);
+
+  /* ── Eventos (agrupados solo con más de 2.000 puntos, p. ej. un año) ── */
+  useEffect(() => {
+    const ids = pick.current;
+    for (const k of [...ids.keys()]) if (k.startsWith('e:')) ids.delete(k);
+    const feats = [...props.events].sort((a, b) => baseRadius(a) - baseRadius(b)).map((e, i) => {
+      const pid = `e:${i}`; ids.set(pid, e);
+      return pt(e.lon, e.lat, { pid, t: e.type, mag: e.mag ?? 0, c: TYPE_COLOR[e.type], r: +baseRadius(e).toFixed(2), ring: hasRing(e), tsu: !!e.tsunami && props.showTsunami });
+    });
+    const clustered = feats.length > 2000;
+    setData('ev', clustered ? EMPTY : fc(feats));
+    setData('evc', clustered ? fc(feats) : EMPTY);
+    const tracks = props.events.filter((e) => e.track && e.track.length > 1).map((e) => line(e.track!));
+    setData('ev-tracks', fc(tracks));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.events, props.showTsunami]);
+
+  /* ── Selección ── */
+  useEffect(() => {
+    const s = props.selected;
+    const r = s && s.type !== 'heat' && 'mag' in s && s.type === 'eq' ? baseRadius(s as DisasterEvent) : 6;
+    setData('sel', s ? fc([pt(s.lon, s.lat, { r })]) : EMPTY);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.selected]);
+
+  /* ── Volcanes del Holoceno (referencia) ── */
+  useEffect(() => {
+    const ids = pick.current;
+    setData('gvp', fc(props.gvp.map((v, i) => { const pid = `g:${i}`; ids.set(pid, v); return pt(v.lon, v.lat, { pid }); })));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.gvp]);
+
+  /* ── Capas de otras fuentes ── */
+  useEffect(() => {
+    const ov = props.overlays;
+    if (!ov) return;
+    const ids = pick.current;
+    const reg = (prefix: string, i: number, p: Pickable) => { const pid = `${prefix}:${i}`; ids.set(pid, p); return pid; };
+
+    // Ciclones: radios de viento, cono, trayectoria pasada (Saffir-Simpson), pronóstico y posición.
+    const anim = ov.stormAnim ?? null;
+    const areas: GeoJSON.Feature[] = [], lines: GeoJSON.Feature[] = [], pts: GeoJSON.Feature[] = [];
+    ov.storms.forEach((st, i) => {
+      const playing = anim && anim.id === st.id ? anim.t : null;
+      if (playing == null) for (const w of st.windField ?? []) areas.push({ type: 'Feature', properties: { k: 'wind', c: w.kt >= 64 ? '#e03131' : w.kt >= 50 ? '#ff922b' : '#ffd43b', o: w.kt >= 64 ? 0.3 : 0.22 }, geometry: w.geometry });
+      if (st.cone) areas.push({ type: 'Feature', properties: { k: 'cone' }, geometry: st.cone });
+      const pp = (st.pastPoints ?? []).filter((p) => playing == null || p.time <= playing);
+      if (pp.length > 1) for (let j = 1; j < pp.length; j++) lines.push(line([[pp[j - 1].lon, pp[j - 1].lat], [pp[j].lon, pp[j].lat]], { k: 'past', c: ssColor(pp[j].kt) }));
+      else if (playing == null) for (const l of st.pastTrack ?? []) lines.push(line(l, { k: 'past', c: '#5a5a5a' }));
+      const fp = (st.forecastPoints ?? []).filter((p) => playing == null || (p.time ?? 0) <= playing);
+      if (st.forecastTrack?.length && (playing == null || fp.length)) lines.push(line(playing == null ? st.forecastTrack : [[st.lon, st.lat], ...fp.map((p) => [p.lon, p.lat])], { k: 'fc' }));
+      for (const p of fp) pts.push(pt(p.lon, p.lat, { k: 'fc', c: p.windKt != null ? ssColor(p.windKt) : '#ffffff' }));
+      let mx = st.lon, my = st.lat;
+      if (playing != null) {
+        const seq = [...(st.pastPoints ?? []).map((p) => ({ lon: p.lon, lat: p.lat, t: p.time })), ...(st.forecastPoints ?? []).filter((p) => p.time != null).map((p) => ({ lon: p.lon, lat: p.lat, t: p.time! }))];
+        const last = seq.filter((p) => p.t <= playing).pop();
+        if (last) { mx = last.lon; my = last.lat; }
+      }
+      pts.push(pt(mx, my, { k: 'now', pid: reg('s', i, st) }));
+    });
+    setData('storm-areas', fc(areas)); setData('storm-lines', fc(lines)); setData('storm-pts', fc(pts));
+
+    setData('heat', fc(ov.heat.map((h, i) => pt(h.lon, h.lat, { pid: reg('h', i, h), n: h.count, frp: h.frpMax, r: Math.min(10, 2 + Math.sqrt(h.count) * 0.7) }))));
+    setData('wvolc', fc(ov.volcanoes.map((v, i) => pt(v.lon, v.lat, { pid: reg('w', i, v), isNew: v.status === 'new' }))));
+    const tl: GeoJSON.Feature[] = [];
+    for (const tr of ov.tracks) for (let j = 1; j < tr.points.length; j++) tl.push(line([[tr.points[j - 1][0], tr.points[j - 1][1]], [tr.points[j][0], tr.points[j][1]]], { c: ssColor(tr.points[j][2]) }));
+    setData('ibt-lines', fc(tl));
+    setData('ibt-pts', fc(ov.tracks.map((tr, i) => pt(tr.lon, tr.lat, { pid: reg('t', i, tr), c: ssColor(tr.windKt) }))));
+    setData('glc', fc((ov.glc ?? []).map((g, i) => pt(g.lon, g.lat, { pid: reg('l', i, g), r: +(1.2 + Math.min(2.2, Math.log10(1 + g.deaths) * 0.9)).toFixed(2) }))));
+    setData('dart', fc((ov.darts ?? []).map((b, i) => pt(b.lon, b.lat, { pid: reg('d', i, b), on: b.reporting }))));
+    setData('spc-areas', fc((ov.spcOutlook ?? []).map((a) => ({ type: 'Feature', properties: { fill: a.fill, stroke: a.stroke }, geometry: a.geometry }))));
+    setData('nws', fc((ov.nwsWarnings ?? []).map((a) => ({ type: 'Feature', properties: { fill: a.fill, stroke: a.stroke }, geometry: a.geometry }))));
+    setData('spc-pts', fc((ov.spcReports ?? []).map((p, i) => pt(p.lon, p.lat, { pid: reg('p', i, p), c: SPC_COLORS[p.kind], r: p.kind === 'tornado' ? 5 : 3.5 }))));
+    setData('wind', fc((ov.wind?.points ?? []).map(([lon, lat, kmh, to]) => pt(lon, lat, { kmh, to }))));
+
+    // Losas Slab2: color por profundidad; las curvas cada 100 km, más marcadas y con rótulo.
+    setData('slab', fc((ov.slab ?? []).map(([, d, lines2]) => {
+      const t = Math.min(1, d / 600);
+      return multiline(lines2, { d, major: d % 100 === 0, c: `rgb(${Math.round(255 - 140 * t)},${Math.round(190 - 150 * t)},${Math.round(60 + 170 * t)})` });
+    })));
+    // Movimiento de placas: segmento proporcional a la velocidad (0,05° por mm/año) y punta orientada.
+    const vecs = ov.vectors ?? [], vl: GeoJSON.Feature[] = [], vh: GeoJSON.Feature[] = [];
+    for (const [lon, lat, ve, vn] of vecs) {
+      const s = 0.05, c = Math.max(0.2, Math.cos((lat * Math.PI) / 180));
+      const lon2 = lon + (ve * s) / c, lat2 = lat + vn * s;
+      vl.push(line([[lon, lat], [lon2, lat2]]));
+      vh.push(pt(lon2, lat2, { rot: (Math.atan2(ve, vn) * 180) / Math.PI }));
+    }
+    setData('platevec', fc(vl)); setData('platehead', fc(vh));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.overlays]);
+
+  return <div ref={wrapRef} className="globe-gl" style={{ position: 'absolute', inset: 0 }} />;
 });

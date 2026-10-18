@@ -4,26 +4,22 @@
  * Zenodo: https://doi.org/10.5281/zenodo.8409647 (GEM-GSHM_PGA-475y-rock_v2023.zip).
  * Licencia CC BY-NC-SA 4.0: uso no comercial, con atribución y compartir igual.
  *
- * Este script lo convierte en curvas por nivel (MultiPolygon) para dibujarlas en el globo:
- *   public/data/gem.json
+ * Este script lo convierte en una imagen con la paleta oficial en Web Mercator (±85,05°), que el
+ * globo de MapLibre apoya sobre el relieve:
+ *   public/data/gem-3857.png   (4096 × 4096, un color por clase; transparente debajo de 0,02 g)
  *
  *   npm run gem -- <ruta a v2023_1_pga_475_rock_3min.tif>
  */
 import { writeFileSync } from 'node:fs';
-import { contours } from 'd3-contour';
 import { fromFile } from 'geotiff';
+import { encodeIndexed, mercLat } from '../src/lib/png';
 
-const OUT = 'public/data/gem.json';
+const OUT = 'public/data/gem-3857.png';
+const SIZE = 4096;
+/** Paleta oficial de GEM (README del mapa), una por clase a partir de LEVELS. */
+const COLORS: [number, number, number][] = [[181, 202, 255], [143, 179, 255], [127, 151, 255], [171, 207, 99], [232, 245, 158], [255, 250, 20], [255, 209, 33], [255, 163, 10], [255, 76, 0]];
 /** Límites de las clases de la paleta oficial de GEM (README del mapa), en g. Debajo de 0,02 g no se pinta. */
 export const LEVELS = [0.02, 0.03, 0.05, 0.08, 0.13, 0.2, 0.35, 0.55, 0.9];
-/** Se remuestrea a 0,2° tomando el máximo de cada celda (la grilla original es de 0,05°). */
-const STEP = 0.2;
-
-const ring = (r: number[][]) => {
-  let a = 0;
-  for (let i = 0, j = r.length - 1; i < r.length; j = i++) a += (r[j][0] - r[i][0]) * (r[j][1] + r[i][1]);
-  return a / 2;
-};
 
 async function main() {
   const src = process.argv[2];
@@ -35,48 +31,27 @@ async function main() {
   const nodata = img.getGDALNoData();
   const [band] = (await img.readRasters({ samples: [0] })) as unknown as [ArrayLike<number>];
   const dx = (x1 - x0) / w, dy = (y1 - y0) / h;
-  const W = Math.round(360 / STEP), LAT0 = Math.min(90, y1), LAT1 = Math.max(-90, y0);
-  const H = Math.round((LAT0 - LAT1) / STEP) + 1;
-  const grid = new Float32Array(W * H).fill(0);
-  for (let r = 0; r < h; r++) {
-    const lat = y1 - (r + 0.5) * dy;
-    const row = Math.round((LAT0 - lat) / STEP);
-    if (row < 0 || row >= H) continue;
-    for (let c = 0; c < w; c++) {
-      const z = band[r * w + c];
-      if (!Number.isFinite(z) || z < 0 || (nodata != null && z === nodata)) continue;
-      let lon = x0 + (c + 0.5) * dx;
-      if (lon >= 180) lon -= 360;
-      const k = row * W + Math.min(W - 1, Math.floor((lon + 180) / STEP));
-      if (z > grid[k]) grid[k] = z;
+  // Cada píxel de la imagen Mercator toma el máximo de los píxeles de la grilla que cubre
+  // (para no bajar la amenaza al reducir la resolución).
+  const idx = new Uint8Array(SIZE * SIZE);
+  const classOf = (z: number) => { let k = 0; for (let i = 0; i < LEVELS.length; i++) if (z >= LEVELS[i]) k = i + 1; return k; };
+  for (let y = 0; y < SIZE; y++) {
+    const latTop = mercLat(y - 0.5, SIZE), latBot = mercLat(y + 0.5, SIZE);
+    const r0 = Math.max(0, Math.floor((y1 - latTop) / dy)), r1 = Math.min(h - 1, Math.floor((y1 - latBot) / dy));
+    for (let x = 0; x < SIZE; x++) {
+      const lon0 = -180 + (x * 360) / SIZE, lon1 = -180 + ((x + 1) * 360) / SIZE;
+      const c0 = Math.max(0, Math.floor((lon0 - x0) / dx)), c1 = Math.min(w - 1, Math.floor((lon1 - x0) / dx));
+      let m = 0;
+      for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
+        const z = band[r * w + c];
+        if (Number.isFinite(z) && z > m && (nodata == null || z !== nodata)) m = z;
+      }
+      idx[y * SIZE + x] = classOf(m);
     }
   }
-  const gen = contours().size([W, H]).thresholds(LEVELS).smooth(true);
-  const features = gen(Array.from(grid)).map((c) => {
-    const coords = c.coordinates.map((poly) =>
-      poly.map((r, i) => {
-        // Se descartan puntos a menos de 0,3° del anterior (curvas más livianas para dibujar en el globo).
-        const pts: number[][] = [];
-        for (const [x, y] of r) {
-          const p = [Math.round((x * STEP - 180) * 10) / 10, Math.round((LAT0 - y * STEP) * 10) / 10];
-          const q = pts[pts.length - 1];
-          if (!q || Math.hypot(p[0] - q[0], p[1] - q[1]) >= 0.3) pts.push(p);
-        }
-        if (pts.length < 4) return null;
-        pts.push(pts[0]);
-        // d3-geo (esférico): anillo exterior en sentido horario, huecos al revés.
-        const cw = ring(pts) < 0;
-        return (i === 0) === cw ? pts : pts.reverse();
-      }),
-    ).filter((poly) => poly[0] != null).map((poly) => poly.filter((r): r is number[][] => !!r));
-    return { type: 'Feature', properties: { pga: c.value }, geometry: { type: 'MultiPolygon', coordinates: coords } };
-  });
-  writeFileSync(OUT, JSON.stringify({
-    type: 'FeatureCollection',
-    source: 'GEM Global Seismic Hazard Map v2023.1 · GEM Foundation · CC BY-NC-SA 4.0 · PGA en g, 10 % en 50 años, roca',
-    features,
-  }));
-  console.log(`${w}×${h} píxeles, ${features.length} niveles → ${OUT}`);
+  const png = encodeIndexed(SIZE, SIZE, idx, [[0, 0, 0, 0], ...COLORS.map(([r, g, b]) => [r, g, b, 255] as [number, number, number, number])]);
+  writeFileSync(OUT, png);
+  console.log(`${w}×${h} píxeles → ${OUT} (${Math.round(png.length / 1024)} kB)`);
 }
 
 main().catch((err) => { console.error(err); process.exit(1); });
