@@ -1,5 +1,5 @@
 import 'server-only';
-import { geoBounds, geoCentroid, geoContains } from 'd3-geo';
+import { geoBounds, geoCentroid, geoContains, geoDistance } from 'd3-geo';
 import { feature } from 'topojson-client';
 import type { Feature, FeatureCollection, Geometry } from 'geojson';
 import type { Topology, GeometryCollection } from 'topojson-specification';
@@ -24,6 +24,23 @@ function inBox(b: Country['b'], lon: number, lat: number) {
   const [[x0, y0], [x1, y1]] = b;
   if (lat < y0 || lat > y1) return false;
   return x0 <= x1 ? lon >= x0 && lon <= x1 : lon >= x0 || lon <= x1; // cruza el antimeridiano
+}
+
+export const foldName = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/&#0?39;|’/g, "'").toLowerCase();
+
+/** Distancia angular (radianes) del punto al país más cercano de los que nombra el texto; null si no nombra ninguno. */
+export function distToNamed(text: string, lon: number, lat: number): number | null {
+  const t = foldName(text);
+  let best: number | null = null;
+  for (const c of load()) {
+    if (!t.includes(foldName(c.name))) continue;
+    // Punto dentro del país: 0; si no, distancia a su centroide menos un radio aproximado (mitad de la diagonal del recuadro).
+    if (geoContains(c.f, [lon, lat])) return 0;
+    const half = geoDistance(c.b[0], c.b[1]) / 2;
+    const d = Math.max(0, geoDistance(geoCentroid(c.f) as [number, number], [lon, lat]) - half);
+    if (best == null || d < best) best = d;
+  }
+  return best;
 }
 
 /** País por punto-en-polígono (Natural Earth 1:110M). Puntos en el mar → undefined. */

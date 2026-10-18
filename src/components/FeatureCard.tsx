@@ -4,7 +4,7 @@ import { Glyph } from './Glyph';
 import { MediaFigure } from './MediaFigure';
 import { T } from '@/lib/i18n';
 import { fmtCoords, fmtNum, fmtTime } from '@/lib/format';
-import type { DartBuoy } from './Globe';
+import type { DartBuoy, GlcSlide, SpcReport } from './Globe';
 import type { HeatBin, HistTrack, Lang, Link, NhcStorm, VolcanoActivity } from '@/lib/types';
 
 /*
@@ -13,7 +13,7 @@ import type { HeatBin, HistTrack, Lang, Link, NhcStorm, VolcanoActivity } from '
  * Mismo marcado que EventCard (ev-card) para que se vean igual.
  */
 
-export type Feature = NhcStorm | HeatBin | VolcanoActivity | HistTrack | DartBuoy;
+export type Feature = NhcStorm | HeatBin | VolcanoActivity | HistTrack | DartBuoy | SpcReport | GlcSlide;
 
 type Props = { lang: Lang; f: Feature; onClose?(): void; actions?: React.ReactNode; onAnimate?(): void; animating?: boolean };
 
@@ -22,6 +22,33 @@ export const saffirSimpson = (kt: number | null) =>
   kt == null || kt < 64 ? null : kt >= 137 ? 5 : kt >= 113 ? 4 : kt >= 96 ? 3 : kt >= 83 ? 2 : 1;
 
 const KT_KMH = 1.852, MPH_KMH = 1.609344;
+
+/** Textos de las tarjetas de reportes de SPC y del catálogo de deslizamientos de NASA. */
+const SEV = {
+  es: {
+    spcKicker: 'Reporte preliminar · NOAA SPC', time: 'Hora', ef: 'Escala EF', efUnk: 'sin evaluar todavía', gust: 'Ráfaga', hail: 'Granizo (diámetro)',
+    county: 'Condado', comments: 'Comentario (original, en inglés)', spcLink: 'Reportes del Storm Prediction Center', nwsLink: 'Servicio Meteorológico Nacional (NWS)',
+    spcNote: 'Reporte preliminar enviado al NWS por observadores, servicios de emergencia o el público. No está verificado: puede estar duplicado o mal ubicado. La intensidad EF de un tornado la asigna después el NWS con un relevamiento de daños.',
+    glcKicker: 'Deslizamiento · NASA Global Landslide Catalog', death: 'muerte', deaths: 'muertes', date: 'Fecha', trigger: 'Causa según el catálogo', country: 'País',
+    glcSource: 'Fuente citada por el catálogo', glcLink: 'NASA · Landslides',
+    glcNote: 'Registro del catálogo de NASA, armado a partir de noticias e informes. La ubicación puede ser aproximada (a veces, el centro del pueblo o de la región).',
+    triggers: {
+      downpour: 'lluvia intensa', rain: 'lluvia', rainfall: 'lluvia', continuous_rain: 'lluvia continua', monsoon: 'monzón', tropical_cyclone: 'ciclón tropical',
+      earthquake: 'terremoto', mining: 'minería', construction: 'obra en construcción', flooding: 'inundación', snowfall_snowmelt: 'nieve o deshielo',
+      freeze_thaw: 'congelamiento y deshielo', dam_embankment_collapse: 'falla de presa o terraplén', leaking_pipe: 'pérdida de una cañería',
+      no_apparent_trigger: 'sin causa aparente', unknown: 'desconocida', other: 'otra',
+    } as Record<string, string>,
+  },
+  en: {
+    spcKicker: 'Preliminary report · NOAA SPC', time: 'Time', ef: 'EF scale', efUnk: 'not rated yet', gust: 'Gust', hail: 'Hail (diameter)',
+    county: 'County', comments: 'Comment (original)', spcLink: 'Storm Prediction Center reports', nwsLink: 'National Weather Service (NWS)',
+    spcNote: 'Preliminary report sent to the NWS by spotters, emergency services or the public. It is unverified: it may be duplicated or misplaced. A tornado’s EF rating is assigned later by the NWS after a damage survey.',
+    glcKicker: 'Landslide · NASA Global Landslide Catalog', death: 'death', deaths: 'deaths', date: 'Date', trigger: 'Trigger per the catalog', country: 'Country',
+    glcSource: 'Source cited by the catalog', glcLink: 'NASA · Landslides',
+    glcNote: 'Record from the NASA catalog, compiled from news and reports. The location may be approximate (sometimes the center of the town or region).',
+    triggers: {} as Record<string, string>,
+  },
+};
 const ymd = (s: string | undefined) => (s && /^\d{8}$/.test(s) ? Date.UTC(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8)) : null);
 
 export function FeatureCard({ lang, f, onClose, actions, onAnimate, animating }: Props) {
@@ -85,6 +112,34 @@ export function FeatureCard({ lang, f, onClose, actions, onAnimate, animating }:
     links.push({ label: t.volcLinks.gvp, url: f.gvpUrl });
     if (f.origin === 'weekly') links.push({ label: t.volcLinks.weekly, url: 'https://volcano.si.edu/reports_weekly.cfm' });
     note = f.report ?? '';
+  } else if (f.type === 'spc') {
+    const x = SEV[lang];
+    kicker = x.spcKicker; shape = f.kind === 'tornado' ? 'triangle' : 'diamond'; glyph = 'storm';
+    title = `${t.spcKinds[f.kind]} · ${f.title}`;
+    if (f.kind === 'tornado') lvl = 3;
+    add(x.time, fmtTime(lang, f.time, 'UTC'));
+    // Magnitud según el tipo: escala EF (o UNK si todavía no se evaluó), viento en mph, granizo en centésimos de pulgada.
+    const n = Number(f.magnitude);
+    if (f.kind === 'tornado') add(x.ef, /^UNK$/i.test(f.magnitude) ? x.efUnk : f.magnitude);
+    else if (f.kind === 'wind' && Number.isFinite(n)) add(x.gust, `${nf(Math.round(n * MPH_KMH))} km/h (${nf(n)} mph)`);
+    else if (f.kind === 'hail' && Number.isFinite(n)) add(x.hail, `${nf((n / 100) * 2.54, 1)} cm (${nf(n / 100, 2)} in)`);
+    add(x.county, `${f.county}, ${f.state}`);
+    add(t.f.coords, fmtCoords(lang, f.lat, f.lon));
+    add(x.comments, f.comments);
+    links.push({ label: x.spcLink, url: 'https://www.spc.noaa.gov/climo/reports/' });
+    links.push({ label: x.nwsLink, url: 'https://www.weather.gov/' });
+    note = x.spcNote;
+  } else if (f.type === 'glc') {
+    const x = SEV[lang];
+    kicker = x.glcKicker; shape = 'square'; glyph = 'flood'; lvl = f.deaths >= 100 ? 3 : f.deaths >= 10 ? 2 : 1;
+    big = nf(f.deaths); bigUnit = f.deaths === 1 ? x.death : x.deaths;
+    add(x.date, f.time != null ? day(f.time) : null);
+    add(x.trigger, f.trigger ? (x.triggers[f.trigger] ?? f.trigger.replace(/_/g, ' ')) : null);
+    add(x.country, f.country);
+    add(t.f.coords, fmtCoords(lang, f.lat, f.lon));
+    if (f.link) links.push({ label: x.glcSource, url: f.link });
+    links.push({ label: x.glcLink, url: 'https://landslides.nasa.gov/' });
+    note = x.glcNote;
   } else if (f.type === 'dart') {
     kicker = t.dartKicker; shape = 'diamond'; glyph = 'tsunami';
     title = f.title || `DART ${f.id}`;

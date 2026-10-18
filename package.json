@@ -14,7 +14,8 @@
     "gshap": "tsx scripts/gshap.ts",
     "tectonics": "tsx scripts/tectonics.ts",
     "ibtracs-grid": "tsx scripts/ibtracs-grid.ts",
-    "plate-vectors": "tsx scripts/plate-vectors.ts"
+    "plate-vectors": "tsx scripts/plate-vectors.ts",
+    "glc": "tsx scripts/glc.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",

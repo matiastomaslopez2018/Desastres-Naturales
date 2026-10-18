@@ -1,9 +1,9 @@
 import 'server-only';
-import { withCountry } from './countries';
+import { countryAt, foldName, withCountry } from './countries';
 import {
   addCoverage, allEvents, compactCoverage, coverageReach, deleteEvents, finishRun, isCovered, kvGet, kvSet, startRun, tryLock, unlock, upsertEvents,
 } from './db';
-import { USGS_LIMIT, fetchGvp, fetchPlates, loadEonet, loadGdacs, loadUsgs } from './sources';
+import { USGS_LIMIT, decodeEntities, fetchEonetEvent, fetchGvp, fetchPlates, loadEonet, loadGdacs, loadUsgs } from './sources';
 import type { DisasterEvent } from '../types';
 
 /*
@@ -194,6 +194,33 @@ export function migrateData(): Promise<void> {
     }
     await kvSet('migr:eonet-antipode:v1', { n });
     console.log(`[migr] eonet antípoda: ${n} inundaciones corregidas`);
+  }).then(async () => {
+    // v3: polígonos de EONET con latitud y longitud invertidas. Candidatas: inundaciones y sequías
+    // cuyo título nombra un país distinto del que hay en la posición guardada. Se vuelven a pedir
+    // a EONET de a 24 por arranque (para no demorar la respuesta) y se guarda lo que falta.
+    if (await kvGet('migr:eonet-swap:v3')) return;
+    let todo = (await kvGet<string[]>('migr:eonet-swap:todo3'))?.value;
+    if (!todo) {
+      todo = [];
+      for await (const page of allEvents()) {
+        for (const e of page) {
+          if (e.src !== 'NASA EONET' || (e.type !== 'flood' && e.type !== 'drought')) continue;
+          const named = /\bin ([A-Z][^0-9]+?)\s*\d*$/.exec(decodeEntities(e.title))?.[1];
+          const here = countryAt(e.lon, e.lat)?.name;
+          if (named && (!here || !foldName(named).includes(foldName(here)))) todo.push(e.id);
+        }
+      }
+    }
+    const batch = todo.slice(0, 24);
+    const got = await Promise.all(batch.map((id) => fetchEonetEvent(id.replace(/^eonet-/, '')).catch(() => null)));
+    await upsertEvents(got.filter((e): e is DisasterEvent => !!e).map((e) => withCountry({ ...e, country: undefined, iso3: undefined })));
+    const rest = todo.slice(batch.length);
+    if (rest.length) {
+      await kvSet('migr:eonet-swap:todo3', rest);
+      // Quedan pendientes: el próximo pedido vuelve a correr la migración y sigue con otro lote.
+      setTimeout(() => { migrated = null; }, 0);
+    } else await kvSet('migr:eonet-swap:v3', { done: Date.now() });
+    console.log(`[migr] eonet lat/lon invertidas: ${batch.length} recalculadas, faltan ${rest.length}`);
   }).catch((err) => {
     migrated = null;
     throw err;

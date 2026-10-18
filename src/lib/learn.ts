@@ -5,12 +5,12 @@ import type { Lang } from './types';
  * (USGS, Great ShakeOut, Ready.gov / FEMA, NOAA). Fecha de revisión: REVIEWED.
  */
 
-export const REVIEWED = '2026-10-17';
+export const REVIEWED = '2026-10-18';
 
 export type Section = { h: string; p?: string[]; list?: string[]; table?: { head: string[]; rows: string[][] } };
 export type Article = { slug: string; title: string; seoTitle: string; desc: string; lead: string; sections: Section[] };
 /** Tema (para agrupar Aprender por tipo, con el color del mapa) y esquema opcional. */
-export type Topic = 'eq' | 'volcano' | 'tsunami' | 'storm' | 'fire' | 'flood' | 'drought' | 'general';
+export type Topic = 'eq' | 'volcano' | 'tsunami' | 'storm' | 'fire' | 'flood' | 'drought' | 'landslide' | 'severe' | 'heat' | 'general';
 export type Figure = 'fault-reverse' | 'fault-normal' | 'fault-ss' | 'volc-subduction' | 'volc-rift' | 'volc-intraplate' | 'saffir' | 'fire-triangle' | 'tsunami-wave' | 'risk' | 'cone';
 export type LearnArticle = { id: string; topic: Topic; figures?: Figure[]; es: Article; en: Article; sources: { label: string; url: string }[] };
 

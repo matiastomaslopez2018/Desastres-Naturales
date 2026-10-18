@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { geoDistance } from 'd3-geo';
-import { Globe, HAZARD_LEVELS, SS_SCALE, type DartBuoy, type GlobeHandle, type Layers, type Overlays, type Pickable } from './Globe';
+import { Globe, HAZARD_LEVELS, SPC_COLORS, SS_SCALE, type ColoredArea, type DartBuoy, type GlcSlide, type SpcReport, type GlobeHandle, type Layers, type Overlays, type Pickable } from './Globe';
 import { Glyph, TypeDot } from './Glyph';
 import { EventCard } from './EventCard';
 import { FeatureCard } from './FeatureCard';
@@ -32,15 +32,23 @@ const toTrack = (s: IbtracsStorm): HistTrack => {
     windKt: s.wind, pressureMb: s.pres, start: s.start, end: s.end, lon: best[0], lat: best[1], points: s.pts,
   };
 };
-const NOW_LAYERS = new Set(['nhc', 'wvolc', 'firms', 'fwi', 'wind', 'dart']);
+const NOW_LAYERS = new Set(['nhc', 'wvolc', 'firms', 'fwi', 'wind', 'dart', 'lhasa', 'spc']);
 type FirmsState = 'idle' | 'wait' | 'ok' | 'needsKey' | 'err';
 
 /** initialType: ?tipo=eq|volcano|… desde Aprender, para abrir el mapa filtrado por un tipo. */
 type Props = { lang: Lang; initialRange: RangeKey; initialYear: number; initialSel?: string; initialType?: string };
 
+/** Rampa del visor oficial de LHASA (NASA): azul → celeste → amarillo → rojo, de 0 a 1. */
+const LHASA_STOPS: [number, number, number][] = [[0, 0, 255], [0, 255, 255], [255, 255, 0], [255, 0, 0]];
+const lhasaRamp = (p: number) => {
+  const x = Math.max(0, Math.min(1, p)) * 3, i = Math.min(2, Math.floor(x)), f = x - i, a = LHASA_STOPS[i], b = LHASA_STOPS[i + 1];
+  return [0, 1, 2].map((k) => Math.round(a[k] + (b[k] - a[k]) * f)) as [number, number, number];
+};
+/** Debajo de esta probabilidad no se pinta, para que se vea el mapa (se explica en la leyenda). */
+const LHASA_MIN = 0.05;
 /** Leyenda oficial del mapa FWI de GWIS: color y límite inferior de cada clase. */
 const FWI_LEGEND: [string, string][] = [['#9cffc0', '<11'], ['#cde24e', '11'], ['#e6ac00', '21'], ['#d97010', '38'], ['#ad060e', '50'], ['#3a0015', '70']];
-const LAYER_KEYS = ['nhc', 'wvolc', 'firms', 'fwi', 'wind', 'ibtracs', 'borders', 'plates', 'platevec', 'slab', 'ring', 'gvp', 'dart', 'hazard'] as const;
+const LAYER_KEYS = ['nhc', 'wvolc', 'firms', 'fwi', 'wind', 'ibtracs', 'borders', 'plates', 'platevec', 'slab', 'ring', 'gvp', 'dart', 'hazard', 'lhasa', 'glc', 'spc'] as const;
 const SRC_NAME: Record<SourceKey, string> = { usgs: 'USGS', eonet: 'EONET', gdacs: 'GDACS', gvp: 'GVP', carto: 'PB2002' };
 /** Un tramo de la línea de tiempo por cuadro de reproducción, a 1×. */
 const PLAY_MS = 900;
@@ -60,7 +68,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
   );
   const [layers, setLayers] = useState<Layers>({
     nhc: true, wvolc: true, firms: false, ibtracs: true, borders: true, plates: true, ring: true, gvp: false, hazard: false,
-    slab: false, platevec: false, dart: false, fwi: false, wind: false,
+    slab: false, platevec: false, dart: false, fwi: false, wind: false, lhasa: false, glc: false, spc: false,
   });
   const [storms, setStorms] = useState<NhcStorm[]>([]);
   const [volcanoes, setVolcanoes] = useState<VolcanoActivity[]>([]);
@@ -169,7 +177,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
 
   // NHC, volcanes y FIRMS son "ahora": en un año pasado no se mezclan con ese año.
   const isNow = range !== 'year' || year === new Date().getUTCFullYear();
-  const drawLayers = useMemo<Layers>(() => (isNow ? layers : { ...layers, nhc: false, wvolc: false, firms: false, fwi: false, wind: false, dart: false }), [layers, isNow]);
+  const drawLayers = useMemo<Layers>(() => (isNow ? layers : { ...layers, nhc: false, wvolc: false, firms: false, fwi: false, wind: false, dart: false, lhasa: false, spc: false }), [layers, isNow]);
   // FIRMS pesa: solo se pide al encender la capa.
   useEffect(() => {
     if (!drawLayers.firms || firmsState !== 'idle') return;
@@ -243,6 +251,45 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
       setFwi({ w: bmp.width, h: bmp.height, data: cx.getImageData(0, 0, bmp.width, bmp.height).data });
     }).catch(() => {});
   }, [layers.fwi, fwi]);
+  // Fase 3 · D: deslizamientos (LHASA y GLC) y tormentas severas de EE. UU. (SPC y NWS).
+  const [lhasa, setLhasa] = useState<Overlays['lhasa']>(null);
+  const [glc, setGlc] = useState<GlcSlide[]>([]);
+  const [severe, setSevere] = useState<{ outlook: ColoredArea[]; reports: SpcReport[]; warnings: ColoredArea[]; issued: number | null; expires: number | null } | null>(null);
+  useEffect(() => {
+    if (!layers.lhasa || lhasa) return;
+    // Probabilidad 0–1 como gris: se pinta con la rampa del visor de NASA (azul, celeste, amarillo, rojo).
+    fetch('/api/lhasa-map').then((r) => (r.ok ? r.blob() : Promise.reject(r.status))).then(createImageBitmap).then((bmp) => {
+      const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
+      const cx = c.getContext('2d')!; cx.drawImage(bmp, 0, 0);
+      const img = cx.getImageData(0, 0, bmp.width, bmp.height), d = img.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const p = d[i] / 255;
+        const [r, g, b] = lhasaRamp(p);
+        d[i] = r; d[i + 1] = g; d[i + 2] = b; d[i + 3] = p < LHASA_MIN ? 0 : Math.round(120 + 135 * Math.min(1, p / 0.5));
+      }
+      setLhasa({ w: bmp.width, h: bmp.height, data: d });
+    }).catch(() => {});
+  }, [layers.lhasa, lhasa]);
+  useEffect(() => {
+    if (!layers.glc || glc.length) return;
+    fetch('/data/glc_fatal.json').then((r) => r.json()).then((rows: [number, number, number | null, number, string | null, string, string | null, string | null][]) =>
+      setGlc(rows.map(([lon, lat, time, deaths, trigger, title, link, country], i) => ({ id: `glc-${i}`, type: 'glc', title: title || 'Landslide', lon, lat, time, deaths, trigger, link, country })))).catch(() => {});
+  }, [layers.glc, glc.length]);
+  useEffect(() => {
+    if (!layers.spc || severe) return;
+    type R = { outlook: { issued: number; expires: number; areas: { fill: string; stroke: string; geometry: GeoJSON.Geometry }[] } | null;
+      reports: { id: string; kind: SpcReport['kind']; time: number; mag: string; location: string; county: string; state: string; lat: number; lon: number; comments: string }[];
+      warnings: { event: string; geometry: GeoJSON.Geometry }[] };
+    fetch('/api/severe').then((r) => (r.ok ? r.json() : Promise.reject(r.status))).then((j: R) => setSevere({
+      outlook: (j.outlook?.areas ?? []).map((a) => ({ ...a, geometry: rewind(a.geometry) })),
+      reports: j.reports.map((p) => ({ id: p.id, type: 'spc', kind: p.kind, title: p.location, lon: p.lon, lat: p.lat, time: p.time, magnitude: p.mag, county: p.county, state: p.state, comments: p.comments })),
+      warnings: j.warnings.map((w) => /Tornado/.test(w.event)
+        ? { fill: 'rgba(255,48,48,.30)', stroke: '#ff3030', geometry: rewind(w.geometry) }
+        : { fill: 'rgba(255,193,64,.25)', stroke: '#ffc140', geometry: rewind(w.geometry) }),
+      issued: j.outlook?.issued ?? null, expires: j.outlook?.expires ?? null,
+    })).catch(() => {});
+  }, [layers.spc, severe]);
+
   // Viento: con zoom 3 o más, se pide la grilla de la zona visible al quedar quieto el globo.
   const [view, setView] = useState<{ lon: number; lat: number; k: number } | null>(null);
   useEffect(() => {
@@ -255,8 +302,9 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
     return () => ctrl.abort();
   }, [layers.wind, view]);
 
-  const overlays = useMemo<Overlays>(() => ({ storms, heat, volcanoes, tracks, hazard, stormAnim, slab, vectors, darts, fwi, wind }),
-    [storms, heat, volcanoes, tracks, hazard, stormAnim, slab, vectors, darts, fwi, wind]);
+  const overlays = useMemo<Overlays>(() => ({ storms, heat, volcanoes, tracks, hazard, stormAnim, slab, vectors, darts, fwi, wind, lhasa, glc,
+    spcOutlook: severe?.outlook, spcReports: severe?.reports, nwsWarnings: severe?.warnings }),
+  [storms, heat, volcanoes, tracks, hazard, stormAnim, slab, vectors, darts, fwi, wind, lhasa, glc, severe]);
 
   const passesFilters = useCallback((e: DisasterEvent) => {
     if (e.type === 'eq') {
@@ -322,6 +370,8 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
     if (e.type === 'heat') return [t.heatUnit(e.count), `FRP ${nf(e.frpMax, 1)} MW`, 'NASA FIRMS'].join(' · ');
     if (e.type === 'wvolc') return [e.country, t.volcStatus[e.status], 'GVP'].filter(Boolean).join(' · ');
     if (e.type === 'dart') return [e.reporting ? t.dartOn : t.dartOff, 'NOAA NDBC'].join(' · ');
+    if (e.type === 'spc') return [t.spcKinds[e.kind], e.state, fmtRel(lang, e.time), 'NOAA SPC'].join(' · ');
+    if (e.type === 'glc') return [t.glcDeaths(e.deaths), e.time ? String(new Date(e.time).getUTCFullYear()) : '', 'NASA GLC'].filter(Boolean).join(' · ');
     if (e.type === 'ibtracs') return [t.basins[e.basin] ?? e.basin, e.windKt != null ? `${nf(e.windKt)} kt` : '', 'IBTrACS'].filter(Boolean).join(' · ');
     const parts = [t.T1[e.type]];
     if (e.type === 'eq' && e.mag != null) parts.unshift('M ' + nf(e.mag, 1));
@@ -441,6 +491,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
     e.type === 'nhc' ? `${t.nhcClass[e.classification] ?? e.classification} ${e.name}`
       : e.type === 'heat' ? t.heatKicker
       : e.type === 'dart' ? `DART ${e.id}`
+      : e.type === 'spc' ? `${t.spcKinds[e.kind]} · ${e.title}`
       : e.type === 'ibtracs' ? `${e.name || t.unnamed} (${e.season})` : e.title;
   const layerNote = (k: (typeof LAYER_KEYS)[number]) => {
     if (k === 'gvp' && src.gvp?.state === 'err') return ` · ${t.err}`;
@@ -449,6 +500,9 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
     if (k === 'nhc') return storms.length ? ` · ${nf(storms.length)}` : '';
     if (k === 'wvolc') return volcanoes.length ? ` · ${nf(volcanoes.length)}` : '';
     if (k === 'wind') return view && view.k >= 3 ? (wind ? ` · ${t.windAt(fmtHour(lang, Date.now()))}` : ` · ${t.loadingLayer}`) : ` · ${t.windZoom}`;
+    if (k === 'lhasa') return layers.lhasa && !lhasa ? ` · ${t.loadingLayer}` : '';
+    if (k === 'glc') return glc.length ? ` · ${nf(glc.length)}` : '';
+    if (k === 'spc') return severe ? ` · ${t.spcCount(severe.reports.filter((r) => r.kind === 'tornado').length, severe.reports.length, severe.warnings.length)}` : layers.spc ? ` · ${t.loadingLayer}` : '';
     if (k === 'dart') return darts.length ? ` · ${nf(darts.filter((d) => d.reporting).length)}/${nf(darts.length)}` : '';
     if (k === 'ibtracs') return range === 'year' && tracks.length ? ` · ${nf(tracks.length)}` : '';
     return '';
@@ -609,6 +663,22 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
               </div>
             )}
             {layers.wind && <p className="note">{t.windHelp}</p>}
+            {layers.lhasa && (
+              <div className="hazard-legend">
+                <div className="lhasa-scale" role="img" aria-label={t.L.lhasa} />
+                <span className="faint small">{t.lhasaLegend}</span>
+                <p className="note">{t.lhasaHelp}</p>
+              </div>
+            )}
+            {layers.glc && <p className="note">{t.glcHelp}</p>}
+            {layers.spc && (
+              <div className="hazard-legend">
+                <div className="spc-legend">
+                  {(['tornado', 'wind', 'hail'] as const).map((k) => <span key={k}><i style={{ background: SPC_COLORS[k] }} />{t.spcKinds[k]}</span>)}
+                </div>
+                <p className="note">{t.spcHelp}{severe?.issued ? ` ${t.spcIssued(fmtHour(lang, severe.issued))}` : ''}</p>
+              </div>
+            )}
           </details>
 
           {/* En celular el idioma vive acá para dejar lugar en la barra superior. */}

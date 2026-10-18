@@ -6,12 +6,12 @@ import type { DisasterEvent, Lang } from '@/lib/types';
 /* Enlaces a los artículos de Aprender que corresponden al tipo de evento de una ficha. */
 
 const BY_TYPE: Record<DisasterEvent['type'], string[]> = {
-  eq: ['magnitude-intensity', 'fault-types', 'aftershocks', 'what-to-do'],
+  eq: ['magnitude-intensity', 'fault-types', 'aftershocks', 'what-to-do', 'landslides'],
   volcano: ['volcano-types', 'vei', 'volcano-safety'],
-  storm: ['forecast-cone', 'saffir-simpson', 'cyclone-names', 'hurricane-safety'],
+  storm: ['forecast-cone', 'saffir-simpson', 'cyclone-names', 'hurricane-safety', 'landslides'],
   fire: ['fire-triangle-fwi', 'satellite-fires', 'wildfire-safety'],
-  flood: ['flood-types', 'flood-safety'],
-  drought: ['drought-measure', 'drought-types'],
+  flood: ['flood-types', 'flood-safety', 'landslides'],
+  drought: ['drought-measure', 'drought-types', 'heat-cold'],
 };
 
 export const learnHref = (lang: Lang, id: string) => {

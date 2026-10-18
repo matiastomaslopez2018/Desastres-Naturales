@@ -3,6 +3,7 @@ import { geoCentroid } from 'd3-geo';
 import type { Geometry } from 'geojson';
 import { HttpError, fetchJson } from './cache';
 import { rewind } from '../rewind';
+import { countryAt, distToNamed, foldName } from './countries';
 import type { AlertLevel, DisasterEvent, EqDetail, EventType, GvpVolcano } from '../types';
 
 /*
@@ -100,14 +101,36 @@ export async function loadEonet(s: Date, e: Date): Promise<DisasterEvent[]> {
   return (j.events ?? []).map(mapEonet).filter((x): x is DisasterEvent => !!x);
 }
 
+/**
+ * Centro de un polígono de EONET. Algunos polígonos (inundaciones que vienen de GDACS) llegan
+ * con latitud y longitud invertidas: se detecta porque la "latitud" pasa de 90° o porque, al
+ * invertirlas, el punto cae en el país que nombra el título y antes no. El sentido de los
+ * vértices se corrige con rewind; sin eso d3 calcula el centroide del resto del planeta.
+ */
+function polygonCenter(rings: number[][][], title: string): [number, number] {
+  const center = (rs: number[][][]) => geoCentroid(rewind({ type: 'Polygon', coordinates: rs } as Geometry)) as [number, number];
+  const flat = rings.flat();
+  const swapped = rings.map((r) => r.map(([a, b]) => [b, a]));
+  if (flat.some(([, y]) => Math.abs(y) > 90)) return center(swapped);
+  const asIs = center(rings);
+  if (flat.some(([x]) => Math.abs(x) > 90)) return asIs;
+  const t = foldName(decodeEntities(title)), named = (p: [number, number]) => { const c = countryAt(p[0], p[1]); return !!c && t.includes(foldName(c.name)); };
+  if (named(asIs)) return asIs;
+  const sw = center(swapped);
+  if (named(sw)) return sw;
+  // Ninguno cae dentro del país (costas a escala 1:110M): se elige el más cercano al país del título.
+  const da = distToNamed(t, asIs[0], asIs[1]), ds = distToNamed(t, sw[0], sw[1]);
+  return da != null && ds != null && ds < da ? sw : asIs;
+}
+
 function mapEonet(ev: EonetEvent): DisasterEvent | null {
   const type = EONET_CAT[ev.categories[0]?.id];
   const gs = ev.geometry ?? [];
   if (!type || !gs.length) return null;
-  const pts = gs.map((g) =>
-    // Polígonos de EONET vienen en el sentido de RFC 7946: sin corregirlo, d3 calcula el centroide del resto del planeta (el antípoda).
-    g.type === 'Point' ? (g.coordinates as [number, number]) : (geoCentroid(rewind({ type: g.type, coordinates: g.coordinates } as Geometry)) as [number, number]),
-  );
+  const pts = gs.map((g): [number, number] =>
+    g.type === 'Point' ? (g.coordinates as [number, number])
+      : g.type === 'Polygon' ? polygonCenter(g.coordinates as number[][][], ev.title)
+      : (geoCentroid(rewind({ type: g.type, coordinates: g.coordinates } as Geometry)) as [number, number]));
   const last = pts[pts.length - 1];
   const lg = gs[gs.length - 1];
   return {

@@ -9,14 +9,19 @@ import world from 'world-atlas/countries-110m.json';
 import { NIGHT, RING, SHAPE, alertLevel, drawShape, isHighlighted, sizeFor } from '@/lib/symbols';
 import type { DisasterEvent, GvpVolcano, HeatBin, HistTrack, NhcStorm, SourceStatus, VolcanoActivity } from '@/lib/types';
 
-export type Pickable = DisasterEvent | GvpVolcano | NhcStorm | HeatBin | VolcanoActivity | HistTrack | DartBuoy;
+export type Pickable = DisasterEvent | GvpVolcano | NhcStorm | HeatBin | VolcanoActivity | HistTrack | DartBuoy | SpcReport | GlcSlide;
 export type Layers = {
   borders: boolean; plates: boolean; ring: boolean; gvp: boolean; hazard: boolean;
   /** Fase 2: ciclones NHC, focos FIRMS, volcanes con actividad, trayectorias IBTrACS. */
   nhc: boolean; firms: boolean; wvolc: boolean; ibtracs: boolean;
   /** Fase 3 · F: losas Slab2, vectores de placas, boyas DART, peligro de incendio FWI y viento GFS. */
   slab: boolean; platevec: boolean; dart: boolean; fwi: boolean; wind: boolean;
+  /** Fase 3 · D: deslizamientos (LHASA hoy y catálogo GLC) y tormentas severas de EE. UU. (SPC y NWS). */
+  lhasa: boolean; glc: boolean; spc: boolean;
 };
+export type SpcReport = { id: string; type: 'spc'; kind: 'tornado' | 'wind' | 'hail'; title: string; lon: number; lat: number; time: number; magnitude: string; county: string; state: string; comments: string };
+export type GlcSlide = { id: string; type: 'glc'; title: string; lon: number; lat: number; time: number | null; deaths: number; trigger: string | null; link: string | null; country: string | null };
+export type ColoredArea = { fill: string; stroke: string; geometry: GeoJSON.Geometry };
 export type DartBuoy = { id: string; type: 'dart'; title: string; lon: number; lat: number; reporting: boolean; owner: string };
 type Raster = { w: number; h: number; data: Uint8ClampedArray };
 /** Capas de otras fuentes (bloque B) que dibuja el globo además de los eventos. */
@@ -29,7 +34,14 @@ export type Overlays = {
   darts?: DartBuoy[];
   fwi?: Raster | null;
   wind?: { points: [number, number, number, number][] } | null;
+  lhasa?: Raster | null;
+  glc?: GlcSlide[];
+  spcOutlook?: ColoredArea[];
+  spcReports?: SpcReport[];
+  nwsWarnings?: ColoredArea[];
 };
+/** Colores de los reportes de SPC (los mismos que usa SPC en sus mapas). */
+export const SPC_COLORS = { tornado: '#ff3030', wind: '#3a8dff', hail: '#2fbf4f' } as const;
 const NO_OVERLAYS: Overlays = { storms: [], heat: [], volcanoes: [], tracks: [] };
 
 /** Amenaza sísmica GSHAP: niveles de PGA (m/s²) y su color, de menor a mayor (se apilan). */
@@ -128,8 +140,9 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
     ctx.beginPath(); path(LAND); ctx.fillStyle = NIGHT.land; ctx.fill();
     const center0: [number, number] = [-rot[0], -rot[1]];
     // Peligro de incendio FWI (GWIS): ráster global reproyectado píxel a píxel; en movimiento no se dibuja.
-    if (layers.fwi && ov.fwi && !moving.current) {
-      const { w: rw, h: rh, data } = ov.fwi;
+    for (const raster of [layers.fwi ? ov.fwi : null, layers.lhasa ? ov.lhasa : null]) {
+      if (!raster || moving.current) continue;
+      const { w: rw, h: rh, data } = raster;
       const step = 4;
       for (let y = Math.max(0, cy - R); y < Math.min(H, cy + R); y += step) {
         for (let x = Math.max(0, cx - R); x < Math.min(W, cx + R); x += step) {
@@ -138,9 +151,21 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
           const px = Math.floor(((ll[0] + 180) / 360) * rw), py = Math.floor(((90 - ll[1]) / 180) * rh);
           const k4 = (Math.min(rh - 1, Math.max(0, py)) * rw + Math.min(rw - 1, Math.max(0, px))) * 4;
           if (data[k4 + 3] < 40) continue;
-          ctx.fillStyle = `rgba(${data[k4]},${data[k4 + 1]},${data[k4 + 2]},.55)`;
+          ctx.fillStyle = `rgba(${data[k4]},${data[k4 + 1]},${data[k4 + 2]},${((data[k4 + 3] / 255) * 0.7).toFixed(2)})`;
           ctx.fillRect(x, y, step, step);
         }
+      }
+    }
+    // Pronóstico convectivo de SPC (colores oficiales) y avisos vigentes de NWS.
+    if (layers.spc) {
+      for (const a of ov.spcOutlook ?? []) {
+        ctx.beginPath(); path(a.geometry as GeoPermissibleObjects);
+        ctx.globalAlpha = 0.35; ctx.fillStyle = a.fill; ctx.fill(); ctx.globalAlpha = 0.9;
+        ctx.strokeStyle = a.stroke; ctx.lineWidth = 1; ctx.stroke(); ctx.globalAlpha = 1;
+      }
+      for (const a of ov.nwsWarnings ?? []) {
+        ctx.beginPath(); path(a.geometry as GeoPermissibleObjects);
+        ctx.fillStyle = a.fill; ctx.fill(); ctx.strokeStyle = a.stroke; ctx.lineWidth = 1.6; ctx.stroke();
       }
     }
     // Amenaza sísmica (GSHAP): curvas de nivel rellenas, debajo de fronteras y placas.
@@ -300,6 +325,30 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
           ctx.beginPath(); ctx.arc(x, y, r + 5, 0, TAU); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.2; ctx.stroke();
           if (playing == null) pts.push({ e: st, x, y, r: r + 2 });
         }
+      }
+    }
+    // Deslizamientos con víctimas (NASA GLC): triángulos invertidos ocres, tamaño según muertes.
+    if (layers.glc && ov.glc?.length) {
+      for (const g of ov.glc) {
+        if (!front(g.lon, g.lat)) continue;
+        const [x, y] = proj([g.lon, g.lat])!;
+        const r = (1.6 + Math.min(4, Math.log10(1 + g.deaths) * 1.6)) * Math.pow(k, 0.25);
+        drawShape(ctx, 'triDown', x, y, r);
+        ctx.fillStyle = 'rgba(214,150,70,.85)'; ctx.fill();
+        if (r > 3) { ctx.strokeStyle = '#06080c'; ctx.lineWidth = 0.6; ctx.stroke(); }
+        pts.push({ e: g, x, y, r: r + 2 });
+      }
+    }
+    // Reportes preliminares de SPC: círculo rojo (tornado), azul (viento) o verde (granizo).
+    if (layers.spc && ov.spcReports?.length) {
+      for (const p of ov.spcReports) {
+        if (!front(p.lon, p.lat)) continue;
+        const [x, y] = proj([p.lon, p.lat])!;
+        const r = (p.kind === 'tornado' ? 3.6 : 2.4) * Math.pow(k, 0.2);
+        drawShape(ctx, p.kind === 'tornado' ? 'triDown' : 'circle', x, y, r);
+        ctx.fillStyle = SPC_COLORS[p.kind]; ctx.fill();
+        ctx.strokeStyle = '#06080c'; ctx.lineWidth = 0.7; ctx.stroke();
+        pts.push({ e: p, x, y, r: r + 2 });
       }
     }
     // Boyas DART (NOAA NDBC): rombos celestes; apagados si no transmiten.

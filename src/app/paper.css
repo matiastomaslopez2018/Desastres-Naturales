@@ -335,6 +335,7 @@ button.ed-button { background: none; cursor: pointer; color: inherit; font-famil
 /* Aprender por tipo (con el color del mapa) */
 .t-eq { --tc: #e8642a; } .t-tsunami { --tc: #1f9e93; } .t-volcano { --tc: #d6335f; } .t-storm { --tc: #2f8fd0; }
 .t-fire { --tc: #d98a00; } .t-flood { --tc: #3d6bd4; } .t-drought { --tc: #a0794a; } .t-general { --tc: #555; }
+.t-landslide { --tc: #9a6a2f; } .t-severe { --tc: #b0283a; } .t-heat { --tc: #d2561e; }
 .learn-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 28px; }
 .learn-tab { padding: 6px 12px; border: 1px solid var(--rule-strong); border-bottom: 3px solid var(--tc); text-decoration: none; font-size: 15px; }
 .learn-tab:hover { background: rgba(26,26,26,.04); }
@@ -373,3 +374,9 @@ button.ed-button { background: none; cursor: pointer; color: inherit; font-famil
 .src-card dd { margin: 0; }
 .src-interp h3 { font-size: 1.02rem; margin: 1.1em 0 .2em; }
 @media (max-width: 600px) { .src-card dl { grid-template-columns: 1fr; } .src-card dd { margin-bottom: .4em; } }
+
+/* Fase 3 · D: deslizamientos en la ficha */
+.ls-facts, .ls-list { margin: .3em 0 .6em; padding-left: 1.1em; }
+.ls-facts li, .ls-list li { margin: .2em 0; }
+.ls-dot { display: inline-block; width: .7em; height: .7em; border-radius: 50%; margin-right: .45em; vertical-align: -.05em; }
+.ls-green { background: #2e9e4f; } .ls-yellow { background: #e8c200; } .ls-orange { background: #f08a00; } .ls-red { background: #c8102e; }

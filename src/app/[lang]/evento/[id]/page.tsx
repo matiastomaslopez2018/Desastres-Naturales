@@ -6,6 +6,7 @@ import { TsunamiContext, wantsTsunami } from '@/components/geology/TsunamiContex
 import { StormContext } from '@/components/geology/StormContext';
 import { LearnLinks } from '@/components/landing/LearnLinks';
 import { FireContext } from '@/components/geology/FireContext';
+import { LandslideContext, wantsLandslides } from '@/components/geology/LandslideContext';
 import { DroughtContext, FloodContext } from '@/components/geology/HydroContext';
 import { notFound } from 'next/navigation';
 import { EventCard } from '@/components/EventCard';
@@ -126,6 +127,11 @@ export default async function EventPage({ params }: Props) {
         {e.type === 'fire' && (
           <Suspense fallback={<p className="ed-note">{t.loading}</p>}>
             <FireContext lang={lang} e={e} />
+          </Suspense>
+        )}
+        {wantsLandslides(e) && (
+          <Suspense fallback={null}>
+            <LandslideContext lang={lang} e={e} />
           </Suspense>
         )}
         {wantsTsunami(e) && (
