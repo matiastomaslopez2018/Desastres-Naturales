@@ -8,13 +8,16 @@ export const maxDuration = 60;
  * Pronóstico inmediato de deslizamientos de hoy (NASA LHASA) en Web Mercator, 2048 px, ya
  * pintado. La probabilidad (0 a 1) llega como gris de 0 a 255 (estiramiento lineal fijo) y se
  * convierte con una paleta: la rampa del visor oficial de NASA (azul → celeste → amarillo →
- * rojo), transparente por debajo de 5 % y más opaca cuanto mayor es la probabilidad.
+ * rojo), transparente por debajo de 5 % y donde no hay datos, y más opaca cuanto mayor es la probabilidad.
  */
 const E = 20037508.342789244;
 const STOPS: [number, number, number][] = [[0, 0, 255], [0, 255, 255], [255, 255, 0], [255, 0, 0]];
 const PALETTE = Array.from({ length: 256 }, (_, g): [number, number, number, number] => {
   const p = g / 255, x = p * 3, i = Math.min(2, Math.floor(x)), f = x - i, a = STOPS[i], b = STOPS[i + 1];
   const [r, gg, bb] = [0, 1, 2].map((k) => Math.round(a[k] + (b[k] - a[k]) * f));
+  // 253–255: el servicio entrega ahí su NoData (−9999: mar y zonas sin modelo) tras el estiramiento → transparente.
+  // (Se pierde la distinción de probabilidades ≥ 99 %, que en la práctica no aparecen.)
+  if (g >= 253) return [0, 0, 0, 0];
   return [r, gg, bb, p < 0.05 ? 0 : Math.round(120 + 135 * Math.min(1, p / 0.5))];
 });
 
