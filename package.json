@@ -15,7 +15,9 @@
     "ibtracs-grid": "tsx scripts/ibtracs-grid.ts",
     "plate-vectors": "tsx scripts/plate-vectors.ts",
     "glc": "tsx scripts/glc.ts",
-    "gem": "tsx scripts/gem.ts"
+    "gem": "tsx scripts/gem.ts",
+    "quake-obs": "tsx scripts/quake-obs.ts",
+    "verify-quake": "tsx scripts/verify-gmpe.ts && tsx scripts/verify-waves.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",

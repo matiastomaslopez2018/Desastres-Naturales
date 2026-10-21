@@ -72,6 +72,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...QUAKE_COUNTRIES.flatMap((c) =>
       entries((l) => routePath(l as Lang, 'quakesIn', c[l as Lang]), { lastModified: updated, changeFrequency: 'hourly', priority: 0.8 })),
     ...entries((l) => routePath(l as Lang, 'learn'), { changeFrequency: 'monthly', priority: 0.6 }),
+    ...entries((l) => routePath(l as Lang, 'simulator'), { changeFrequency: 'monthly', priority: 0.7 }),
     ...ARTICLES.flatMap((a) => entries((l) => routePath(l as Lang, 'learn', a[l as Lang].slug), { changeFrequency: 'monthly', priority: 0.7 })),
     ...[...(volcanoes?.bySlug.keys() ?? [])].sort().flatMap((slug) =>
       entries((l) => routePath(l as Lang, 'volcano', slug), { changeFrequency: 'weekly', priority: 0.4 })),

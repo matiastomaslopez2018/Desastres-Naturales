@@ -23,6 +23,7 @@ import { countryName } from '@/lib/countries';
 import { getPlates } from '@/lib/server/ingest';
 import { loadEvent } from './data';
 import { localTitle } from '@/lib/localize';
+import { simHref } from '@/lib/quake/link';
 
 export const dynamic = 'force-dynamic';
 // Si el evento no está en la base, se consulta a la fuente en el momento.
@@ -105,6 +106,7 @@ export default async function EventPage({ params }: Props) {
               <>
                 <ShareButtons lang={lang} path={`/${lang}/evento/${encodeURIComponent(e.id)}`} text={t.shareEvent(eventTitle(lang, e))} />
                 <Link href={mapHref} className="ed-button">{t.viewOnMap}</Link>
+                {simHref(lang, e) && <Link href={simHref(lang, e)!} className="ed-button">{t.simulate}</Link>}
               </>
             } />
         </div>
