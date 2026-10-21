@@ -109,6 +109,21 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
   /** Panel derecho desplegado (en escritorio se puede plegar con ‹ ›); "Ver todos" en la lista. */
   const [rightOpen, setRightOpen] = useState(true);
   const [showAllTop, setShowAllTop] = useState(false);
+  // En ventanas angostas (menos de 1200 px) el panel derecho se pliega solo; al cruzar el umbral
+  // hacia arriba se vuelve a abrir. Entre medio respeta lo que haya elegido el usuario.
+  useEffect(() => {
+    const NARROW = 1200;
+    let prev = window.innerWidth;
+    if (prev < NARROW) setRightOpen(false);
+    const on = () => {
+      const w = window.innerWidth;
+      if (prev >= NARROW && w < NARROW) setRightOpen(false);
+      if (prev < NARROW && w >= NARROW) setRightOpen(true);
+      prev = w;
+    };
+    window.addEventListener('resize', on);
+    return () => window.removeEventListener('resize', on);
+  }, []);
   /** Pantalla completa: sin paneles, solo el globo y la línea de tiempo. */
   const [bare, setBare] = useState(false);
   const [volcInfo, setVolcInfo] = useState(false);
@@ -716,16 +731,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
 
           <details className="layers">
             <summary className="panel-label">{t.layers}</summary>
-            {LAYER_KEYS.map((k) => (
-              <button key={k} className="layer-row" disabled={(k === 'firms' && firmsState === 'needsKey') || (!isNow && NOW_LAYERS.has(k))} aria-pressed={layers[k]}
-                onClick={() => setLayers((s) => ({ ...s, [k]: !s[k] }))}>
-                <span className="check" aria-hidden="true" />
-                <span className="stack-2">
-                  <span>{t.L[k]}{LAYER_TAG[k] && <span className="layer-tag">{LAYER_TAG[k] === 'hist' ? t.tagHist : t.tagRef}</span>}</span>
-                  <span className="faint small">{t.N[k]}{layerNote(k)}</span>
-                </span>
-              </button>
-            ))}
+            <div className="layer-legends">
             {layers.gvp && (
               <div className="seg seg-wrap" role="radiogroup" aria-label={t.volcKind}>
                 {(['all', 'subduction', 'rift', 'intraplate'] as const).map((k) => (
@@ -786,6 +792,20 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
                 <p className="note">{t.spcHelp}{severe?.issued ? ` ${t.spcIssued(fmtHour(lang, severe.issued))}` : ''}</p>
               </div>
             )}
+            </div>
+            {/* Lista de capas con su propio scroll, debajo de las leyendas de las capas activas (que así quedan siempre a la vista). */}
+            <div className="layer-list">
+            {LAYER_KEYS.map((k) => (
+              <button key={k} className="layer-row" disabled={(k === 'firms' && firmsState === 'needsKey') || (!isNow && NOW_LAYERS.has(k))} aria-pressed={layers[k]}
+                onClick={() => setLayers((s) => ({ ...s, [k]: !s[k] }))}>
+                <span className="check" aria-hidden="true" />
+                <span className="stack-2">
+                  <span>{t.L[k]}{LAYER_TAG[k] && <span className="layer-tag">{LAYER_TAG[k] === 'hist' ? t.tagHist : t.tagRef}</span>}</span>
+                  <span className="faint small">{t.N[k]}{layerNote(k)}</span>
+                </span>
+              </button>
+            ))}
+            </div>
           </details>
 
           {/* En celular el idioma vive acá para dejar lugar en la barra superior. */}

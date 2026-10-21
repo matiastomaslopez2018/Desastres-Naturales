@@ -64,14 +64,59 @@ const countMaps = (d: number) => { mapsAlive += d; if (typeof window !== 'undefi
 const INITIAL = { center: [-62, -8] as [number, number], zoom: 1.75, pitch: 0, bearing: 0 };
 const isNarrow = () => typeof window !== 'undefined' && window.innerWidth < 600;
 /**
- * Zoom inicial para que la esfera ocupe ~90 % del lado menor del área del mapa. En la proyección de
- * globo de MapLibre la circunferencia mide 512·2^z px, así que el diámetro es 512·2^z/π.
+ * Franja libre para el globo: entre el borde inferior de la barra superior y el borde superior de la
+ * línea de tiempo (las dos flotan sobre el mapa), no el alto completo de la ventana.
+ */
+const freeBand = (el: HTMLElement) => {
+  const r = el.getBoundingClientRect();
+  const stage = el.closest('.map-stage') ?? document;
+  const topEl = stage.querySelector('.map-top'), botEl = stage.querySelector('.map-bottom');
+  const top = topEl ? Math.max(0, topEl.getBoundingClientRect().bottom - r.top) : 0;
+  const bottom = botEl ? Math.max(0, r.bottom - botEl.getBoundingClientRect().top) : 0;
+  return { top, bottom, w: r.width, h: Math.max(1, r.height - top - bottom) };
+};
+/** Diámetro buscado: 92 % del lado menor de la franja libre. */
+const FIT = 0.92;
+/**
+ * Primera estimación del zoom (antes de que exista el mapa). En la proyección de globo de MapLibre la
+ * circunferencia mide 512·2^z px (diámetro 512·2^z/π); con la perspectiva se ve algo más chica, y eso
+ * lo corrige la medición sobre el globo dibujado (fitGlobe).
  */
 const fitZoom = (el: HTMLElement | null) => {
-  const side = el ? Math.min(el.clientWidth, el.clientHeight) : 0;
-  if (!side) return isNarrow() ? 1.1 : INITIAL.zoom;
-  // Con la perspectiva de la cámara la esfera se ve ~20 % más chica que ese diámetro: se compensa.
-  return Math.max(0.6, Math.min(3, Math.log2(((0.9 / 0.8) * side * Math.PI) / 512)));
+  if (!el || !el.clientWidth) return isNarrow() ? 1.1 : INITIAL.zoom;
+  const b = freeBand(el);
+  return Math.max(0.3, Math.min(3, Math.log2((1.2 * FIT * Math.min(b.w, b.h) * Math.PI) / 512)));
+};
+/**
+ * Radio en pantalla de la esfera dibujada: se busca sobre una fila horizontal desde el centro el último
+ * píxel cuyo punto geográfico vuelve al mismo píxel (fuera de la esfera, unproject se pega al horizonte).
+ */
+const globeRadius = (m: maplibregl.Map) => {
+  const c = m.project(m.getCenter());
+  const onGlobe = (r: number) => {
+    const p = m.project(m.unproject([c.x + r, c.y]));
+    return Math.abs(p.x - c.x - r) < 1 && Math.abs(p.y - c.y) < 1;
+  };
+  let lo = 0, hi = 4 * Math.max(m.getCanvas().clientWidth, m.getCanvas().clientHeight);
+  for (let i = 0; i < 24; i++) { const mid = (lo + hi) / 2; if (onGlobe(mid)) lo = mid; else hi = mid; }
+  return lo;
+};
+/**
+ * Zoom medido para que la esfera ocupe FIT del lado menor de la franja libre, centrada en ella
+ * (padding arriba/abajo = barra superior / línea de tiempo). Corrige la estimación con el radio real
+ * dibujado; dos pasadas bastan (la perspectiva cambia apenas con el zoom).
+ */
+const fitGlobe = (m: maplibregl.Map, el: HTMLElement) => {
+  const b = freeBand(el);
+  const padding = { top: Math.round(b.top), bottom: Math.round(b.bottom), left: 0, right: 0 };
+  const target = (FIT * Math.min(b.w, b.h)) / 2;
+  m.jumpTo({ center: INITIAL.center, pitch: 0, bearing: 0, padding });
+  for (let i = 0; i < 2; i++) {
+    const r = globeRadius(m);
+    if (!r) break;
+    m.jumpTo({ zoom: Math.max(0.3, Math.min(3, m.getZoom() + Math.log2(target / r))) });
+  }
+  return { zoom: m.getZoom(), padding };
 };
 
 /**
@@ -362,6 +407,7 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
   const focus = (p: Pickable) => {
     const m = mapRef.current;
     if (!m) return;
+    pristine.current = false;
     const id = ++flight.current;
     const prof = profile.current, k = prof.mobile || prof.slow ? 1.3 : 1;
     const center: [number, number] = [p.lon, p.lat];
@@ -388,7 +434,19 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
       m.once('idle', go);
     });
   };
-  const reset = () => { cancelFlight(); mapRef.current?.flyTo({ center: INITIAL.center, zoom: fitZoom(wrapRef.current), pitch: 0, bearing: 0, padding: { top: 0, bottom: 0, left: 0, right: 0 }, duration: 2200 }); };
+  /** Radio en px de la esfera a zoom 0 y pitch 0 (medido al ajustar): para calcular el zoom de reset sin saltos. */
+  const radiusAt0 = useRef(0);
+  /** El usuario todavía no movió la vista: al cambiar el tamaño, el globo se vuelve a ajustar. */
+  const pristine = useRef(true);
+  const reset = () => {
+    cancelFlight();
+    const m = mapRef.current, el = wrapRef.current;
+    if (!m || !el) return;
+    const b = freeBand(el);
+    const zoom = radiusAt0.current ? Math.log2((FIT * Math.min(b.w, b.h)) / 2 / radiusAt0.current) : fitZoom(el);
+    m.flyTo({ center: INITIAL.center, zoom, pitch: 0, bearing: 0, padding: { top: Math.round(b.top), bottom: Math.round(b.bottom), left: 0, right: 0 }, duration: 2200 });
+    pristine.current = true;
+  };
   useImperativeHandle(ref, () => ({
     focus,
     zoomBy: (f) => { const m = mapRef.current; if (m) m.easeTo({ zoom: m.getZoom() + Math.log2(f), duration: 400 }); },
@@ -452,6 +510,12 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
       setLost(false);
       // Atribución compacta: el botón (i) la despliega; de entrada queda cerrada.
       wrap.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show');
+      // Vista inicial: zoom medido sobre la esfera dibujada, dentro de la franja libre (sin ?v en la URL).
+      if (!fromUrl) {
+        const { zoom } = fitGlobe(m, wrap);
+        const r = globeRadius(m);
+        if (r) radiusAt0.current = r / Math.pow(2, zoom);
+      }
       ready.current = true;
       const q = queue.current; queue.current = [];
       q.forEach((fn) => fn());
@@ -499,13 +563,19 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
     });
 
     // El usuario toma el control: se cancela el vuelo en curso sin trabas.
-    const interrupt = () => { if (loadingMarker.current || m.isMoving()) { cancelFlight(); m.stop(); } };
+    const interrupt = () => { pristine.current = false; if (loadingMarker.current || m.isMoving()) { cancelFlight(); m.stop(); } };
     for (const ev of ['mousedown', 'touchstart', 'wheel'] as const) wrap.addEventListener(ev, interrupt, { passive: true, capture: true });
 
-    const ro = new ResizeObserver(() => m.resize());
+    // Al cambiar el tamaño, si el usuario no tocó la vista, el globo se vuelve a ajustar a la franja libre.
+    let refit: ReturnType<typeof setTimeout> | undefined;
+    const ro = new ResizeObserver(() => {
+      m.resize();
+      clearTimeout(refit);
+      refit = setTimeout(() => { if (ready.current && pristine.current && !fromUrl && !m.isMoving()) fitGlobe(m, wrap); }, 200);
+    });
     ro.observe(wrap);
     return () => {
-      clearTimeout(lostTimer);
+      clearTimeout(lostTimer); clearTimeout(refit);
       document.removeEventListener('visibilitychange', onVis);
       ro.disconnect();
       const gl = m.getCanvas().getContext('webgl2') ?? m.getCanvas().getContext('webgl');
