@@ -83,6 +83,38 @@
 .qs-how-list dt { font-weight: 600; }
 .qs-how-list dd { margin: 4px 0 0; font-size: 17px; line-height: 1.6; color: #333; }
 
+/* Cuadra animada */
+.qs-city { display: flex; flex-direction: column; gap: 10px; }
+.qs-city-scroll { overflow-x: auto; overscroll-behavior-x: contain; border-radius: 10px; scrollbar-width: thin; }
+.qs-city-canvas { height: clamp(260px, 34vw, 470px); min-width: 760px; border-radius: 10px; overflow: hidden; background: #cfe3f0; }
+.qs-city-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.qs-table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.qs-table th, .qs-table td { padding: 8px 10px 8px 0; border-top: 1px solid var(--rule); text-align: left; vertical-align: top; }
+.qs-table thead th { border-top: 0; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
+.qs-table tbody th { font-weight: 600; }
+.qs-table .qs-muted { font-weight: 400; font-size: 12.5px; }
+.qs-ds { display: inline-block; padding: 2px 8px; border-radius: 10px; color: #fff; font-size: 12.5px; font-weight: 600; }
+
+/* El modelo frente a los datos */
+.qs-obs { display: flex; flex-direction: column; gap: 12px; }
+.qs-obs-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.qs-obs-charts { display: flex; flex-direction: column; gap: 18px; }
+.qs-chart, .qs-map { width: 100%; height: auto; display: block; }
+.qs-map { border-radius: 10px; }
+.qs-map-label { font: 600 12px var(--font-isans), system-ui, sans-serif; fill: #141414; paint-order: stroke; stroke: #fff; stroke-width: 3px; }
+.qs-obs-stat { margin: 6px 0 0; font-size: 14px; line-height: 1.5; }
+
+/* Movimiento de partículas */
+.qs-particles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 24px; }
+.qs-particle { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.qs-particle-canvas { height: 150px; border-radius: 8px; background: #fafaf8; border: 1px solid var(--rule); }
+.qs-particle figcaption { font-size: 13.5px; line-height: 1.45; color: #333; }
+
+@media (max-width: 900px) {
+  .qs-obs-grid, .qs-particles { grid-template-columns: minmax(0, 1fr); }
+  .qs-city-canvas { height: 330px; }
+}
+
 @media (max-width: 1080px) {
   .qs-grid { grid-template-columns: 280px minmax(0, 1fr); }
   .qs-results { grid-template-columns: repeat(2, minmax(0, 1fr)); }

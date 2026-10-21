@@ -13,6 +13,9 @@ import { useClock } from './clock';
 import { Section, P_RGB, S_RGB } from './Section';
 import { Seismogram } from './Seismogram';
 import { Buildings, FLOORS, Spectrum, periodOf } from './Buildings';
+import { City } from './City';
+import { Observed } from './Observed';
+import { Particles } from './Particles';
 
 export type SimParams = { mag: number; depth: number; dist: number; setting: Setting; mech: Mechanism; vs30: number };
 export type SimInitial = Partial<SimParams> & { title?: string; preset?: string };
@@ -54,8 +57,11 @@ export function QuakeSim({ lang, initial }: { lang: Lang; initial?: SimInitial }
       seed: hash(JSON.stringify(d)), mag: d.mag, dist: d.setting === 'slab' ? s.rhypo : s.rrup,
       beta: velocity(Math.min(d.depth, 60), 'S'), tP: tP.t, tS: tS.t, pga: sh.pga, spectrum: sh.spectrum, buildings: FLOORS.map(periodOf),
     });
-    const end = Math.min(synth.acc.length * synth.dt, tS.t + synth.strongDuration * 1.8 + 6);
-    return { s, rup, sh, tP, tS, synth, end, oor: outOfRange(s, site) };
+    // Ondas superficiales: velocidades de grupo típicas de corteza continental (períodos de 10–20 s);
+    // solo se marcan en sismos poco profundos, que son los que las generan con fuerza.
+    const surface = d.depth <= 70 ? { tL: d.dist / 3.5, tR: d.dist / 3.0 } : null;
+    const end = Math.min(synth.acc.length * synth.dt, Math.max(tS.t + synth.strongDuration * 1.8 + 6, surface ? surface.tR + 8 : 0));
+    return { s, rup, sh, tP, tS, surface, synth, end, oor: outOfRange(s, site), seed: hash(JSON.stringify(d)) };
   }, [d]);
 
   const clock = useClock(res.end);
@@ -93,7 +99,7 @@ export function QuakeSim({ lang, initial }: { lang: Lang; initial?: SimInitial }
     return () => clearTimeout(id);
   }, [p, preset]);
 
-  const { s, rup, sh, tP, tS, synth, end, oor } = res;
+  const { s, rup, sh, tP, tS, surface, synth, end, oor } = res;
   const mmiR = Math.round(sh.mmi), lvl = MMI_SCALE[mmiR - 1];
   const lo = clamp(Math.round(sh.mmi - sh.mmiSigma), 1, 10), hi = clamp(Math.round(sh.mmi + sh.mmiSigma), 1, 10);
   const pgaG = sh.pga.median, pgaLo = pgaG * Math.exp(-sh.pga.sigma), pgaHi = pgaG * Math.exp(sh.pga.sigma);
@@ -180,7 +186,7 @@ export function QuakeSim({ lang, initial }: { lang: Lang; initial?: SimInitial }
                 </label>
               </div>
             </div>
-            <Section lang={lang} clock={clock} depth={d.depth} dist={d.dist} rup={rup} tP={tP} tS={tS} siteLabel={siteLabel} />
+            <Section lang={lang} clock={clock} depth={d.depth} dist={d.dist} rup={rup} tP={tP} tS={tS} surface={!!surface} siteLabel={siteLabel} />
             <input className="qs-scrub" type="range" min={0} max={end} step={0.05} value={Math.min(clock.shown, end)} aria-label={t.time} onChange={(e) => { clock.pause(); setArmed(false); seek(+e.target.value); }} />
             <div className="qs-legend">
               <span><i style={{ background: `rgb(${P_RGB.join(',')})` }} /><b>{t.waveP}</b> · {t.wavePHelp}</span>
@@ -192,17 +198,29 @@ export function QuakeSim({ lang, initial }: { lang: Lang; initial?: SimInitial }
 
           <section className="qs-card" aria-label={t.seismogram}>
             <h2 className="qs-h">{t.seismogram}</h2>
-            <Seismogram lang={lang} clock={clock} synth={synth} tP={tP.t} tS={tS.t} pga={pgaG} end={end} />
+            <Seismogram lang={lang} clock={clock} synth={synth} tP={tP.t} tS={tS.t} surface={surface} pga={pgaG} end={end} />
             <div className="qs-arrivals">
               <p><b style={{ color: `rgb(${P_RGB.join(',')})` }}>{t.waveP}</b> {t.arrives} <b>{nf(tP.t, 1)} s</b> · {t.path[tP.path]}</p>
               <p><b style={{ color: `rgb(${S_RGB.join(',')})` }}>{t.waveS}</b> {t.arrives} <b>{nf(tS.t, 1)} s</b> · {t.path[tS.path]}</p>
               <p>{t.spWindow(nf(tS.t - tP.t, 1))}. {d.dist < 150 && t.spRule(nf(8 * (tS.t - tP.t)))} {t.eew}</p>
               {tP.path !== 'direct' && <p className="qs-help">{t.pathHelp[tP.path]}</p>}
+              {surface && <p>{t.surfaceArrive(nf(surface.tL, 1), nf(surface.tR, 1))} <span className="qs-help">{t.surfaceHelp}</span></p>}
             </div>
             <p className="qs-help">{t.seismogramHelp}</p>
           </section>
         </div>
       </div>
+
+      {/* ── La cuadra ── */}
+      <section className="qs-card" aria-label={t.city}>
+        <div className="qs-card-head">
+          <h2 className="qs-h">{t.city}</h2>
+          <button type="button" className="qs-play" onClick={toggle}>{playLabel}</button>
+        </div>
+        <City lang={lang} clock={clock} synth={synth} sh={sh} tP={tP.t} tS={tS.t} seed={res.seed} />
+        <p className="qs-help">{t.cityHelp}</p>
+        <p className="qs-help">{t.cityNote}</p>
+      </section>
 
       {/* ── Resultados ── */}
       <div className="qs-results">
@@ -262,6 +280,20 @@ export function QuakeSim({ lang, initial }: { lang: Lang; initial?: SimInitial }
             </div>
           </div>
           <p className="qs-help">{t.buildingsHelp}</p>
+        </section>
+
+        {preset && (
+          <section className="qs-card qs-wide" aria-label={t.obsTitle}>
+            <h2 className="qs-h">{t.obsTitle}</h2>
+            <p className="qs-note">{t.obsIntro}</p>
+            <Observed lang={lang} preset={preset} mag={d.mag} depth={d.depth} setting={d.setting} mech={d.setting === 'crustal' ? d.mech : 'reverse'} vs30={d.vs30} />
+          </section>
+        )}
+
+        <section className="qs-card qs-wide" aria-label={t.particles}>
+          <h2 className="qs-h">{t.particles}</h2>
+          <Particles lang={lang} />
+          <p className="qs-help">{t.particlesHelp}</p>
         </section>
       </div>
 

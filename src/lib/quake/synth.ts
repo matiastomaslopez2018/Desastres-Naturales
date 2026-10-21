@@ -31,7 +31,7 @@ const gauss = (r: () => number) => Math.sqrt(-2 * Math.log(Math.max(r(), 1e-12))
 const nextPow2 = (n: number) => 2 ** Math.ceil(Math.log2(Math.max(2, n)));
 
 /** FFT compleja in situ (radix 2). inverse = true para la inversa (sin normalizar). */
-function fft(re: Float64Array, im: Float64Array, inverse = false) {
+export function fft(re: Float64Array, im: Float64Array, inverse = false) {
   const n = re.length;
   for (let i = 1, j = 0; i < n; i++) {
     let bit = n >> 1;
@@ -183,4 +183,27 @@ export function synthesize(x: SynthInput): Synth {
     return { T, u, drift, sa: (((2 * Math.PI) / T) ** 2 * drift) / G };
   });
   return { dt, acc: out, peak: peak(out), strongDuration: Tgm, buildings };
+}
+
+/**
+ * Desplazamiento del suelo (m) a partir de la aceleración (g): doble integración en frecuencia con un
+ * filtro pasa-altos suave (coseno entre 0,05 y 0,1 Hz) para quitar la deriva, como se procesan los registros.
+ */
+export function groundDisplacement(acc: Float32Array, dt: number) {
+  const n = 2 ** Math.ceil(Math.log2(acc.length * 1.25));
+  const re = new Float64Array(n), im = new Float64Array(n);
+  for (let i = 0; i < acc.length; i++) re[i] = acc[i] * G;
+  fft(re, im);
+  const df = 1 / (n * dt);
+  for (let k = 0; k <= n / 2; k++) {
+    const f = k * df;
+    const taper = f < 0.05 ? 0 : f < 0.1 ? 0.5 - 0.5 * Math.cos((Math.PI * (f - 0.05)) / 0.05) : 1;
+    const w2 = (2 * Math.PI * f) ** 2, g = k === 0 ? 0 : (-taper / w2);
+    re[k] *= g; im[k] *= g;
+    if (k > 0 && k < n / 2) { re[n - k] = re[k]; im[n - k] = -im[k]; }
+  }
+  fft(re, im, true);
+  const out = new Float32Array(acc.length);
+  for (let i = 0; i < acc.length; i++) out[i] = re[i] / n;
+  return out;
 }

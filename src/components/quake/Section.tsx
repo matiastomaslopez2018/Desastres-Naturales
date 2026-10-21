@@ -16,6 +16,8 @@ type Props = {
   lang: Lang; clock: Clock;
   depth: number; dist: number; rup: Rupture;
   tP: Arrival; tS: Arrival;
+  /** Si se dibujan las ondas superficiales (sismos poco profundos). */
+  surface: boolean;
   siteLabel: string;
 };
 
@@ -32,7 +34,7 @@ function view(w: number, h: number, depth: number, dist: number, rup: Rupture) {
   return { x0, x1, zMax: Math.min(k * h, 780), k };
 }
 
-export function Section({ lang, clock, depth, dist, rup, tP, tS, siteLabel }: Props) {
+export function Section({ lang, clock, depth, dist, rup, tP, tS, surface, siteLabel }: Props) {
   const t = SIM_TEXT[lang];
   const { now, subscribe } = clock;
   const wrap = useRef<HTMLDivElement>(null), cv = useRef<HTMLCanvasElement>(null);
@@ -149,6 +151,19 @@ export function Section({ lang, clock, depth, dist, rup, tP, tS, siteLabel }: Pr
       ray(geo.rayS, S_RGB, time >= tS.t);
       ray(geo.rayP, P_RGB, time >= tP.t);
 
+      // Ondas superficiales: ondulación sobre la superficie que avanza a 3,5 (Love) y 3,0 km/s (Rayleigh).
+      if (surface && time > 0) for (const [v, lab] of [[3.5, 'L'], [3.0, 'R']] as const) {
+        for (const dir of [1, -1]) {
+          const xf = dir * v * time, px = X(xf);
+          if (px < -40 || px > w + 40) continue;
+          ctx.strokeStyle = 'rgba(112,72,232,.85)'; ctx.lineWidth = 2;
+          ctx.beginPath();
+          for (let k = 0; k <= 30; k++) { const q = px - dir * k * 1.6; const yy = SKY - Math.sin(k * 0.7) * 3 * Math.exp(-k / 14); if (k) ctx.lineTo(q, yy); else ctx.moveTo(q, yy); }
+          ctx.stroke();
+          if (dir === 1 && px > 10 && px < w - 10) { ctx.fillStyle = 'rgb(112,72,232)'; ctx.font = '600 11px var(--font-isans), system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(lab, px, SKY + 12); }
+        }
+      }
+
       // Ruptura (vista de canto) y focos.
       ctx.strokeStyle = '#c8102e'; ctx.lineWidth = 4; ctx.lineCap = 'round';
       ctx.beginPath(); ctx.moveTo(X(rup.top[0]), Y(rup.top[1])); ctx.lineTo(X(rup.bottom[0]), Y(rup.bottom[1])); ctx.stroke();
@@ -187,7 +202,7 @@ export function Section({ lang, clock, depth, dist, rup, tP, tS, siteLabel }: Pr
     };
     draw(now());
     return subscribe(draw);
-  }, [V, geo, base, w, h, dpr, now, subscribe, depth, dist, rup, tP, tS, siteLabel, lang, t]);
+  }, [V, geo, base, w, h, dpr, now, subscribe, depth, dist, rup, tP, tS, surface, siteLabel, lang, t]);
 
   return (
     <div ref={wrap} className="qs-section">

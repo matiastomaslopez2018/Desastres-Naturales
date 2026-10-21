@@ -8,9 +8,11 @@ import type { Lang } from '@/lib/types';
 import { niceStep, prep, useCanvasSize, type Clock } from './clock';
 import { P_RGB, S_RGB } from './Section';
 
-type Props = { lang: Lang; clock: Clock; synth: Synth; tP: number; tS: number; pga: number; end: number };
+type Props = { lang: Lang; clock: Clock; synth: Synth; tP: number; tS: number; surface: { tL: number; tR: number } | null; pga: number; end: number };
 
-export function Seismogram({ lang, clock, synth, tP, tS, pga, end }: Props) {
+export const SURF_RGB = [112, 72, 232] as const;
+
+export function Seismogram({ lang, clock, synth, tP, tS, surface, pga, end }: Props) {
   const t = SIM_TEXT[lang];
   const { now, subscribe, seek } = clock;
   const wrap = useRef<HTMLDivElement>(null), cv = useRef<HTMLCanvasElement>(null);
@@ -47,6 +49,14 @@ export function Seismogram({ lang, clock, synth, tP, tS, pga, end }: Props) {
         ctx.fillText(lab, X(ta), T - 12);
         ctx.font = '11px var(--font-isans), system-ui, sans-serif';
       }
+      // Ondas superficiales (Love y Rayleigh): solo la marca de llegada.
+      if (surface) for (const [ta, lab] of [[surface.tL, 'L'], [surface.tR, 'R']] as const) {
+        if (ta > end) continue;
+        ctx.strokeStyle = `rgba(${SURF_RGB.join(',')},${time >= ta ? 0.8 : 0.3})`; ctx.lineWidth = 1.2; ctx.setLineDash([3, 3]);
+        ctx.beginPath(); ctx.moveTo(X(ta), T - 6); ctx.lineTo(X(ta), h - B); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = `rgb(${SURF_RGB.join(',')})`; ctx.textAlign = 'center'; ctx.font = '600 12px var(--font-isans), system-ui, sans-serif';
+        ctx.fillText(lab, X(ta), T - 12); ctx.font = '11px var(--font-isans), system-ui, sans-serif';
+      }
       if (X(tS) - X(tP) > 60) {
         ctx.fillStyle = '#5a5a5a'; ctx.textAlign = 'center';
         ctx.fillText(`S − P = ${fmtNum(lang, tS - tP, 1)} s`, (X(tP) + X(tS)) / 2, T - 12);
@@ -70,7 +80,7 @@ export function Seismogram({ lang, clock, synth, tP, tS, pga, end }: Props) {
     };
     draw(now());
     return subscribe(draw);
-  }, [w, h, dpr, now, subscribe, synth, tP, tS, pga, end, lang]);
+  }, [w, h, dpr, now, subscribe, synth, tP, tS, surface, pga, end, lang]);
 
   // Tocar o arrastrar sobre el sismograma mueve el tiempo.
   const onPointer = (e: React.PointerEvent<HTMLCanvasElement>) => {
