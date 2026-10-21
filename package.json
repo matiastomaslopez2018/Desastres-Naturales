@@ -17,7 +17,9 @@
     "glc": "tsx scripts/glc.ts",
     "gem": "tsx scripts/gem.ts",
     "quake-obs": "tsx scripts/quake-obs.ts",
-    "verify-quake": "tsx scripts/verify-gmpe.ts && tsx scripts/verify-waves.ts"
+    "verify-quake": "tsx scripts/verify-gmpe.ts && tsx scripts/verify-waves.ts && tsx scripts/verify-okada.ts",
+    "tsunami-data": "tsx scripts/tsunami-data.ts",
+    "etopo": "tsx scripts/etopo.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",
