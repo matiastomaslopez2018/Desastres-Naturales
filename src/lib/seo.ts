@@ -15,6 +15,7 @@ export const ROUTES = {
   hurricanes: { es: 'huracanes', en: 'hurricanes' },
   tsunami: { es: 'alerta-tsunami', en: 'tsunami-alert' },
   learn: { es: 'aprender', en: 'learn' },
+  simulator: { es: 'simulador-sismos', en: 'earthquake-simulator' },
 } as const satisfies Record<string, Record<Lang, string>>;
 
 export type RouteKey = keyof typeof ROUTES;

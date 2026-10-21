@@ -8,7 +8,7 @@ import { routePath, type RouteKey } from '@/lib/seo';
 import { SEO } from '@/lib/seoText';
 import type { Lang } from '@/lib/types';
 
-export type Section = 'map' | 'ranking' | 'countries' | 'learn' | 'method';
+export type Section = 'map' | 'ranking' | 'countries' | 'learn' | 'sim' | 'method';
 
 type Props = {
   lang: Lang;
@@ -33,6 +33,7 @@ export async function SiteHeader({ lang, langHrefs, current, updatedAt }: Props)
     { k: 'ranking', href: `/${lang}/ranking`, label: t.nav2.ranking },
     { k: 'countries', href: `/${lang}/paises`, label: t.nav2.countries },
     { k: 'learn', href: routePath(lang, 'learn'), label: t.nav2.learn },
+    { k: 'sim', href: routePath(lang, 'simulator'), label: t.nav2.sim },
     { k: 'method', href: `/${lang}/metodologia`, label: t.nav2.method },
   ];
   return (
@@ -58,7 +59,7 @@ export async function SiteHeader({ lang, langHrefs, current, updatedAt }: Props)
 
 const FOOTER_LINKS: [RouteKey, (l: Lang) => string][] = [
   ['quakesToday', (l) => SEO[l].quakesToday.h1], ['volcanoesNow', (l) => SEO[l].volcanoesNow.h1], ['fires', (l) => SEO[l].fires.h1],
-  ['hurricanes', (l) => SEO[l].hurricanes.h1], ['tsunami', (l) => SEO[l].tsunami.h1], ['learn', (l) => T[l].learn.title],
+  ['hurricanes', (l) => SEO[l].hurricanes.h1], ['tsunami', (l) => SEO[l].tsunami.h1], ['learn', (l) => T[l].learn.title], ['simulator', (l) => T[l].nav2.sim],
 ];
 
 export function SiteFooter({ lang }: { lang: Lang }) {

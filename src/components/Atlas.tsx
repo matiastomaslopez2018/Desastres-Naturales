@@ -18,6 +18,7 @@ import { MIN_YEAR, RANGES, rangeInfo } from '@/lib/range';
 import { SHAPE, TYPE_ORDER, alertLevel, isEvent, lastUpdate, relevance, type FilterType } from '@/lib/symbols';
 import { alertTag, localTitle, localTsunamiRegion } from '@/lib/localize';
 import { bucketOf, buckets } from '@/lib/timeline';
+import { simHref } from '@/lib/quake/link';
 import type {
   DisasterEvent, EqDetail, EventsResponse, GvpVolcano, HeatBin, HistTrack, Lang, NhcStorm, RangeKey, SourceKey, SourceStatus,
   TsunamiMessage, VolcanoActivity,
@@ -828,6 +829,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
                 actions={isEvent(sel) && (
                   <>
                     <Link href={`/${lang}/evento/${encodeURIComponent(sel.id)}`} className="ev-link">{t.permalink} →</Link>
+                    {simHref(lang, sel) && <Link href={simHref(lang, sel)!} className="ev-link">{t.simulate} →</Link>}
                     <ShareButtons lang={lang} path={`/${lang}/evento/${encodeURIComponent(sel.id)}`} text={t.shareEvent(eventTitle(lang, sel))} />
                   </>
                 )} />

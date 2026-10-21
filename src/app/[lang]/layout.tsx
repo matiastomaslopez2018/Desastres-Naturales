@@ -7,6 +7,7 @@ import '../base.css';
 import '../night.css';
 import '../paper.css';
 import '../observatorio.css';
+import '../sim.css';
 
 // "Observatorio claro": Instrument Sans para la interfaz y el texto, Instrument Serif para los
 // números grandes y los titulares, en todo el sitio.
