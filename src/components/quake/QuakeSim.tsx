@@ -10,6 +10,9 @@ import { MMI_SCALE, MMI_TEXT, ROMAN, SIM_SOURCES, SIM_TEXT } from '@/lib/quake/t
 import { fmtNum } from '@/lib/format';
 import type { Lang } from '@/lib/types';
 import { useClock } from './clock';
+import Link from 'next/link';
+import { routePath } from '@/lib/seo';
+import { TSUNAMI_PRESETS } from '@/lib/tsunami/presets';
 import { Section, P_RGB, S_RGB } from './Section';
 import { Seismogram } from './Seismogram';
 import { Buildings, FLOORS, Spectrum, periodOf } from './Buildings';
@@ -111,6 +114,10 @@ export function QuakeSim({ lang, initial }: { lang: Lang; initial?: SimInitial }
 
   return (
     <div className="qs">
+      <nav className="ts-switch" aria-label={t.kicker}>
+        <span aria-current="page">{t.h1}</span>
+        <Link href={routePath(lang, 'tsunamiSim')}>{t.otherSim}</Link>
+      </nav>
       {initial?.title && !preset && <p className="qs-based">{t.basedOn}: <strong>{initial.title}</strong></p>}
       <div className="qs-grid">
         {/* ── Controles ── */}
@@ -123,7 +130,7 @@ export function QuakeSim({ lang, initial }: { lang: Lang; initial?: SimInitial }
                   onClick={() => { setP(fromPreset(q)); setPreset(q); }}>{q.name[lang]}</button>
               ))}
             </div>
-            {preset && <p className="qs-note">{preset.note[lang]} <a href={`https://earthquake.usgs.gov/earthquakes/eventpage/${preset.usgs}`} target="_blank" rel="noopener noreferrer">USGS ↗</a></p>}
+            {preset && <p className="qs-note">{preset.note[lang]} <a href={`https://earthquake.usgs.gov/earthquakes/eventpage/${preset.usgs}`} target="_blank" rel="noopener noreferrer">USGS ↗</a>{TSUNAMI_PRESETS.some((x) => x.id === preset.id) && <> · <Link href={`${routePath(lang, 'tsunamiSim')}?tsunami=${preset.id}`}>{t.seeTsunami} →</Link></>}</p>}
           </div>
 
           <div className="qs-block">

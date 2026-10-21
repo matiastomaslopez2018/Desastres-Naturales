@@ -138,3 +138,28 @@
   .qs-dl > div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
   .qs-seis { height: 150px; }
 }
+
+/* ═══════════ Simulador de tsunamis ═══════════ */
+.ts-switch { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 15px; }
+.ts-switch a { color: var(--accent); font-weight: 600; text-decoration: none; }
+.ts-switch [aria-current] { font-weight: 600; border-bottom: 2px solid var(--accent); }
+.ts-map { width: 100%; border-radius: 10px; overflow: hidden; background: #c4dfec; }
+.ts-loading { display: grid; place-items: center; aspect-ratio: 16 / 10; color: var(--faint); font-size: 15px; }
+.ts-seg2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ts-source { display: flex; flex-direction: column; gap: 14px; }
+.ts-source-maps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.ts-source figure, .ts-scatter { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.ts-source figcaption { font-size: 13px; color: #333; line-height: 1.45; }
+.ts-fig { width: 100%; height: auto; display: block; border-radius: 8px; overflow: hidden; }
+.ts-check { display: flex; flex-direction: column; gap: 12px; }
+.ts-check-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.ts-scatter svg { width: 100%; height: auto; display: block; }
+.ts-stats { font-size: 15px; }
+.ts-coast { display: flex; flex-direction: column; gap: 10px; }
+.ts-coast-facts { display: flex; flex-direction: column; gap: 2px; }
+.ts-coast-facts p { margin: 0; font-size: 15px; }
+.ts-coast-chart { height: 180px; }
+.ts-coast-scene { height: 260px; border-radius: 10px; overflow: hidden; }
+@media (max-width: 900px) {
+  .ts-source-maps, .ts-check-grid { grid-template-columns: minmax(0, 1fr); }
+}

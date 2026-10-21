@@ -4,6 +4,8 @@ import type { Lang } from '../types';
 const es = {
   kicker: 'Simulador',
   h1: 'Simulador de sismos',
+  otherSim: 'Simulador de tsunamis',
+  seeTsunami: 'Ver su tsunami',
   seoTitle: 'Simulador de sismos: ondas, intensidad y daño, con modelos científicos',
   desc: 'Elegí magnitud, profundidad, distancia y suelo, y mirá cómo viajan las ondas P y S por el interior de la Tierra, cuánto se sacude el suelo y cómo responde cada edificio. Con los modelos que usan el USGS y la ingeniería sísmica.',
   lead: 'Elegí un sismo y un lugar, y mirá cómo viajan las ondas por el interior de la Tierra, cuánto se sacude el suelo y por qué no todos los edificios sufren igual. Los cálculos usan los mismos modelos que el USGS y la ingeniería sísmica; los resultados son medianas con su rango de incertidumbre, no un pronóstico.',
@@ -137,6 +139,8 @@ type Text = typeof es;
 const en: Text = {
   kicker: 'Simulator',
   h1: 'Earthquake simulator',
+  otherSim: 'Tsunami simulator',
+  seeTsunami: 'See its tsunami',
   seoTitle: 'Earthquake simulator: waves, intensity and damage, with scientific models',
   desc: 'Choose magnitude, depth, distance and soil, and watch P and S waves travel through the Earth, how hard the ground shakes and how each building responds. Built on the models used by the USGS and earthquake engineers.',
   lead: 'Pick an earthquake and a place, and watch the waves travel through the Earth, how hard the ground shakes and why not every building suffers the same. The calculations use the same models as the USGS and earthquake engineering; results are medians with their uncertainty range, not a forecast.',
