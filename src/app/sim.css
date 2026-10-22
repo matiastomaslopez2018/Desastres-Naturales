@@ -163,3 +163,36 @@
 @media (max-width: 900px) {
   .ts-source-maps, .ts-check-grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ═══════════ Película del tsunami ═══════════ */
+.ts-movie-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.ts-movie-btn { padding: 12px 22px; border: 0; border-radius: 999px; background: #0d1b2a; color: #fff; font: inherit; font-size: 16px; font-weight: 600; cursor: pointer; }
+.ts-movie-btn:hover { background: #1b3550; }
+.ts-movie-btn:disabled { opacity: .5; cursor: wait; }
+.mv { position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column; background: #050b12; color: #fff; }
+.mv-stage { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+.mv-3d, .mv-2d, .mv-2d-canvas, .mv-2d-ocean, .mv-loading { position: absolute; inset: 0; }
+.mv-2d-ocean { display: grid; place-items: center; padding: 16px; }
+.mv-2d-ocean .ts-map { max-height: 100%; width: auto; height: 100%; max-width: 100%; }
+.mv-loading { display: grid; place-items: center; color: rgba(255,255,255,.6); font-size: 28px; }
+.mv-labels { position: absolute; inset: 0; pointer-events: none; }
+.mv-label { position: absolute; left: 0; top: 0; padding: 2px 8px; margin: -26px 0 0 -4px; border-radius: 6px; background: rgba(5,11,18,.72); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.mv-fade { position: absolute; inset: 0; background: #050b12; opacity: 0; pointer-events: none; }
+.mv-caption { position: absolute; left: clamp(12px, 4vw, 48px); bottom: clamp(12px, 4vh, 40px); max-width: min(560px, calc(100% - 24px)); padding: 16px 20px; border-radius: 14px; background: rgba(5,11,18,.72); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.mv-title { margin: 0 0 6px; font-family: var(--font-serif); font-size: clamp(24px, 3vw, 36px); line-height: 1.1; }
+.mv-text { margin: 0; font-size: clamp(14px, 1.4vw, 17px); line-height: 1.5; color: rgba(255,255,255,.92); }
+.mv-note { margin: 8px 0 0; font-size: 12.5px; color: rgba(255,255,255,.6); }
+.mv-close { position: absolute; top: 12px; right: 12px; width: 44px; height: 44px; border: 0; border-radius: 50%; background: rgba(5,11,18,.6); color: #fff; font-size: 28px; line-height: 1; cursor: pointer; }
+.mv-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px clamp(12px, 3vw, 28px); background: #0b1622; }
+.mv-btn { padding: 9px 16px; border: 0; border-radius: 999px; background: #c8102e; color: #fff; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.mv-ghost { background: transparent; border: 1px solid rgba(255,255,255,.35); }
+.mv-chapters { flex: 1; min-width: 220px; display: flex; gap: 4px; }
+.mv-chapter { position: relative; height: 34px; padding: 0; border: 0; border-radius: 6px; background: rgba(255,255,255,.12); color: #fff; font: inherit; cursor: pointer; overflow: hidden; }
+.mv-chapter[aria-current] { background: rgba(255,255,255,.2); }
+.mv-chapter-fill { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(200,16,46,.75); }
+.mv-chapter-label { position: relative; display: block; padding: 0 6px; font-size: 12px; line-height: 34px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 640px) {
+  .mv-chapter-label { font-size: 0; }
+  .mv-chapter { height: 10px; }
+  .mv-caption { left: 8px; right: 8px; bottom: 8px; max-width: none; padding: 12px 14px; }
+}

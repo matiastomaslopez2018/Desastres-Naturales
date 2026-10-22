@@ -16,7 +16,14 @@ export type WorkerIn = {
 };
 export type WorkerOut =
   | { type: 'progress'; t: number; hours: number }
-  | { type: 'done'; frames: Int8Array[]; frameS: number; amp: number; eta0: Float32Array; arrival: Float32Array; maxEta: Float32Array; series: Float32Array[]; seriesDt: number; dt: number; ms: number; fine: FineSource };
+  | { type: 'done'; frames: Int8Array[]; frameS: number; amp: number; eta0: Float32Array; arrival: Float32Array; maxEta: Float32Array; series: Float32Array[]; seriesDt: number; dt: number; ms: number; fine: FineSource; local: LocalBirth };
+
+/**
+ * Nacimiento de la ola con más detalle: los primeros minutos en una grilla fina (la de la fuente) con la
+ * batimetría interpolada de la grilla del océano. Para el primer capítulo de la película.
+ */
+export type LocalBirth = { lon0: number; lat0: number; step: number; nx: number; ny: number; h: Float32Array; frames: Float32Array[]; frameS: number };
+export const LOCAL_MINUTES = 20;
 
 /** Deformación del fondo en una grilla fina (≥ 0,04°) alrededor de la ruptura, para el detalle de la fuente. */
 export type FineSource = { lon0: number; lat0: number; step: number; nx: number; ny: number; dz: Float32Array };
@@ -68,6 +75,22 @@ self.onmessage = (e: MessageEvent<WorkerIn>) => {
   const dz = new Float32Array(fnx * fny);
   for (let j = 0; j < fny; j++) for (let i = 0; i < fnx; i++) { let v = 0; for (const P of ps) v += dzAt(P, lon0 + i * step, lat0 + j * step); dz[j * fnx + i] = v; }
   const fine: FineSource = { lon0, lat0, step, nx: fnx, ny: fny, dz };
-  const msg: WorkerOut = { type: 'done', fine, frames, frameS: FRAME_S, amp: AMP, eta0, arrival: sim.arrival, maxEta: sim.maxEta, series, seriesDt, dt: sim.dt, ms: performance.now() - t0 };
-  (self as unknown as Worker).postMessage(msg, [...frames.map((f) => f.buffer), dz.buffer, eta0.buffer, sim.arrival.buffer, sim.maxEta.buffer, ...series.map((s) => s.buffer)]);
+
+  // Simulación local fina de los primeros minutos (misma física, misma fuente, batimetría interpolada).
+  const lh = new Float32Array(fnx * fny);
+  for (let j = 0; j < fny; j++) for (let i = 0; i < fnx; i++) {
+    const fi = (lon0 + i * step - grid.lon0) / grid.step, fj = (lat0 + j * step - grid.lat0) / grid.step;
+    const i0 = Math.max(0, Math.min(grid.nx - 2, Math.floor(fi))), j0 = Math.max(0, Math.min(grid.ny - 2, Math.floor(fj)));
+    const u = Math.max(0, Math.min(1, fi - i0)), v = Math.max(0, Math.min(1, fj - j0)), g = (a: number, b: number) => grid.h[b * grid.nx + a];
+    lh[j * fnx + i] = (1 - u) * (1 - v) * g(i0, j0) + u * (1 - v) * g(i0 + 1, j0) + (1 - u) * v * g(i0, j0 + 1) + u * v * g(i0 + 1, j0 + 1);
+  }
+  const leta0 = new Float32Array(fnx * fny);
+  for (let k = 0; k < leta0.length; k++) leta0[k] = lh[k] >= 10 ? dz[k] : 0;
+  const lsim = createSim({ nx: fnx, ny: fny, lon0, lat0, step, h: lh }, leta0, { sponge: 8 });
+  const lframes: Float32Array[] = [Float32Array.from(lsim.eta)];
+  const LF = 30;
+  for (let tt = LF; tt <= LOCAL_MINUTES * 60; tt += LF) { lsim.runTo(tt); lframes.push(Float32Array.from(lsim.eta)); }
+  const local: LocalBirth = { lon0, lat0, step, nx: fnx, ny: fny, h: lh, frames: lframes, frameS: LF };
+  const msg: WorkerOut = { type: 'done', fine, local, frames, frameS: FRAME_S, amp: AMP, eta0, arrival: sim.arrival, maxEta: sim.maxEta, series, seriesDt, dt: sim.dt, ms: performance.now() - t0 };
+  (self as unknown as Worker).postMessage(msg, [...frames.map((f) => f.buffer), ...lframes.map((f) => f.buffer), lh.buffer, dz.buffer, eta0.buffer, sim.arrival.buffer, sim.maxEta.buffer, ...series.map((s) => s.buffer)]);
 };
