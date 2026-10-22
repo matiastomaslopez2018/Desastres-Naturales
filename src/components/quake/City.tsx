@@ -30,7 +30,7 @@ const SPEC: Record<Kind, { width: number; storey: number; roof: number }> = {
 };
 const GAP = 2.8, MARGIN = 6;
 
-function layout(): { lots: Lot[]; width: number } {
+export function layout(): { lots: Lot[]; width: number } {
   let x = MARGIN;
   const lots = BLOCK.map((b, i) => {
     const s = SPEC[b.kind];

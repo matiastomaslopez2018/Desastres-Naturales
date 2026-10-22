@@ -19,6 +19,12 @@ import { Buildings, FLOORS, Spectrum, periodOf } from './Buildings';
 import { City } from './City';
 import { Observed } from './Observed';
 import { Particles } from './Particles';
+import dynamic from 'next/dynamic';
+import type { QFacts, QTiming } from '@/lib/quake/movie';
+import { blockResponse, tectonicView, type QMovieInput } from './movieGeo';
+
+// La película (y three.js) se descargan recién cuando se abre.
+const QuakeMovie = dynamic(() => import('./QuakeMovie'), { ssr: false });
 
 export type SimParams = { mag: number; depth: number; dist: number; setting: Setting; mech: Mechanism; vs30: number };
 export type SimInitial = Partial<SimParams> & { title?: string; preset?: string };
@@ -112,8 +118,34 @@ export function QuakeSim({ lang, initial }: { lang: Lang; initial?: SimInitial }
   const playLabel = clock.playing ? t.pause : armed ? t.play : clock.shown >= end - 0.05 ? t.replay : t.resume;
   const gfmt = (g: number) => nf(g, g < 0.01 ? 3 : 2);
 
+  // Película: datos de entrada y números para los textos (se arman al abrirla).
+  const [movie, setMovie] = useState(false);
+  const movieData = useMemo<{ input: QMovieInput; facts: QFacts } | null>(() => {
+    if (!movie) return null;
+    const block = blockResponse(synth, sh, tS.t);
+    const timing: QTiming = { wavesTo: Math.min(end, Math.max(tS.t * 1.12 + 2, surface ? surface.tR + 3 : 0)), cityFrom: Math.max(0, tP.t - 3), cityTo: end };
+    const site = preset ? preset.city[lang] : t.youLower;
+    const tn2 = tnt(E);
+    const damage = [0, 0, 0, 0, 0];
+    block.bld.forEach((b) => damage[b.ds]++);
+    return {
+      input: {
+        lang, depth: d.depth, dist: d.dist, setting: d.setting, mech: d.mech, rup, tP, tS, surface, synth, sh, seed: res.seed, end,
+        siteLabel, timing, view: tectonicView(d.depth, d.dist, rup), block,
+      },
+      facts: {
+        name: preset ? preset.name[lang] : null, site, mag: d.mag, depth: d.depth, dist: d.dist, setting: d.setting, mech: d.mech,
+        length: rup.length, width: rup.width, slip: rup.slip, duration: rup.duration,
+        vp: velocity(Math.min(d.depth, 60), 'P'), tP: tP.t, tS: tS.t, surface: !!surface,
+        mmi: ROMAN[mmiR - 1], mmiName: lvl[lang][0], pga: pgaG, model: modelFor(s),
+        damage, nBuildings: block.bld.length, energy: `${fmtNum(lang, tn2.value, tn2.value < 10 ? 1 : 0)} ${t.tnt[tn2.unit]}`, hiroshima: hiro,
+      },
+    };
+  }, [movie, synth, sh, tS, tP, end, surface, preset, lang, t, E, d, rup, res.seed, siteLabel, mmiR, lvl, pgaG, s, hiro]);
+
   return (
     <div className="qs">
+      {movieData && <QuakeMovie input={movieData.input} facts={movieData.facts} onClose={() => setMovie(false)} />}
       <nav className="ts-switch" aria-label={t.kicker}>
         <span aria-current="page">{t.h1}</span>
         <Link href={routePath(lang, 'tsunamiSim')}>{t.otherSim}</Link>
@@ -181,6 +213,10 @@ export function QuakeSim({ lang, initial }: { lang: Lang; initial?: SimInitial }
 
         {/* ── Escena ── */}
         <div className="qs-main">
+          <div className="ts-movie-cta">
+            <button type="button" className="ts-movie-btn" onClick={() => setMovie(true)}>▶ {t.watchMovie}</button>
+            <span className="qs-help">{t.movieHint}</span>
+          </div>
           <section className="qs-card qs-scene" aria-label={t.section}>
             <div className="qs-card-head">
               <h2 className="qs-h">{t.section}</h2>
