@@ -72,7 +72,7 @@ export function OceanMap({ lang, clock, grid, wet, box, frames, frameS, amp, arr
       ctx.imageSmoothingEnabled = true;
       ctx.drawImage(base, 0, 0, w, h);
       if (frames && frames.length) {
-        const fi = Math.min(frames.length - 1, time / frameS), a = Math.floor(fi), b = Math.min(frames.length - 1, a + 1), u = fi - a;
+        const fi = Math.max(0, Math.min(frames.length - 1, time / frameS)), a = Math.floor(fi), b = Math.min(frames.length - 1, a + 1), u = fi - a;
         const A = frames[a], B = frames[b];
         for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
           const k = j * nx + i, p = ((ny - 1 - j) * nx + i) * 4;

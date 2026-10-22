@@ -41,7 +41,8 @@ export function useClock(end: number): Clock {
     if (!playing) return;
     let raf = 0, last = performance.now(), lastShown = 0;
     const step = (now: number) => {
-      const dt = Math.min(0.1, (now - last) / 1000);
+      // El primer cuadro puede traer una marca de tiempo anterior a 'last': nunca se retrocede.
+      const dt = Math.max(0, Math.min(0.1, (now - last) / 1000));
       last = now;
       tRef.current = Math.min(endRef.current, tRef.current + dt * speedRef.current);
       emit();
