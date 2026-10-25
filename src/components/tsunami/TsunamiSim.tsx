@@ -150,7 +150,11 @@ export function TsunamiSim({ lang, initial }: { lang: Lang; initial?: string }) 
     // Largo de la ruptura: extensión de las subfallas a lo largo del rumbo medio.
     let sx = 0, sy = 0;
     for (const f of data.faults) { sx += f[8] * Math.sin((f[5] * Math.PI) / 180); sy += f[8] * Math.cos((f[5] * Math.PI) / 180); }
-    const az = Math.atan2(sx, sy), proj = data.faults.map((f) => f[0] * 111.19 * Math.cos((f[1] * Math.PI) / 180) * Math.sin(az) + f[1] * 111.19 * Math.cos(az));
+    // Coordenadas locales (km) respecto de la primera subfalla: con la longitud absoluta, el coseno de cada latitud deforma la proyección.
+    const [lon0, lat0] = data.faults[0], cos0 = Math.cos((lat0 * Math.PI) / 180);
+    // Solo cuentan las subfallas que se deslizaron de forma apreciable (≥ 15 % del máximo): la grilla del USGS es más grande que la ruptura.
+    const smax = Math.max(...data.faults.map((f) => f[8]));
+    const az = Math.atan2(sx, sy), proj = data.faults.filter((f) => f[8] >= 0.15 * smax).map((f) => (f[0] - lon0) * 111.19 * cos0 * Math.sin(az) + (f[1] - lat0) * 111.19 * Math.cos(az));
     const lengthKm = Math.max(...proj) - Math.min(...proj) + (data.faults[0]?.[3] ?? 0);
     let up = 0, down = 0;
     r.fine.dz.forEach((v) => { up = Math.max(up, v); down = Math.min(down, v); });
