@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { LogoMark } from './Logo';
+import { AlertsBell } from './LiveAlerts';
 import { T } from '@/lib/i18n';
 import { fmtTime } from '@/lib/format';
 import { cached } from '@/lib/server/cache';
@@ -46,6 +47,7 @@ export async function SiteHeader({ lang, langHrefs, current, updatedAt }: Props)
       </nav>
       {when ? <span className="ed-updated">{t.updated} {fmtTime(lang, when, 'UTC')}</span> : null}
       <span className="ed-lang">
+          <AlertsBell lang={lang} />
           {(['es', 'en'] as const).map((l, i) => (
             <span key={l}>
               {i > 0 && ' · '}

@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { Instrument_Sans, Instrument_Serif } from 'next/font/google';
 import { LANGS, T, isLang } from '@/lib/i18n';
 import { SITE_URL } from '@/lib/site';
+import { LiveAlerts } from '@/components/LiveAlerts';
 import '../base.css';
 import '../night.css';
 import '../paper.css';
@@ -46,7 +47,7 @@ export default async function RootLayout({ children, params }: { children: React
   if (!isLang(lang)) notFound();
   return (
     <html lang={lang} className={`${sans.variable} ${serif.variable}`}>
-      <body>{children}</body>
+      <body>{children}<LiveAlerts lang={lang} /></body>
     </html>
   );
 }

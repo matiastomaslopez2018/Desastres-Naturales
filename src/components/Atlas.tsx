@@ -7,6 +7,7 @@ import { Globe } from './Globe';
 import { HAZARD_LEVELS, SPC_COLORS, SS_SCALE, type ColoredArea, type DartBuoy, type GlcSlide, type GlobeHandle, type Layers, type Overlays, type Pickable, type SpcReport } from '@/lib/mapTypes';
 import { Glyph, TypeDot } from './Glyph';
 import { LogoMark } from './Logo';
+import { AlertsBell } from './LiveAlerts';
 import { EventCard } from './EventCard';
 import { FeatureCard } from './FeatureCard';
 import { ShareButtons } from './ShareButtons';
@@ -656,6 +657,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
             <Link href={`/${lang}/metodologia`}>{t.nav2.method}</Link>
           </nav>
           <span className="map-lang">
+            <AlertsBell lang={lang} />
             {(['es', 'en'] as Lang[]).map((l, i) => (
               <span key={l}>
                 {i > 0 && ' / '}
