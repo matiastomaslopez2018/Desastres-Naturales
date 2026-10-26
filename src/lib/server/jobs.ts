@@ -19,8 +19,12 @@ export const EVENT_SOURCES: EventSource[] = ['usgs', 'eonet', 'gdacs'];
 
 const DAY = 864e5;
 const MIN = 6e4;
-/** Una ventana se considera al día si le faltan menos de esto para llegar a "ahora". */
-export const STALE_MS = 30 * MIN;
+/**
+ * Una ventana se considera al día si le faltan menos de esto para llegar a "ahora". En Vercel (plan Hobby)
+ * el cron corre una vez por día, así que esto es lo que mantiene el mapa al día: el primer pedido después
+ * de 10 minutos trae lo nuevo (una corrida incremental tarda 1–5 s).
+ */
+export const STALE_MS = 10 * MIN;
 const LIVE_WINDOW = 30 * DAY;
 export const LIVE_FLOOR = 2.5;
 export const HISTORIC_FLOOR = 4.5;
