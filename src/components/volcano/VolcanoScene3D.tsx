@@ -34,7 +34,11 @@ export type SceneProps = {
   clock: { now: () => number; subscribe: (fn: (t: number) => void) => () => void };
   onFail: () => void;
   labels: { crater: string; top: (km: string) => string };
+  /** Peligro que se muestra sobre el relieve (lava, flujos piroclásticos o lahares); null: la ceniza. */
+  hazard: HazardLayer | null;
 };
+
+export type HazardLayer = { kind: 'lava' | 'pdc' | 'lahar'; value: Float32Array; arrival: Float32Array; n: number };
 
 /**
  * Textura de humo: varios lóbulos redondeados superpuestos, sombreados de arriba hacia abajo, como las
@@ -94,7 +98,8 @@ export default function VolcanoScene3D(p: SceneProps) {
     const el = wrap.current!, P = propsRef.current, labelBox = labelsRef.current;
     let renderer: THREE.WebGLRenderer;
     try { renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' }); } catch { P.onFail(); return; }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+    // Resolución acotada: las bocanadas transparentes que se superponen son lo que más le cuesta a la placa.
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMappingExposure = 1.35;
@@ -147,7 +152,7 @@ export default function VolcanoScene3D(p: SceneProps) {
         tex = new THREE.CanvasTexture(texCanvas);
         tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
         terrainMat.map = tex; terrainMat.needsUpdate = true;
-        draw();
+        dirty = true;
       };
       img.src = P.imageUrl;
     }
@@ -170,7 +175,7 @@ export default function VolcanoScene3D(p: SceneProps) {
       geo.attributes.position.needsUpdate = true; geo.computeVertexNormals();
       ash.geometry = geo;
       skirt.position.y = baseY - 0.05;
-      draw();
+      dirty = true;
     }).catch(() => {});
     // Planicie alrededor hasta el horizonte (color medio de la región), para que no se vea el borde.
     const skirtGeo = new THREE.PlaneGeometry(farR * 2, farR * 2).rotateX(-Math.PI / 2);
@@ -197,6 +202,45 @@ export default function VolcanoScene3D(p: SceneProps) {
     }
     paintAsh(P.local, P.localN);
 
+    // Peligro sobre el relieve: textura RGBA que se va revelando según el avance de la animación.
+    const hzCanvas = document.createElement('canvas'); hzCanvas.width = hzCanvas.height = P.n;
+    const hzTex = new THREE.CanvasTexture(hzCanvas); hzTex.colorSpace = THREE.SRGBColorSpace;
+    const hzMat = new THREE.MeshStandardMaterial({ map: hzTex, transparent: true, depthWrite: false, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -4, emissive: 0x000000, emissiveMap: hzTex });
+    const hz = new THREE.Mesh(geo, hzMat);
+    hz.visible = false;
+    scene.add(hz);
+    let hzLayer: HazardLayer | null = P.hazard, hzShown = -1;
+    const hzCtx = hzCanvas.getContext('2d')!;
+    let hzImg = hzCtx.createImageData(P.n, P.n);
+    function paintHazard(progress: number) {
+      if (!hzLayer) { hz.visible = false; return; }
+      const L = hzLayer, step = Math.round(progress * 200) / 200;
+      if (step === hzShown) return;
+      hzShown = step;
+      if (hzImg.width !== L.n) { hzCanvas.width = hzCanvas.height = L.n; hzImg = hzCtx.createImageData(L.n, L.n); }
+      const d = hzImg.data;
+      for (let k = 0; k < L.n * L.n; k++) {
+        const v = L.value[k], on = v > 0.01 && L.arrival[k] <= step;
+        if (!on) { d[4 * k + 3] = 0; continue; }
+        // Lava: amarillo en el frente que avanza y rojo oscuro detrás (se enfría). Flujo piroclástico: gris claro.
+        // Lahar: barro marrón.
+        if (L.kind === 'lava') {
+          const age = Math.max(0, step - L.arrival[k]), hot = Math.max(0, 1 - age * 6);
+          d[4 * k] = 255; d[4 * k + 1] = Math.round(70 + 150 * hot); d[4 * k + 2] = Math.round(20 + 40 * hot); d[4 * k + 3] = Math.round(255 * Math.min(1, 0.35 + v * 3));
+        } else if (L.kind === 'pdc') {
+          // Más denso cerca de la boca (más energía) y casi transparente en el borde del alcance.
+          d[4 * k] = 184; d[4 * k + 1] = 178; d[4 * k + 2] = 168; d[4 * k + 3] = Math.round(255 * Math.min(0.85, 0.08 + 0.7 * (v - 0.35) / 0.65));
+        } else {
+          d[4 * k] = 122; d[4 * k + 1] = 92; d[4 * k + 2] = 60; d[4 * k + 3] = 235;
+        }
+      }
+      hzCtx.putImageData(hzImg, 0, 0);
+      hzTex.needsUpdate = true;
+      hz.visible = true;
+      hzMat.emissive.setHex(L.kind === 'lava' ? 0xffffff : 0x000000);
+      hzMat.emissiveIntensity = L.kind === 'lava' ? 1.2 : 0;
+    }
+
 
     // Partículas de la columna.
     const tex2 = puffTexture();
@@ -207,9 +251,9 @@ export default function VolcanoScene3D(p: SceneProps) {
     pgeo.setAttribute('size', new THREE.BufferAttribute(size, 1));
     pgeo.setAttribute('alpha', new THREE.BufferAttribute(alpha, 1));
     const pmat = new THREE.ShaderMaterial({
-      uniforms: { map: { value: tex2 }, scale: { value: 400 }, fogColor: { value: new THREE.Color(0xcfdde6) }, fogNear: { value: W * 0.9 }, fogFar: { value: farR * 0.9 } },
-      vertexShader: `attribute float size; attribute float alpha; attribute vec3 color; varying vec3 vCol; varying float vA; varying float vDepth; uniform float scale;
-        void main(){ vCol=color; vA=alpha; vec4 mv=modelViewMatrix*vec4(position,1.0); vDepth=-mv.z; gl_PointSize=size*scale/max(1.0,-mv.z); gl_Position=projectionMatrix*mv; }`,
+      uniforms: { map: { value: tex2 }, scale: { value: 400 }, maxSize: { value: 300 }, alphaScale: { value: 1 }, fogColor: { value: new THREE.Color(0xcfdde6) }, fogNear: { value: W * 0.9 }, fogFar: { value: farR * 0.9 } },
+      vertexShader: `attribute float size; attribute float alpha; attribute vec3 color; varying vec3 vCol; varying float vA; varying float vDepth; uniform float scale; uniform float maxSize; uniform float alphaScale;
+        void main(){ vCol=color; vA=min(1.0,alpha*alphaScale); vec4 mv=modelViewMatrix*vec4(position,1.0); vDepth=-mv.z; gl_PointSize=min(maxSize,size*scale/max(1.0,-mv.z)); gl_Position=projectionMatrix*mv; }`,
       fragmentShader: `uniform sampler2D map; uniform vec3 fogColor; uniform float fogNear; uniform float fogFar; varying vec3 vCol; varying float vA; varying float vDepth;
         void main(){ vec4 t=texture2D(map,gl_PointCoord); float f=smoothstep(fogNear,fogFar,vDepth); gl_FragColor=vec4(mix(vCol*(0.55+0.6*t.r),fogColor,f*0.7), t.a*vA); if(gl_FragColor.a<0.01) discard; }`,
       transparent: true, depthWrite: false,
@@ -240,7 +284,7 @@ export default function VolcanoScene3D(p: SceneProps) {
       const speed = tr.life / 3.5;
       // Escala de la columna (1 desde ~10 km): bocanadas más chicas y más transparentes en columnas bajas.
       const colScale = Math.min(1, tr.Hc / 10000);
-      for (let k = 0; k < N_PART; k++) {
+      for (let k = 0; k < nVis; k++) {
         // Cada partícula nace por primera vez `b` s (reales) después del inicio de la fase y renace cada `life`.
         const c = k % N_CLASS, b = rnd(k, 1) * tr.life, el = animInPhase * speed, endEl = phaseLen * speed;
         let age = 0, vis = 0;
@@ -296,7 +340,9 @@ export default function VolcanoScene3D(p: SceneProps) {
         lalpha[k] = active && y > -1 && (P.style !== 'subplinian' && P.style !== 'plinian') ? 0.55 : 0;
       }
       lgeo.attributes.position.needsUpdate = true; lgeo.attributes.size.needsUpdate = true; lgeo.attributes.alpha.needsUpdate = true; lgeo.attributes.color.needsUpdate = true;
-      ashMat.opacity = 0.92 * st.deposited;
+      ashMat.opacity = hzLayer ? 0 : 0.92 * st.deposited;
+      points.visible = hzLayer?.kind !== 'lahar'; lava.visible = points.visible;
+      paintHazard(Math.min(1, t / (P.slots[P.slots.length - 1]?.end || 1)));
       return { st, phase };
     }
 
@@ -323,17 +369,37 @@ export default function VolcanoScene3D(p: SceneProps) {
       if (ok) d.style.transform = `translate(${((v.x + 1) / 2) * Wpx}px, ${((1 - v.y) / 2) * Hpx}px)`;
     };
 
-    let Wpx = 0, Hpx = 0;
-    const resize = () => { Wpx = el.clientWidth; Hpx = el.clientHeight; renderer.setSize(Wpx, Hpx, false); renderer.domElement.style.width = '100%'; renderer.domElement.style.height = '100%'; camera.aspect = Wpx / Math.max(1, Hpx); camera.updateProjectionMatrix(); pmat.uniforms.scale.value = Hpx * 0.9; lmat.uniforms.scale.value = Hpx * 0.9; };
+    let Wpx = 0, Hpx = 0, dirty = true, nVis = N_PART;
+    const resize = () => {
+      Wpx = el.clientWidth; Hpx = el.clientHeight; renderer.setSize(Wpx, Hpx, false); renderer.domElement.style.width = '100%'; renderer.domElement.style.height = '100%';
+      camera.aspect = Wpx / Math.max(1, Hpx); camera.updateProjectionMatrix();
+      for (const m of [pmat, lmat]) { m.uniforms.scale.value = Hpx * 0.9; m.uniforms.maxSize.value = Hpx * 0.45; }
+      dirty = true;
+    };
     const ro = new ResizeObserver(resize); ro.observe(el); resize();
+    // Solo se recalcula lo que cambió: las partículas si avanzó el tiempo (o cambió la calidad) y el cuadro si
+    // además se movió la cámara. La cantidad de partículas se adapta a lo que el equipo puede dibujar.
+    let lastT = -1, cached: ReturnType<typeof updatePlume> | null = null, frameMs = 16, lastFrame = performance.now(), slow = 0, fast = 0;
     function draw() {
-      const t = P.clock.now();
-      const { st, phase } = updatePlume(t);
+      const now = performance.now(), dtF = now - lastFrame;
+      lastFrame = now;
+      const t = P.clock.now(), moved = controls.update();
+      if (t !== lastT) frameMs = frameMs * 0.9 + Math.min(100, dtF) * 0.1;
+      if (frameMs > 26 && nVis > 2400) { if (++slow > 20) { nVis = Math.max(2400, Math.round(nVis * 0.75)); slow = 0; dirty = true; } } else slow = 0;
+      if (frameMs < 14 && nVis < N_PART) { if (++fast > 120) { nVis = Math.min(N_PART, Math.round(nVis * 1.25)); fast = 0; dirty = true; } } else fast = 0;
+      if (!moved && !dirty && t === lastT && cached) return;
+      if (t !== lastT || dirty || !cached) {
+        pgeo.setDrawRange(0, nVis);
+        pmat.uniforms.alphaScale.value = Math.sqrt(N_PART / nVis);
+        cached = updatePlume(t);
+        lastT = t;
+      }
+      dirty = false;
+      const { st, phase } = cached;
       const top = P.phases[phase].top;
       place(crater, 0, ventY + 1, 0, true);
       topLab.textContent = P.labels.top(fmtNum(P.lang, top / 1000, 1));
-      place(topLab, trajs[phase].tab[((N_CLASS - 1) * N_SAMP + 20) * 4], ventY + (top - P.elev) / U, trajs[phase].tab[((N_CLASS - 1) * N_SAMP + 20) * 4 + 2], st.phase >= 0 && P.style !== 'hawaiian');
-      controls.update();
+      place(topLab, trajs[phase].tab[((N_CLASS - 1) * N_SAMP + 20) * 4], ventY + (top - P.elev) / U, trajs[phase].tab[((N_CLASS - 1) * N_SAMP + 20) * 4 + 2], st.phase >= 0 && P.style !== 'hawaiian' && hzLayer?.kind !== 'lahar');
       renderer.render(scene, camera);
     }
     // Bucle propio (la cámara se puede mover aunque la erupción esté en pausa); se detiene fuera de pantalla.
@@ -343,18 +409,20 @@ export default function VolcanoScene3D(p: SceneProps) {
     const loop = () => { raf = requestAnimationFrame(loop); if (visible && !document.hidden) draw(); };
     loop();
     // Cuando cambian los datos de la ceniza.
-    const offAsh = subscribeAsh((local, n) => paintAsh(local, n));
+    const offAsh = subscribeAsh((local, n) => { paintAsh(local, n); dirty = true; });
+    const offHz = subscribeHazard((h) => { hzLayer = h; hzShown = -1; dirty = true; });
     return () => {
-      alive = false; cancelAnimationFrame(raf); ro.disconnect(); io.disconnect(); controls.dispose(); offAsh();
+      alive = false; cancelAnimationFrame(raf); ro.disconnect(); io.disconnect(); controls.dispose(); offAsh(); offHz();
       labelBox?.replaceChildren();
       scene.traverse((o) => { const m = o as THREE.Mesh; m.geometry?.dispose(); const mat = m.material as THREE.Material | THREE.Material[] | undefined; (Array.isArray(mat) ? mat : mat ? [mat] : []).forEach((x) => x.dispose()); });
-      [tex, ashTex, tex2].forEach((x) => x?.dispose());
+      [tex, ashTex, tex2, hzTex].forEach((x) => x?.dispose());
       renderer.dispose(); renderer.domElement.remove();
     };
   }, [p.demUrl, p.style, p.phases, p.slots]);
 
   // La grilla de ceniza llega después (worker): se avisa a la escena sin rehacerla.
   useEffect(() => { ashListeners.forEach((fn) => fn(p.local, p.localN)); }, [p.local, p.localN]);
+  useEffect(() => { hazardListeners.forEach((fn) => fn(p.hazard)); }, [p.hazard]);
 
   return (
     <div ref={wrap} className="vs-3d">
@@ -365,3 +433,6 @@ export default function VolcanoScene3D(p: SceneProps) {
 
 const ashListeners = new Set<(local: Float32Array | null, n: number) => void>();
 function subscribeAsh(fn: (local: Float32Array | null, n: number) => void) { ashListeners.add(fn); return () => { ashListeners.delete(fn); }; }
+
+const hazardListeners = new Set<(h: HazardLayer | null) => void>();
+function subscribeHazard(fn: (h: HazardLayer | null) => void) { hazardListeners.add(fn); return () => { hazardListeners.delete(fn); }; }

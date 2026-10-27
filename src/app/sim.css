@@ -167,10 +167,15 @@
 /* ───────────── Simulador de volcanes ───────────── */
 .vs-types { display: flex; flex-direction: column; gap: 8px; }
 .vs-type-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
-.vs-type { display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid var(--rule); border-radius: 12px; background: #fff; font: inherit; text-align: left; cursor: pointer; color: inherit; }
+.vs-type { display: flex; flex-direction: column; border: 1px solid var(--rule); border-radius: 12px; background: #fff; overflow: hidden; }
 .vs-type:hover { border-color: var(--rule-strong); }
-.vs-type[aria-pressed='true'] { border-color: #c8102e; box-shadow: 0 0 0 1px #c8102e inset; }
-.vs-type-svg { width: 100%; height: auto; background: linear-gradient(#e9f1f6, #f7f5ef); border-radius: 8px; }
+.vs-type[data-on] { border-color: #c8102e; box-shadow: 0 0 0 1px #c8102e inset; }
+.vs-type-btn { display: flex; flex: 1; flex-direction: column; gap: 6px; padding: 0 12px 8px; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; color: inherit; }
+.vs-type-photo { position: relative; display: block; margin: 0 -12px 4px; aspect-ratio: 16 / 9; background: #ddd; }
+.vs-type-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.vs-type-place { position: absolute; left: 8px; bottom: 8px; right: 8px; padding: 2px 8px; border-radius: 6px; background: rgba(20,20,20,.62); color: #fff; font-size: 11.5px; line-height: 1.4; width: fit-content; }
+.vs-type-credit { padding: 0 12px 10px; font-size: 11px; color: var(--faint); text-decoration: none; }
+.vs-type-credit:hover { text-decoration: underline; }
 .vs-type-name { font-weight: 600; font-size: 15px; }
 .vs-type-text { font-size: 13px; line-height: 1.45; color: #333; }
 .vs-type-ex { font-size: 12px; line-height: 1.4; color: var(--faint); }
@@ -194,3 +199,6 @@
 @media (max-width: 1000px) { .vs-type-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 520px) { .vs-type-grid { grid-template-columns: minmax(0, 1fr); } .vs-seg { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .vs-ok { color: #2b8a3e; } .vs-off { color: #c8102e; }
+.vs-hz-seg { display: grid; grid-template-columns: repeat(4, auto); gap: 4px; padding: 3px; border-radius: 10px; background: var(--paper-2); }
+.vs-hz-seg .qs-seg-opt { padding: 4px 10px; }
+@media (max-width: 640px) { .vs-hz-seg { grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; } }

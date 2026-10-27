@@ -17,6 +17,8 @@ import { useClock } from '../quake/clock';
 import { AshMap, fmtThick, mmFromLoad } from './AshMap';
 import { TypeCards } from './TypeCards';
 import type { AshIn, AshOut } from './ash.worker';
+import type { HazardIn, HazardKind, HazardOut } from './hazard.worker';
+import type { Dem } from '@/lib/volcano/hazards';
 
 const Scene3D = dynamic(() => import('./VolcanoScene3D'), { ssr: false, loading: () => <div className="vs-3d vs-busy">…</div> });
 
@@ -38,6 +40,8 @@ const TYPE_PICK: Record<VolcanoType, { eruption?: string; volcano?: string; styl
   dome: { eruption: 'chaiten-2008' }, caldera: { eruption: 'cordon-caulle-2011' },
 };
 
+/** Volumen legible (m³). */
+const fmtVol = (lang: Lang, v: number) => (v >= 1e6 ? `${fmtNum(lang, v / 1e6, v < 1e7 ? 1 : 0)} millones de m³`.replace('millones de', lang === 'es' ? 'millones de' : 'million') : `${fmtNum(lang, v / 1e3)} mil m³`.replace(' mil', lang === 'es' ? ' mil' : ' thousand'));
 const toLevels = (l: { h: number; u: number; v: number }[]): WindProfile => l.map(({ h, u, v }) => ({ h, u, v })).sort((a, b) => a.h - b.h);
 const hm = (lang: Lang, s: number) => { const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60); return h ? `${h} h ${m} min` : `${m} min`; };
 
@@ -135,6 +139,52 @@ export function VolcanoSim({ lang, initial }: { lang: Lang; initial?: string }) 
   useEffect(() => { clock.pause(); clock.seek(sl.length ? Math.min(ANIM_S, sl[0].start + (sl[0].end - sl[0].start) * 0.6) : 0); /* cuadro de muestra */ }, [sl]); // eslint-disable-line react-hooks/exhaustive-deps
   const st = sl.length ? at(sl, masses, clock.shown) : null;
   const [no3D, setNo3D] = useState(false);
+
+  // Peligros sobre el relieve (lava, flujos piroclásticos, lahares): se calculan en otro worker con el relieve.
+  const [hazard, setHazard] = useState<'ash' | HazardKind>('ash');
+  const [hzp, setHzp] = useState({ lavaKm: 6, pdcAngle: 15, pdcCollapse: 1000, laharVol: 1e7 });
+  const [dem, setDem] = useState<Dem | null>(null);
+  const [hzOut, setHzOut] = useState<HazardOut | null>(null);
+  const hzWorker = useRef<Worker | null>(null), hzId = useRef(0);
+  useEffect(() => {
+    hzWorker.current = new Worker(new URL('./hazard.worker.ts', import.meta.url));
+    hzWorker.current.onmessage = (e: MessageEvent<HazardOut>) => { if (e.data.id === hzId.current) setHzOut(e.data); };
+    return () => hzWorker.current?.terminate();
+  }, []);
+  useEffect(() => {
+    if (!meta) { setDem(null); return; }
+    let ok = true;
+    fetch(`/data/volcano/${volcano.id}/dem.bin`).then((r) => r.arrayBuffer()).then((b) => {
+      if (ok) setDem({ h: Float32Array.from(new Int16Array(b)), n: meta.n, cell: (2 * volcano.boxKm * 1000) / (meta.n - 1) });
+    }).catch(() => {});
+    return () => { ok = false; };
+  }, [meta, volcano]);
+  useEffect(() => {
+    setHzOut(null);
+    if (hazard === 'ash' || !dem || !hzWorker.current) return;
+    const id = ++hzId.current, d = { ...dem, h: dem.h.slice() };
+    const msg: HazardIn = hazard === 'lava' ? { id, kind: 'lava', dem: d, lengthM: hzp.lavaKm * 1000 }
+      : hazard === 'pdc' ? { id, kind: 'pdc', dem: d, collapseM: hzp.pdcCollapse, angleDeg: hzp.pdcAngle }
+      : { id, kind: 'lahar', dem: d, volume: hzp.laharVol };
+    hzWorker.current.postMessage(msg);
+  }, [hazard, hzp, dem]);
+  const hazardLayer = useMemo(() => (hazard !== 'ash' && hzOut && hzOut.kind === hazard ? { kind: hzOut.kind, value: hzOut.value, arrival: hzOut.arrival, n: hzOut.n } : null), [hazard, hzOut]);
+  // Lugares dentro del recuadro del relieve alcanzados por el peligro.
+  const reached = useMemo(() => {
+    if (!hazardLayer || !meta) return [];
+    const { box } = meta, n = hazardLayer.n;
+    return volcano.places.filter(([, lo, la]) => {
+      const i = Math.round(((lo - box.w) / (box.e - box.w)) * (n - 1)), j = Math.round(((box.n - la) / (box.n - box.s)) * (n - 1));
+      if (i < 0 || j < 0 || i >= n || j >= n) return false;
+      // Un lugar cuenta si el peligro llega a su celda o a una vecina (la grilla es de ~130 m).
+      for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+        const k = (j + dj) * n + (i + di);
+        if (k >= 0 && k < n * n && hazardLayer.value[k] > (hazardLayer.kind === 'lava' ? 0.05 : 0.01)) return true;
+      }
+      return false;
+    }).map(([name]) => name);
+  }, [hazardLayer, meta, volcano]);
+  const hzArea = hazardLayer && dem ? hazardLayer.value.reduce((a, v) => a + (v > (hazardLayer.kind === 'lava' ? 0.05 : 0.01) ? 1 : 0), 0) * dem.cell * dem.cell / 1e6 : 0;
   const scenePhases = useMemo(() => (run ? run.phases.map((p) => ({ top: p.topKm * 1000, wind: p.wind })) : []), [run]);
 
   // Números.
@@ -230,6 +280,11 @@ export function VolcanoSim({ lang, initial }: { lang: Lang; initial?: string }) 
           <section className="qs-card" aria-label={t.scene}>
             <div className="qs-card-head">
               <h2 className="qs-h">{t.scene}: {volcano.name}</h2>
+              <div className="vs-hz-seg" role="radiogroup" aria-label={t.hazard}>
+                {(['ash', 'lava', 'pdc', 'lahar'] as const).map((k) => (
+                  <label key={k} className="qs-seg-opt"><input type="radio" name="vhz" checked={hazard === k} onChange={() => setHazard(k)} />{t.hazards[k]}</label>
+                ))}
+              </div>
               <div className="qs-transport">
                 <button type="button" className="qs-play" disabled={!run} onClick={() => (clock.playing ? clock.pause() : (clock.shown >= ANIM_S - 0.05 && clock.seek(0), clock.play()))}>
                   {clock.playing ? t.pause : clock.shown >= ANIM_S - 0.05 ? t.replay : t.play}
@@ -241,7 +296,7 @@ export function VolcanoSim({ lang, initial }: { lang: Lang; initial?: string }) 
                 <Scene3D lang={lang} name={volcano.name} elev={volcano.elev} boxKm={volcano.boxKm} n={meta.n}
                   demUrl={`/data/volcano/${volcano.id}/dem.bin`} imageUrl={`/data/volcano/${volcano.id}/image.jpg`}
                   style={style} phases={scenePhases} slots={sl} masses={masses} local={ash?.local ?? null} localN={ash?.localN ?? 2}
-                  clock={clock} onFail={() => setNo3D(true)} labels={{ crater: t.vent, top: (km) => `${km} km ${t.asl}` }} />
+                  clock={clock} onFail={() => setNo3D(true)} labels={{ crater: t.vent, top: (km) => `${km} km ${t.asl}` }} hazard={hazardLayer} />
               ) : no3D ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={`/data/volcano/${volcano.id}/image.jpg`} alt="" className="vs-flat" />
@@ -251,6 +306,51 @@ export function VolcanoSim({ lang, initial }: { lang: Lang; initial?: string }) 
             <input className="qs-scrub" type="range" min={0} max={ANIM_S} step={0.05} value={clock.shown} aria-label={t.duration} onChange={(e) => { clock.pause(); clock.seek(+e.target.value); }} />
             <p className="qs-help">{no3D ? t.noWebGL : t.sceneHelp} {t.credits(year)}</p>
           </section>
+
+          {hazard !== 'ash' && (
+            <section className="qs-card" aria-label={t.hazards[hazard]}>
+              <h2 className="qs-h">{t.hazardTitle[hazard]}</h2>
+              <p className="qs-note">{t.hazardText[hazard]}</p>
+              {hazard === 'lava' && (
+                <label className="qs-field">
+                  <span className="qs-row"><span>{t.lavaLength}</span><b>{nf(hzp.lavaKm)} km</b></span>
+                  <input type="range" min={1} max={20} step={1} value={hzp.lavaKm} onChange={(e) => setHzp((h) => ({ ...h, lavaKm: +e.target.value }))} />
+                  <span className="qs-help">{t.lavaHelp}</span>
+                </label>
+              )}
+              {hazard === 'pdc' && (
+                <>
+                  <label className="qs-field">
+                    <span className="qs-row"><span>{t.pdcCollapse}</span><b>{nf(hzp.pdcCollapse)} m</b></span>
+                    <input type="range" min={100} max={3000} step={100} value={hzp.pdcCollapse} onChange={(e) => setHzp((h) => ({ ...h, pdcCollapse: +e.target.value }))} />
+                  </label>
+                  <label className="qs-field">
+                    <span className="qs-row"><span>{t.pdcAngle}</span><b>{nf(hzp.pdcAngle)}°</b></span>
+                    <input type="range" min={4} max={30} step={1} value={hzp.pdcAngle} onChange={(e) => setHzp((h) => ({ ...h, pdcAngle: +e.target.value }))} />
+                    <span className="qs-help">{t.pdcHelp}</span>
+                  </label>
+                </>
+              )}
+              {hazard === 'lahar' && (
+                <label className="qs-field">
+                  <span className="qs-row"><span>{t.laharVol}</span><b>{fmtVol(lang, hzp.laharVol)}</b></span>
+                  <input type="range" min={0} max={1000} step={1} value={Math.round((Math.log10(hzp.laharVol) - 5) / 3 * 1000)} onChange={(e) => setHzp((h) => ({ ...h, laharVol: Math.round(10 ** (5 + (+e.target.value / 1000) * 3) / 1e4) * 1e4 }))} />
+                  <span className="qs-help">{t.laharHelp}</span>
+                </label>
+              )}
+              {!hzOut ? <p className="qs-help">{t.computing}</p> : (
+                <dl className="qs-dl">
+                  <div><dt>{t.reach}</dt><dd>{nf(hzOut.reachM / 1000, 1)} km {t.fromCrater}</dd></div>
+                  <div><dt>{t.area}</dt><dd>{nf(hzArea, hzArea < 10 ? 1 : 0)} km²</dd></div>
+                  {hazard === 'lahar' && <div><dt>{t.channels}</dt><dd>{hzOut.starts ?? 0}</dd></div>}
+                  <div><dt>{t.reachedPlaces}</dt><dd>{reached.length ? reached.join(', ') : t.noPlaces}</dd></div>
+                </dl>
+              )}
+              {hazard === 'lahar' && hzOut && !hzOut.starts && <p className="qs-warn">{t.noChannels}</p>}
+              {hazard === 'pdc' && volcano.id === 'calbuco' && hzOut && <p className="qs-help">{t.pdcCalbuco(nf(hzOut.reachM / 1000, 1))}</p>}
+              <p className="qs-help">{t.hazardMethod[hazard]}</p>
+            </section>
+          )}
 
           <section className="qs-card" aria-label={t.ashMap}>
             <h2 className="qs-h">{t.ashMap}</h2>
