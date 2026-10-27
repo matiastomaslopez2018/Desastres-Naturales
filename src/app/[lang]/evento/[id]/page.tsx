@@ -24,6 +24,8 @@ import { getPlates } from '@/lib/server/ingest';
 import { loadEvent } from './data';
 import { localTitle } from '@/lib/localize';
 import { simHref } from '@/lib/quake/link';
+import { LocalAgencies } from '@/components/LocalAgencies';
+import { FeltButton } from '@/components/FeltButton';
 
 export const dynamic = 'force-dynamic';
 // Si el evento no está en la base, se consulta a la fuente en el momento.
@@ -111,6 +113,8 @@ export default async function EventPage({ params }: Props) {
             } />
         </div>
         {/* Contexto geológico: tarda unos segundos la primera vez (después queda en la base). */}
+        {e.type === 'eq' && <LocalAgencies lang={lang} local={e.local ?? []} usgs={e.src === 'USGS'} />}
+        {e.type === 'eq' && <FeltButton lang={lang} id={e.id} time={e.time} usgs={e.src === 'USGS'} local={e.local ?? []} />}
         <LearnLinks lang={lang} e={e} />
         {volc && (
           <p className="geo-link"><Link href={routePath(lang, 'volcano', volc.slug)}>{t.volcPage}: {volc.v.title} →</Link></p>

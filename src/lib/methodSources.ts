@@ -25,6 +25,20 @@ export const METHOD_GROUPS: MethodGroup[] = [
         limits: { es: 'Las soluciones preliminares cambian. El tensor de momento solo existe para sismos medianos y grandes (en general M5+). El pronóstico de réplicas solo se publica para algunos sismos. El resumen tectónico está en inglés; si hay traducción, es automática.', en: 'Preliminary solutions change. Moment tensors exist only for moderate and large quakes (usually M5+). Aftershock forecasts are published only for some quakes. The tectonic summary is in English; any translation is automatic.' },
       },
       {
+        name: 'INPRES · Instituto Nacional de Prevención Sísmica (Argentina)', url: 'https://www.inpres.gob.ar/',
+        covers: { es: 'Sismos de la Argentina y zonas vecinas que localiza la Red Nacional de Estaciones Sismológicas, incluidos los chicos que el USGS no publica. Marca si fue revisado por un sismólogo y si fue sentido.', en: 'Earthquakes in Argentina and nearby areas located by the National Seismological Station Network, including small ones the USGS does not publish. It flags whether a seismologist reviewed it and whether it was felt.' },
+        freq: { es: 'Acá se consulta cada 5 minutos su fuente XML de los últimos 30 sismos; lo leído se guarda en la base.', en: 'Its XML feed of the latest 30 quakes is queried here every 5 minutes; what is read is stored in the database.' },
+        license: { es: 'Fuente XML que el INPRES ofrece para difundir sus sismos. Se cita la fuente y se enlaza cada sismo a su ficha.', en: 'XML feed INPRES offers to disseminate its earthquakes. The source is credited and each quake links to its page.' },
+        limits: { es: 'Los sismos en azul son automáticos y pueden estar errados. Solo da la provincia, no la distancia a una localidad. Si el USGS tiene el mismo sismo (menos de 90 s y 120 km de diferencia), se muestra el del USGS con la magnitud del INPRES.', en: 'Blue quakes are automatic and may be wrong. Only the province is given, not the distance to a town. If the USGS has the same quake (less than 90 s and 120 km apart), the USGS one is shown with the INPRES magnitude.' },
+      },
+      {
+        name: 'Centro Sismológico Nacional, Universidad de Chile (CSN)', url: 'https://www.sismologia.cl/',
+        covers: { es: 'Catálogo diario de sismos de Chile y zonas vecinas, con referencia geográfica, profundidad y magnitud (en general MLv o Mww).', en: 'Daily earthquake catalog for Chile and nearby areas, with geographic reference, depth and magnitude (usually MLv or Mww).' },
+        freq: { es: 'Acá se leen el día de hoy y el de ayer cada 5 minutos, y los 30 días anteriores una sola vez.', en: 'Today and yesterday are read here every 5 minutes, and the previous 30 days once.' },
+        license: { es: 'Su política permite usar los datos con fines académicos y de divulgación citando "Centro Sismológico Nacional de la Universidad de Chile".', en: 'Its policy allows using the data for academic and outreach purposes, crediting "Centro Sismológico Nacional de la Universidad de Chile".' },
+        limits: { es: 'Mismo criterio de unión con el USGS que el INPRES. Un sismo informado por los dos organismos se muestra una vez, con el del país donde ocurrió.', en: 'Same rule for merging with the USGS as INPRES. A quake reported by both agencies is shown once, by the one of the country where it happened.' },
+      },
+      {
         name: 'NOAA NCEI · bases de sismos y tsunamis significativos', url: 'https://www.ngdc.noaa.gov/hazel/',
         covers: { es: 'Sismos y tsunamis históricos con daños, víctimas, M7,5+ o tsunami, desde la Antigüedad. Se muestran los que están a 300 km o menos del evento.', en: 'Historical earthquakes and tsunamis with damage, deaths, M7.5+ or a tsunami, since antiquity. Those within 300 km of the event are shown.' },
         freq: { es: 'NCEI la actualiza de forma continua; acá se consulta cada 7 días.', en: 'NCEI updates it continuously; it is queried here every 7 days.' },

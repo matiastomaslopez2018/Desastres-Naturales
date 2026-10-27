@@ -429,3 +429,26 @@ button.ed-button { background: none; cursor: pointer; color: inherit; font-famil
   .ml-list li { grid-template-columns: 78px minmax(0, 1fr); }
   .ml-list li .ml-act { grid-column: 2; white-space: normal; }
 }
+
+/* ───────────── ¿Lo sentiste? ───────────── */
+.felt { display: flex; flex-direction: column; gap: 12px; padding: 20px; border: 1px solid var(--rule); border-radius: 14px; background: #fff; max-width: 980px; }
+.felt-opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.felt-opt { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border: 1.5px solid var(--rule-strong); border-left-width: 6px; border-radius: 10px; background: #fff; font: inherit; text-align: left; cursor: pointer; }
+.felt-opt b { font-size: 15px; } .felt-opt span { font-size: 13px; line-height: 1.35; color: #555; }
+.felt-opt[aria-checked='true'] { background: #141414; color: #fff; border-color: #141414; } .felt-opt[aria-checked='true'] span { color: #ddd; }
+.felt-opt.felt-l0 { border-left-color: #cfcfca; } .felt-opt.felt-l1 { border-left-color: #b5caff; } .felt-opt.felt-l2 { border-left-color: #abcf63; } .felt-opt.felt-l3 { border-left-color: #fffa14; }
+.felt-opt.felt-l4 { border-left-color: #ffa30a; } .felt-opt.felt-l5 { border-left-color: #ff4c00; } .felt-opt.felt-l6 { border-left-color: #a40000; }
+.felt-bars b.felt-l0 { background: #cfcfca; } .felt-bars b.felt-l1 { background: #b5caff; } .felt-bars b.felt-l2 { background: #abcf63; } .felt-bars b.felt-l3 { background: #f2ea00; }
+.felt-bars b.felt-l4 { background: #ffa30a; } .felt-bars b.felt-l5 { background: #ff4c00; } .felt-bars b.felt-l6 { background: #a40000; }
+.felt-send { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.felt-loc { font-size: 14px; } .felt-loc input { margin-right: 6px; }
+.felt-ok { margin: 0; padding: 8px 12px; border-radius: 8px; background: #eaf6e4; color: #24561a; font-weight: 600; }
+.felt-total { margin: 0; font-size: 16px; font-weight: 600; }
+.felt-bars { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; max-width: 560px; }
+.felt-bars li { display: grid; grid-template-columns: 110px minmax(0, 1fr) 48px; align-items: center; gap: 10px; font-size: 13.5px; }
+.felt-bars i { display: block; height: 12px; border-radius: 6px; background: var(--paper-2); overflow: hidden; }
+.felt-bars b { display: block; height: 100%; border-radius: 6px; }
+.felt-bars li > span:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+.felt-dist { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.6; }
+.felt-official { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0; font-size: 14px; }
+.felt-official a { color: var(--accent); font-weight: 600; text-decoration: none; }

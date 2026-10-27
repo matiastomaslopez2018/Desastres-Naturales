@@ -61,7 +61,7 @@ export function EventCard({ lang, e, detail, detailLoading, onClose, actions, ts
     if (e.type === 'eq') {
       big = e.mag != null ? nf(e.mag, 1) : '—';
       bigUnit = (e.magType ?? '') + (d.magErr != null ? ` ± ${nf(d.magErr, 2)}` : '');
-      const place = e.src === 'USGS' ? localPlace(e.title, lang) : e.title;
+      const place = e.src === 'USGS' ? localPlace(e.title, lang) : e.src === 'CSN' || e.src === 'INPRES' ? localTitle(e, lang) : e.title;
       // Sin fila "Lugar" cuando repite el título de la ficha.
       if (place !== localTitle(e, lang)) add(f.place, place);
       // El texto oficial tal como lo publica USGS, cuando la traducción lo cambió.

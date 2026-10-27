@@ -514,7 +514,8 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
   const rangeLabel = head != null ? `${t.untilHead} ${headLabel}` : range === 'year' ? `${t.inYear} ${year}` : `${t.last} ${t[`r${range}`]}`;
   // Titular automático con datos reales: cuántos sismos hubo en el período y dónde fue el mayor.
   const headline = useMemo(() => {
-    const eqs = visible.filter((e) => e.type === 'eq');
+    // Solo los del catálogo mundial (USGS): los chicos de INPRES y del CSN inflarían la cuenta "del planeta".
+    const eqs = visible.filter((e) => e.type === 'eq' && e.src !== 'INPRES' && e.src !== 'CSN');
     if (!eqs.length) return null;
     const top = eqs.reduce((a, b) => ((b.mag ?? 0) > (a.mag ?? 0) ? b : a));
     if (top.mag == null) return null;

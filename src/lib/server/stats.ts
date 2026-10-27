@@ -24,9 +24,9 @@ export const parseSort = (v: string | undefined): SortKey => ((SORT_KEYS as read
 
 const alertLvl = (e: DisasterEvent) => Math.max(e.alert ? ALERT_RANK[e.alert] : 0, e.pager ? ALERT_RANK[e.pager] : 0);
 
-/** Eventos que cuentan para comparar: con país y, si son sismos, desde M4.5. */
+/** Eventos que cuentan para comparar: con país y, si son sismos, desde M4.5 y del catálogo mundial (USGS). */
 export function comparable(e: DisasterEvent): boolean {
-  if (!e.iso3) return false;
+  if (!e.iso3 || e.src === 'INPRES' || e.src === 'CSN') return false;
   return e.type !== 'eq' || (e.mag != null && e.mag >= RANK_EQ_FLOOR);
 }
 

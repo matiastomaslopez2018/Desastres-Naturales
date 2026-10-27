@@ -1,6 +1,21 @@
 export type EventType = 'eq' | 'volcano' | 'fire' | 'storm' | 'flood' | 'drought';
 export type AlertLevel = 'green' | 'yellow' | 'orange' | 'red';
-export type Source = 'USGS' | 'NASA EONET' | 'GDACS';
+export type Source = 'USGS' | 'NASA EONET' | 'GDACS' | 'INPRES' | 'CSN';
+
+/** Datos del mismo sismo según el organismo sismológico nacional (INPRES en Argentina, CSN en Chile). */
+export interface LocalReport {
+  agency: 'INPRES' | 'CSN';
+  id: string;
+  mag: number | null;
+  magType?: string;
+  depth?: number;
+  /** INPRES: sismo sentido (revisado por un sismólogo). */
+  felt?: boolean;
+  /** INPRES: revisado por un sismólogo (si no, es una determinación automática). */
+  reviewed?: boolean;
+  place?: string;
+  url: string;
+}
 export type RangeKey = '24h' | '7d' | '30d' | '1y' | 'year';
 export type Lang = 'es' | 'en';
 
@@ -39,6 +54,8 @@ export interface DisasterEvent {
   links?: Link[];
   /** Número GLIDE (GDACS): permite enlazar reportes humanitarios de ReliefWeb. */
   glide?: string;
+  /** Sismos: lo que informaron INPRES o CSN del mismo evento. */
+  local?: LocalReport[];
 }
 
 export interface GvpVolcano {

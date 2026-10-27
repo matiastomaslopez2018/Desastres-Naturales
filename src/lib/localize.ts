@@ -129,8 +129,16 @@ export function titlePlaces(e: DisasterEvent, lang: Lang): string[] {
  * Título en el idioma de la página. `short`: los eventos de 3 o más países se
  * resumen como "Sequía en Europa · 25 países".
  */
+/** Referencia del CSN en el idioma de la página: "85 km al E de Socaire" → "85 km E of Socaire". */
+export function csnPlace(place: string, lang: Lang): string {
+  const m = lang === 'en' ? /^(\d+(?:[.,]\d+)?) km al ([NSEO]{1,3}) de (.+)$/.exec(place.trim()) : null;
+  return m ? `${m[1]} km ${m[2].replace(/O/g, 'W')} of ${m[3]}` : place;
+}
+
 export function localTitle(e: DisasterEvent, lang: Lang, short = true): string {
   if (e.type === 'eq' && e.src === 'USGS') return localPlace(e.title, lang);
+  if (e.src === 'CSN') return csnPlace(e.title, lang);
+  if (e.src === 'INPRES') return e.title;
   const title = clean(e.title);
   const p = parsePlaces(e, lang);
   if (p) {

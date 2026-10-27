@@ -6,6 +6,7 @@ import { compactCoverage, getStoredEvent, kvGet, lastRuns, queryEvents } from '.
 import { EVENT_SOURCES, ensureCovered, migrateData, refreshReference } from './jobs';
 import { fetchEonetEvent, fetchGdacsEvent, fetchUsgsDetail, mapUsgs, parseEqDetail } from './sources';
 import { rangeInfo } from '../range';
+import { mergeLocal, refreshLocal } from './localQuakes';
 import type { DisasterEvent, EqDetail, EventsResponse, GvpVolcano, RangeKey, SourceKey, SourceStatus } from '../types';
 
 /*
@@ -15,6 +16,7 @@ import type { DisasterEvent, EqDetail, EventsResponse, GvpVolcano, RangeKey, Sou
 
 const KM = 6371;
 const SRC_LABEL: Record<string, DisasterEvent['src']> = { usgs: 'USGS', eonet: 'NASA EONET', gdacs: 'GDACS' };
+const DAY = 864e5;
 
 /* ───────────── Merge GDACS → eventos existentes (README §3) ───────────── */
 
@@ -79,6 +81,8 @@ export async function getEvents(range: RangeKey, year: number): Promise<EventsRe
     ),
   );
   compactCoverage().catch(() => {});
+  // Sismos de INPRES y del CSN: solo para los últimos 30 días (es lo que publican en línea).
+  if (+e > Date.now() - 31 * DAY) await refreshLocal().catch((err) => console.error('[events] local', err instanceof Error ? err.message : err));
 
   const [rows, runs] = await Promise.all([queryEvents(+s, +e, floor), lastRuns()]);
   const sources: Partial<Record<SourceKey, SourceStatus>> = {};
@@ -91,7 +95,7 @@ export async function getEvents(range: RangeKey, year: number): Promise<EventsRe
     if (run?.lastOkAt) fetchedAt = Math.max(fetchedAt, run.lastOkAt);
   }
   return {
-    events: splitGdacs(dedupeEonet(rows)), sources, fetchedAt: fetchedAt || Date.now(),
+    events: mergeLocal(splitGdacs(dedupeEonet(rows))), sources, fetchedAt: fetchedAt || Date.now(),
     range: { start: s.toISOString(), end: e.toISOString(), floor },
   };
 }
@@ -129,9 +133,17 @@ export async function getEqDetail(id: string): Promise<EqDetail> {
 export const USGS_ID = /^[a-z0-9]{2,30}$/i;
 const EONET_ID = /^eonet-(EONET_\d{1,9})$/;
 const GDACS_ID = /^gdacs-(EQ|TC|FL|VO|WF|DR)(\d{1,10})$/;
-export const isEventId = (id: string) => USGS_ID.test(id) || EONET_ID.test(id) || GDACS_ID.test(id);
+const LOCAL_ID = /^(inpres-\d{14}|csn-\d{1,10})$/;
+export const isEventId = (id: string) => USGS_ID.test(id) || EONET_ID.test(id) || GDACS_ID.test(id) || LOCAL_ID.test(id);
 
 const notFound = (err: unknown) => err instanceof HttpError && (err.status === 404 || err.status === 400 || err.status === 204);
+
+/** Sismo del USGS que es el mismo que uno de INPRES o del CSN (como en la lista: mergeLocal). */
+async function usgsTwin(e: DisasterEvent): Promise<string | null> {
+  const rows = await queryEvents(e.time - 3 * 6e4, e.time + 3 * 6e4, 0);
+  const twin = mergeLocal([...rows.filter((r) => r.src === 'USGS' && r.type === 'eq'), e]).find((r) => r.src === 'USGS' && r.local?.some((l) => `${l.agency.toLowerCase()}-${l.id}` === e.id));
+  return twin?.id ?? null;
+}
 
 /** Adjunta la alerta GDACS que corresponda, igual que en la lista. */
 async function withGdacs(e: DisasterEvent): Promise<DisasterEvent> {
@@ -152,7 +164,12 @@ export async function getEventById(id: string): Promise<EventWithDetail | null> 
     let detail: EqDetail | null = null;
     const g = GDACS_ID.exec(id);
     const n = EONET_ID.exec(id);
-    if (g) {
+    if (LOCAL_ID.test(id)) {
+      // INPRES o CSN: solo lo guardado (si el USGS tiene el mismo sismo, se muestra el del USGS con este dato).
+      if (!event) return null;
+      const twin = await usgsTwin(event);
+      if (twin) return getEventById(twin);
+    } else if (g) {
       event ??= await cached('gdacs:' + id, 10 * 6e4, () => fetchGdacsEvent(g[1], g[2]));
     } else if (n) {
       event ??= await cached('eonet:' + id, 10 * 6e4, () => fetchEonetEvent(n[1]));
@@ -165,6 +182,11 @@ export async function getEventById(id: string): Promise<EventWithDetail | null> 
     }
     if (!event) return null;
     if (!event.iso3) event = withCountry(event);
+    // Sismos del USGS: lo que informaron INPRES o el CSN del mismo evento.
+    if (event.type === 'eq' && event.src === 'USGS') {
+      const id0 = event.id, near = (await queryEvents(event.time - 3 * 6e4, event.time + 3 * 6e4, 0).catch(() => [])).filter((r) => r.src === 'INPRES' || r.src === 'CSN');
+      if (near.length) event = mergeLocal([event, ...near]).find((r) => r.id === id0) ?? event;
+    }
     return { event: await withGdacs(event), detail };
   } catch (err) {
     if (notFound(err)) return null;

@@ -59,6 +59,12 @@ const SCHEMA = [
   )`,
   'CREATE INDEX IF NOT EXISTS ingest_runs_src ON ingest_runs (src, finished_at)',
   `CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL)`,
+  // "¿Lo sentiste?": reportes anónimos (intensidad 0–6 y, si la persona quiere, la ubicación redondeada a 0,1°).
+  `CREATE TABLE IF NOT EXISTS felt (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id TEXT NOT NULL, level INTEGER NOT NULL, lat REAL, lon REAL, at INTEGER NOT NULL
+  )`,
+  'CREATE INDEX IF NOT EXISTS felt_event ON felt (event_id)',
 ];
 
 let client: Client | null = null;
@@ -276,4 +282,23 @@ export async function kvIncr(key: string): Promise<number> {
     args: [key, Date.now()],
   });
   return Number(r.rows[0]?.value ?? 0);
+}
+
+/* ───────────── "¿Lo sentiste?" ───────────── */
+
+export async function addFelt(eventId: string, level: number, lat: number | null, lon: number | null): Promise<void> {
+  const c = await db();
+  await c.execute({ sql: 'INSERT INTO felt (event_id, level, lat, lon, at) VALUES (?, ?, ?, ?, ?)', args: [eventId, level, lat, lon, Date.now()] });
+}
+
+export async function feltReports(eventId: string): Promise<{ level: number; lat: number | null; lon: number | null }[]> {
+  const c = await db();
+  const r = await c.execute({ sql: 'SELECT level, lat, lon FROM felt WHERE event_id = ? LIMIT 50000', args: [eventId] });
+  return r.rows.map((x) => ({ level: Number(x.level), lat: x.lat == null ? null : Number(x.lat), lon: x.lon == null ? null : Number(x.lon) }));
+}
+
+/** Borra claves de kv con un prefijo, más viejas que `before` (ms). */
+export async function kvDeleteOlder(prefix: string, before: number): Promise<void> {
+  const c = await db();
+  await c.execute({ sql: 'DELETE FROM kv WHERE key LIKE ? AND updated_at < ?', args: [prefix.replace(/[%_]/g, '') + '%', before] });
 }
