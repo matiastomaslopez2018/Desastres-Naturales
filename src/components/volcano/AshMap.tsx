@@ -39,6 +39,9 @@ type Props = {
 };
 
 export function AshMap({ lang, ash, vent, name, computing, computingText, cloud }: Props) {
+  // Coordenadas como números: quien usa el mapa suele pasar un arreglo nuevo en cada render, y redibujar las
+  // costas del mundo cada vez trababa la película (cientos de ms por redibujado).
+  const [vlon, vlat] = vent;
   const wrap = useRef<HTMLDivElement>(null), cv = useRef<HTMLCanvasElement>(null);
   const { w, h, dpr } = useCanvasSize(wrap);
   const [geo, setGeo] = useState<Geo | null>(null);
@@ -56,11 +59,11 @@ export function AshMap({ lang, ash, vent, name, computing, computingText, cloud 
     if (!c || !w || !ash) return;
     const ctx = prep(c, w, h, dpr);
     if (!ctx) return;
-    const cxKm = ash.cx / 1000, cyKm = ash.cy / 1000, cosV = Math.cos((vent[1] * Math.PI) / 180);
+    const cxKm = ash.cx / 1000, cyKm = ash.cy / 1000, cosV = Math.cos((vlat * Math.PI) / 180);
     const toKm = (lon: number, lat: number): [number, number] => {
-      let dl = lon - vent[0];
+      let dl = lon - vlon;
       if (dl > 180) dl -= 360; else if (dl < -180) dl += 360;
-      return [dl * 111.32 * cosV, (lat - vent[1]) * 111.32];
+      return [dl * 111.32 * cosV, (lat - vlat) * 111.32];
     };
     // Recuadro de la grilla y, si hay, la nube del aviso entera.
     let halfKm = ((ash.n - 1) * ash.h) / 2000;
@@ -118,7 +121,7 @@ export function AshMap({ lang, ash, vent, name, computing, computingText, cloud 
       ctx.fillStyle = '#141414'; ctx.textAlign = right ? 'left' : 'right'; ctx.fillText(label, right ? x + 8 : x - 8, y);
     }
     // Volcán.
-    const [vx, vy] = lonLat(vent[0], vent[1]);
+    const [vx, vy] = lonLat(vlon, vlat);
     ctx.fillStyle = '#c8102e'; ctx.beginPath(); ctx.moveTo(vx, vy - 9); ctx.lineTo(vx - 8, vy + 6); ctx.lineTo(vx + 8, vy + 6); ctx.closePath(); ctx.fill();
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
     ctx.textAlign = 'left'; ctx.fillStyle = '#c8102e'; ctx.fillText(name, vx + 10, vy - 6);
@@ -128,7 +131,7 @@ export function AshMap({ lang, ash, vent, name, computing, computingText, cloud 
     ctx.textAlign = 'left'; ctx.font = '11px var(--font-isans), system-ui, sans-serif'; ctx.fillText(`${fmtNum(lang, nice)} km`, 12, h - 26);
     // Norte.
     ctx.textAlign = 'center'; ctx.font = '600 12px var(--font-isans), system-ui, sans-serif'; ctx.fillText('N ↑', w - 22, 16);
-  }, [w, h, dpr, ash, iso, geo, vent, name, lang, cloud]);
+  }, [w, h, dpr, ash, iso, geo, vlon, vlat, name, lang, cloud]);
 
   return (
     <div className="vs-map-wrap">
