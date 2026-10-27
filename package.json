@@ -11,6 +11,7 @@
     "backfill": "tsx --conditions=react-server --env-file-if-exists=.env.local scripts/backfill.ts",
     "db:check": "tsx --conditions=react-server --env-file-if-exists=.env.local scripts/db-check.ts",
     "ibtracs": "tsx scripts/ibtracs.ts",
+    "this-day": "tsx scripts/this-day.ts",
     "tectonics": "tsx scripts/tectonics.ts",
     "ibtracs-grid": "tsx scripts/ibtracs-grid.ts",
     "plate-vectors": "tsx scripts/plate-vectors.ts",

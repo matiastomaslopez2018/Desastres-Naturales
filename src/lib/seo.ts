@@ -21,6 +21,7 @@ export const ROUTES = {
   myPlace: { es: 'mi-lugar', en: 'my-place' },
   whatToDo: { es: 'que-hacer', en: 'what-to-do' },
   widget: { es: 'widget-para-tu-sitio', en: 'embed-widget' },
+  thisDay: { es: 'un-dia-como-hoy', en: 'on-this-day' },
 } as const satisfies Record<string, Record<Lang, string>>;
 
 export type RouteKey = keyof typeof ROUTES;

@@ -531,3 +531,20 @@ a.qs-chip { text-decoration: none; color: inherit; display: inline-block; }
 .dl-links { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; margin: 8px 0 0; font-size: 14px; color: var(--faint); }
 .dl-links a { padding: 3px 10px; border: 1px solid var(--rule-strong); border-radius: 999px; color: inherit; font-weight: 600; text-decoration: none; }
 .dl-links a:hover { background: var(--paper-2); }
+
+/* «Un día como hoy» */
+.td-nav { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 8px 0 12px; }
+.td-date { font-family: var(--font-display); font-size: 30px; font-weight: 400; margin: 0; min-width: 9ch; text-align: center; }
+.td-pick input { font: inherit; font-size: 14px; padding: 6px 8px; border: 1px solid var(--rule-strong); border-radius: 8px; background: #fff; }
+.td-filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 14px; }
+.td-sort { margin-left: auto; font-size: 13px; color: var(--faint); display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.td-list { list-style: none; padding: 0; margin: 0 0 14px; }
+.td-item { display: flex; gap: 16px; padding: 12px 0; border-top: 1px solid var(--rule); }
+.td-year { font-family: var(--font-display); font-size: 24px; width: 92px; flex: none; font-variant-numeric: tabular-nums; }
+.td-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.td-title { font-weight: 600; display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.td-where { font-size: 15px; }
+.td-facts { font-size: 13px; color: var(--faint); }
+.td-links { display: flex; gap: 14px; flex-wrap: wrap; font-size: 14px; margin-top: 2px; }
+@media (max-width: 560px) { .td-item { flex-direction: column; gap: 4px; } .td-year { width: auto; font-size: 20px; } .td-sort { margin-left: 0; } }
+.td-filters .qs-chip { display: inline-flex; align-items: center; gap: 6px; }
