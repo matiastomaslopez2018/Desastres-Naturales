@@ -558,3 +558,13 @@ a.qs-chip { text-decoration: none; color: inherit; display: inline-block; }
 .wi-table th { text-align: left; font-weight: 600; font-size: 13px; color: var(--faint); border-bottom: 1px solid var(--rule-strong); padding: 6px 8px 6px 0; }
 .wi-table td { border-bottom: 1px solid var(--rule); padding: 7px 8px 7px 0; }
 .wi-table .ml-key { vertical-align: -1px; }
+
+/* Simulador de inundaciones */
+.fs-map-wrap { position: relative; margin: 12px 0; }
+.fs-map { height: clamp(360px, 62vw, 620px); border-radius: 12px; overflow: hidden; border: 1px solid var(--rule); background: #cfe0ea; }
+.fs-status { position: absolute; left: 10px; top: 10px; right: 56px; margin: 0; padding: 6px 10px; border-radius: 8px; background: rgba(255,255,255,.92); font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,.15); pointer-events: none; }
+.fs-controls { display: flex; flex-wrap: wrap; gap: 12px 28px; align-items: flex-end; }
+.fs-controls input[type=range] { width: min(100%, 360px); }
+.fs-legend { display: flex; align-items: center; gap: 8px; }
+.fs-scale { width: 120px; height: 10px; border-radius: 4px; background: linear-gradient(90deg, rgb(116,192,252), rgb(24,100,171)); }
+.fs-stats { margin-top: 10px; }

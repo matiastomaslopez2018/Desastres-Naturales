@@ -23,6 +23,7 @@ export const ROUTES = {
   widget: { es: 'widget-para-tu-sitio', en: 'embed-widget' },
   thisDay: { es: 'un-dia-como-hoy', en: 'on-this-day' },
   whatIf: { es: 'y-si-pasara-aca', en: 'what-if-it-happened-here' },
+  floodSim: { es: 'simulador-inundaciones', en: 'flood-simulator' },
 } as const satisfies Record<string, Record<Lang, string>>;
 
 export type RouteKey = keyof typeof ROUTES;

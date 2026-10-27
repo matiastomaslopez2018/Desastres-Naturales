@@ -183,6 +183,13 @@ export const METHOD_GROUPS: MethodGroup[] = [
     title: { es: 'Inundaciones y sequías', en: 'Floods and droughts' },
     sources: [
       {
+        name: 'Terrain Tiles (Mapzen, AWS Open Data) · simulador de inundaciones', url: 'https://registry.opendata.aws/terrain-tiles/',
+        covers: { es: 'Relieve (zoom 13, celdas de unos 15 a 19 m) con el que el simulador de inundaciones calcula qué zonas quedan bajo el agua al subir el nivel desde un río, una laguna o el mar ("modelo de bañera" con el algoritmo priority-flood de Barnes et al., 2014).', en: 'Terrain (zoom 13, cells of about 15 to 19 m) the flood simulator uses to compute which areas end up under water when the level rises from a river, lake or sea ("bathtub model" with the priority-flood algorithm of Barnes et al., 2014).' },
+        freq: { es: 'Fijo: combina SRTM (NASA), USGS 3DEP en EE. UU., ETOPO1 y otras fuentes.', en: 'Static: combines SRTM (NASA), USGS 3DEP in the US, ETOPO1 and other sources.' },
+        license: { es: 'Datos abiertos con atribución (ver el registro de AWS Open Data).', en: 'Open data with attribution (see the AWS Open Data registry).' },
+        limits: { es: 'No simula caudal, lluvia, duración, desagües ni defensas. El relieve incluye en parte edificios y árboles y puede errar varios metros en zonas llanas: sirve para entender, no para decidir. Los mapas oficiales de riesgo hídrico son los de cada municipio o provincia.', en: 'It does not simulate flow, rain, duration, drains or levees. The terrain partly includes buildings and trees and may be off by several metres on flat land: it is for understanding, not for decisions. Official flood-risk maps are those of each local or regional government.' },
+      },
+      {
         name: 'Copernicus GloFAS', url: 'https://global-flood.emergency.copernicus.eu/',
         covers: { es: 'Pronóstico de crecidas en los grandes ríos (probabilidad de superar umbrales en los próximos 30 días).', en: 'Flood forecasts for large rivers (probability of exceeding thresholds in the next 30 days).' },
         freq: { es: 'Diaria.', en: 'Daily.' },
