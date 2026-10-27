@@ -10,6 +10,7 @@ const es = {
   lead: 'Cada volcán erupciona a su manera. Elegí una erupción real o armá la tuya: el relieve y la imagen satelital son los del volcán, la altura de la columna sale de la cantidad de magma que sale por segundo y la ceniza cae arrastrada por el viento real de cada altura, con el mismo modelo que usan los observatorios para sus pronósticos.',
   otherQuake: 'Simulador de sismos', otherTsunami: 'Simulador de tsunamis', thisSim: 'Simulador de volcanes',
   types: 'Tipos de volcán', photo: 'Foto',
+  watchMovie: 'Ver la película', movieHint: 'Poco más de un minuto: el volcán, la erupción, la ceniza, los otros peligros y la foto de la erupción real.',
   typesHelp: 'La forma de un volcán cuenta cómo erupciona: lava fluida hace volcanes chatos y anchos; magma viscoso y con gas hace conos empinados y explosiones.',
   typeNames: { shield: 'Volcán en escudo', strato: 'Estratovolcán', cone: 'Cono de escoria', dome: 'Domo de lava', caldera: 'Caldera' } as Record<VolcanoType, string>,
   typeText: {
@@ -114,6 +115,7 @@ const en: typeof es = {
   lead: 'Every volcano erupts in its own way. Pick a real eruption or build your own: the relief and satellite image are the volcano’s own, the column height follows from how much magma comes out per second, and the ash falls carried by the real wind at each height, with the same model observatories use for their forecasts.',
   otherQuake: 'Earthquake simulator', otherTsunami: 'Tsunami simulator', thisSim: 'Volcano simulator',
   types: 'Volcano types', photo: 'Photo',
+  watchMovie: 'Watch the movie', movieHint: 'Just over a minute: the volcano, the eruption, the ash, the other hazards and a photo of the real eruption.',
   typesHelp: 'A volcano’s shape tells how it erupts: fluid lava builds broad, flat volcanoes; viscous, gas-rich magma builds steep cones and explosions.',
   typeNames: { shield: 'Shield volcano', strato: 'Stratovolcano', cone: 'Cinder cone', dome: 'Lava dome', caldera: 'Caldera' },
   typeText: {

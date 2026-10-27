@@ -7,7 +7,8 @@ import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { ERUPTIONS, VOLCANOES, type Eruption, type Style, type VolcanoType } from '@/lib/volcano/presets';
-import { merFromHeight, vei as veiOf, type TephraParams, type WindProfile } from '@/lib/volcano/tephra';
+import { merFromHeight, vei as veiOf, windAt, type TephraParams, type WindProfile } from '@/lib/volcano/tephra';
+import type { VMovieInput } from './VolcanoMovie';
 import { ANIM_S, at, slots as makeSlots } from '@/lib/volcano/timeline';
 import { VOLC_SOURCES, VOLC_TEXT } from '@/lib/volcano/text';
 import { fmtNum } from '@/lib/format';
@@ -20,6 +21,8 @@ import type { AshIn, AshOut } from './ash.worker';
 import type { HazardIn, HazardKind, HazardOut } from './hazard.worker';
 import type { Dem } from '@/lib/volcano/hazards';
 
+// La película (y su guion) se descargan recién cuando se abre.
+const VolcanoMovie = dynamic(() => import('./VolcanoMovie'), { ssr: false });
 const Scene3D = dynamic(() => import('./VolcanoScene3D'), { ssr: false, loading: () => <div className="vs-3d vs-busy">…</div> });
 
 type Meta = { box: { w: number; e: number; s: number; n: number }; n: number; maxElev: number; scene: { date?: string } | null; climate: { months: { p: number; h: number; u: number; v: number }[][] } };
@@ -136,6 +139,7 @@ export function VolcanoSim({ lang, initial }: { lang: Lang; initial?: string }) 
   const clock = useClock(ANIM_S, { textHz: 0 });
   const sl = useMemo(() => (run ? makeSlots(run.phases) : []), [run]);
   const masses = useMemo(() => (run ? run.phases.map((p) => p.massKg) : []), [run]);
+  const scenePhases = useMemo(() => (run ? run.phases.map((p) => ({ top: p.topKm * 1000, wind: p.wind })) : []), [run]);
   useEffect(() => { clock.pause(); clock.seek(sl.length ? Math.min(ANIM_S, sl[0].start + (sl[0].end - sl[0].start) * 0.6) : 0); /* cuadro de muestra */ }, [sl]); // eslint-disable-line react-hooks/exhaustive-deps
   const [no3D, setNo3D] = useState(false);
 
@@ -183,11 +187,35 @@ export function VolcanoSim({ lang, initial }: { lang: Lang; initial?: string }) 
       return false;
     }).map(([name]) => name);
   }, [hazardLayer, meta, volcano]);
+  const totalMass = masses.reduce((a, b) => a + b, 0), volM3 = totalMass / 1000;
+  // Película: datos de entrada y números para los textos (se arman al abrirla).
+  const [movie, setMovie] = useState(false);
+  const movieInput = useMemo<VMovieInput | null>(() => {
+    if (!movie || !run || !meta) return null;
+    const last = run.phases[run.phases.length - 1], topM = last.topKm * 1000;
+    const w = windAt(last.wind, volcano.elev + (topM - volcano.elev) * 0.67);
+    const hours = run.phases.reduce((a, p) => a + p.hours, 0);
+    const places = ash ? [...ash.places].sort((a, b) => b.load - a.load).map((p) => ({ name: p.name, mm: mmFromLoad(p.load) })) : [];
+    const o = eruption?.obs?.[0], po = o && ash?.places.find((p) => p.name === o.place);
+    const check = o && po ? (lang === 'es'
+      ? `En ${o.place} se midieron ${fmtThick(lang, o.min)} a ${fmtThick(lang, o.max)}; la simulación da ${fmtThick(lang, mmFromLoad(po.load))} (${o.src}).`
+      : `In ${o.place}, ${fmtThick(lang, o.min)} to ${fmtThick(lang, o.max)} were measured; the simulation gives ${fmtThick(lang, mmFromLoad(po.load))} (${o.src}).`) : null;
+    return {
+      lang, volcano, style, n: meta.n, phases: scenePhases, slots: sl, masses, ash, dem,
+      photo: eruption ? `/images/eruptions/${eruption.id}.jpg` : null,
+      facts: {
+        name: volcano.name, country: volcano.country[lang], type: volcano.type, typeName: t.typeNames[volcano.type], elev: volcano.elev,
+        eruption: eruption?.name[lang] ?? null, year: eruption?.year ?? null, style, styleName: t.styles[style],
+        topKm: last.topKm, hours, mer: totalMass / (hours * 3600), massKg: totalMass, vei: eruption ? eruption.vei : veiOf(volM3),
+        windTo: ((Math.atan2(w.u, w.v) * 180) / Math.PI + 360) % 360, windKmh: Math.hypot(w.u, w.v) * 3.6, windSrc: run.windNote,
+        places, check, photo: eruption ? `${eruption.photo.caption[lang]} (${t.photo}: ${eruption.photo.credit})` : null,
+      },
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [movie]);
   const hzArea = hazardLayer && dem ? hazardLayer.value.reduce((a, v) => a + (v > (hazardLayer.kind === 'lava' ? 0.05 : 0.01) ? 1 : 0), 0) * dem.cell * dem.cell / 1e6 : 0;
-  const scenePhases = useMemo(() => (run ? run.phases.map((p) => ({ top: p.topKm * 1000, wind: p.wind })) : []), [run]);
 
   // Números.
-  const totalMass = masses.reduce((a, b) => a + b, 0), volM3 = totalMass / 1000;
   const sorted = ash ? [...ash.places].sort((a, b) => a.km - b.km) : [];
   const impactOf = (mm: number) => t.impactCuts.reduce((k, c, i) => (mm >= c ? i + 1 : k), 0);
 
@@ -229,6 +257,13 @@ export function VolcanoSim({ lang, initial }: { lang: Lang; initial?: string }) 
             <div className="qs-presets">
               {ERUPTIONS.map((e) => <button key={e.id} type="button" className="qs-chip" aria-pressed={eruption?.id === e.id} onClick={() => pickEruption(e.id)}>{e.name[lang]}</button>)}
             </div>
+            {eruption && (
+              <figure className="vs-photo">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`/images/eruptions/${eruption.id}.jpg`} alt={eruption.photo.caption[lang]} width={960} height={600} loading="lazy" />
+                <figcaption>{eruption.photo.caption[lang]}. <a href={eruption.photo.page} target="_blank" rel="noopener noreferrer">{t.photo}: {eruption.photo.credit} ({lang === 'en' && eruption.photo.license === 'dominio público' ? 'public domain' : eruption.photo.license})</a></figcaption>
+              </figure>
+            )}
             {eruption && <p className="qs-note">{eruption.note[lang]}</p>}
           </div>
           <div className="qs-block">
@@ -279,6 +314,11 @@ export function VolcanoSim({ lang, initial }: { lang: Lang; initial?: string }) 
         </aside>
 
         <div className="qs-main">
+          <div className="ts-movie-cta">
+            <button type="button" className="ts-movie-btn" disabled={!run || !meta} onClick={() => { clock.pause(); setMovie(true); }}>▶ {t.watchMovie}</button>
+            <span className="qs-help">{t.movieHint}</span>
+          </div>
+          {movieInput && <VolcanoMovie input={movieInput} onClose={() => setMovie(false)} />}
           <section className="qs-card" aria-label={t.scene}>
             <div className="qs-card-head">
               <h2 className="qs-h">{t.scene}: {volcano.name}</h2>
@@ -296,7 +336,7 @@ export function VolcanoSim({ lang, initial }: { lang: Lang; initial?: string }) 
               </div>
             </div>
             <div className="vs-stage">
-              {run && meta && !no3D ? (
+              {run && meta && !no3D && !movie ? (
                 <Scene3D lang={lang} name={volcano.name} elev={volcano.elev} boxKm={volcano.boxKm} n={meta.n}
                   demUrl={`/data/volcano/${volcano.id}/dem.bin`} imageUrl={`/data/volcano/${volcano.id}/image.jpg`}
                   style={style} phases={scenePhases} slots={sl} masses={masses} local={ash?.local ?? null} localN={ash?.localN ?? 2}

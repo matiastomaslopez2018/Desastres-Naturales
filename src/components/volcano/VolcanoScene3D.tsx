@@ -36,6 +36,11 @@ export type SceneProps = {
   labels: { crater: string; top: (km: string) => string };
   /** Peligro que se muestra sobre el relieve (lava, flujos piroclásticos o lahares); null: la ceniza. */
   hazard: HazardLayer | null;
+  /**
+   * Cámara manejada desde afuera (la película): ángulo horizontal y de elevación (rad), distancia y altura del
+   * punto mirado sobre el cráter (m). Sin esto la cámara la mueve quien mira.
+   */
+  drive?: () => { az: number; el: number; distM: number; lookM: number };
 };
 
 export type HazardLayer = { kind: 'lava' | 'pdc' | 'lahar'; value: Float32Array; arrival: Float32Array; n: number };
@@ -93,6 +98,8 @@ export default function VolcanoScene3D(p: SceneProps) {
   const wrap = useRef<HTMLDivElement>(null), labelsRef = useRef<HTMLDivElement>(null);
   const propsRef = useRef(p);
   propsRef.current = p;
+  // La escena recibe la ceniza y el peligro nuevos sin rehacerse (cada escena tiene los suyos).
+  const onAsh = useRef<((local: Float32Array | null, n: number) => void) | null>(null), onHazard = useRef<((h: HazardLayer | null) => void) | null>(null);
 
   useEffect(() => {
     const el = wrap.current!, P = propsRef.current, labelBox = labelsRef.current;
@@ -341,7 +348,8 @@ export default function VolcanoScene3D(p: SceneProps) {
       }
       lgeo.attributes.position.needsUpdate = true; lgeo.attributes.size.needsUpdate = true; lgeo.attributes.alpha.needsUpdate = true; lgeo.attributes.color.needsUpdate = true;
       ashMat.opacity = hzLayer ? 0 : 0.92 * st.deposited;
-      points.visible = hzLayer?.kind !== 'lahar'; lava.visible = points.visible;
+      // Sin columna para los lahares (ocurren después, con lluvia) ni en la película cuando muestra un peligro.
+      points.visible = hzLayer?.kind !== 'lahar' && !(P.drive && hzLayer); lava.visible = points.visible;
       paintHazard(Math.min(1, t / (P.slots[P.slots.length - 1]?.end || 1)));
       return { st, phase };
     }
@@ -383,7 +391,16 @@ export default function VolcanoScene3D(p: SceneProps) {
     function draw() {
       const now = performance.now(), dtF = now - lastFrame;
       lastFrame = now;
-      const t = P.clock.now(), moved = controls.update();
+      const t = P.clock.now();
+      let moved: boolean;
+      if (P.drive) {
+        const c = P.drive();
+        controls.enabled = false;
+        controls.target.set(0, ventY + c.lookM / U, 0);
+        camera.position.set(Math.sin(c.az) * Math.cos(c.el), Math.sin(c.el), Math.cos(c.az) * Math.cos(c.el)).multiplyScalar(c.distM / U).add(controls.target);
+        camera.lookAt(controls.target);
+        moved = true;
+      } else moved = controls.update();
       if (t !== lastT) frameMs = frameMs * 0.9 + Math.min(100, dtF) * 0.1;
       if (frameMs > 22 && nVis > 1500) { if (++slow > 8) { nVis = Math.max(1500, Math.round(nVis * 0.7)); slow = 0; dirty = true; } } else slow = 0;
       if (frameMs < 14 && nVis < N_PART) { if (++fast > 120) { nVis = Math.min(N_PART, Math.round(nVis * 1.25)); fast = 0; dirty = true; } } else fast = 0;
@@ -411,10 +428,10 @@ export default function VolcanoScene3D(p: SceneProps) {
     const loop = () => { raf = requestAnimationFrame(loop); if (visible && !document.hidden) draw(); };
     loop();
     // Cuando cambian los datos de la ceniza.
-    const offAsh = subscribeAsh((local, n) => { paintAsh(local, n); dirty = true; });
-    const offHz = subscribeHazard((h) => { hzLayer = h; hzShown = -1; dirty = true; });
+    onAsh.current = (local, n) => { paintAsh(local, n); dirty = true; };
+    onHazard.current = (h) => { hzLayer = h; hzShown = -1; dirty = true; };
     return () => {
-      alive = false; cancelAnimationFrame(raf); ro.disconnect(); io.disconnect(); controls.dispose(); offAsh(); offHz();
+      alive = false; cancelAnimationFrame(raf); ro.disconnect(); io.disconnect(); controls.dispose(); onAsh.current = null; onHazard.current = null;
       labelBox?.replaceChildren();
       scene.traverse((o) => { const m = o as THREE.Mesh; m.geometry?.dispose(); const mat = m.material as THREE.Material | THREE.Material[] | undefined; (Array.isArray(mat) ? mat : mat ? [mat] : []).forEach((x) => x.dispose()); });
       [tex, ashTex, tex2, hzTex].forEach((x) => x?.dispose());
@@ -423,8 +440,8 @@ export default function VolcanoScene3D(p: SceneProps) {
   }, [p.demUrl, p.style, p.phases, p.slots]);
 
   // La grilla de ceniza llega después (worker): se avisa a la escena sin rehacerla.
-  useEffect(() => { ashListeners.forEach((fn) => fn(p.local, p.localN)); }, [p.local, p.localN]);
-  useEffect(() => { hazardListeners.forEach((fn) => fn(p.hazard)); }, [p.hazard]);
+  useEffect(() => { onAsh.current?.(p.local, p.localN); }, [p.local, p.localN]);
+  useEffect(() => { onHazard.current?.(p.hazard); }, [p.hazard]);
 
   return (
     <div ref={wrap} className="vs-3d">
@@ -433,8 +450,4 @@ export default function VolcanoScene3D(p: SceneProps) {
   );
 }
 
-const ashListeners = new Set<(local: Float32Array | null, n: number) => void>();
-function subscribeAsh(fn: (local: Float32Array | null, n: number) => void) { ashListeners.add(fn); return () => { ashListeners.delete(fn); }; }
 
-const hazardListeners = new Set<(h: HazardLayer | null) => void>();
-function subscribeHazard(fn: (h: HazardLayer | null) => void) { hazardListeners.add(fn); return () => { hazardListeners.delete(fn); }; }

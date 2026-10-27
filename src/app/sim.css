@@ -242,3 +242,21 @@
 .mv-q2d-pane > * { width: 100%; max-width: 1200px; }
 .mv-q2d .qs-city-bar, .mv-q2d .ed-table-wrap { display: none; }
 @media (max-width: 640px) { .mv-seis { top: 64px; right: 8px; } }
+.vs-photo { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.vs-photo img { width: 100%; height: auto; aspect-ratio: 8 / 5; object-fit: cover; border-radius: 10px; }
+.vs-photo figcaption { font-size: 12px; line-height: 1.4; color: var(--faint); }
+.vs-photo a { color: inherit; }
+/* Película del volcán */
+.vm-stage { position: absolute; inset: 0; }
+.vm-stage .vs-3d { position: absolute; inset: 0; }
+.vm-flat { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.vm-layer { position: absolute; inset: 0; transition: opacity .8s ease; pointer-events: none; }
+.vm-layer[aria-hidden='false'] { pointer-events: auto; }
+.vm-map { position: absolute; inset: 0; display: flex; flex-direction: column; padding: 16px; background: #0b1622; }
+.vm-map .vs-map-wrap { flex: 1; min-height: 0; }
+.vm-map .vs-map { height: 100%; }
+.vm-map .vs-legend { color: rgba(255,255,255,.8); }
+.vm-photo { background: #000; overflow: hidden; }
+.vm-photo img { width: 100%; height: 100%; object-fit: contain; animation: vm-kb 9s ease-out both; }
+@keyframes vm-kb { from { transform: scale(1.06); } to { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .vm-photo img { animation: none; } }

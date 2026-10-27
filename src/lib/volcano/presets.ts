@@ -46,6 +46,8 @@ export type Eruption = {
   wind: 'reanalysis' | { month: number };
   note: Record<Lang, string>;
   refs: { label: string; url: string }[];
+  /** Foto real de la erupción (Wikimedia Commons, dominio público o licencia libre) en /images/eruptions/<id>.jpg. */
+  photo: { caption: Record<Lang, string>; credit: string; license: string; page: string };
   /** Espesor medido en el terreno (mm): lugar, lon, lat, mínimo y máximo, fuente. */
   obs?: { place: string; lon: number; lat: number; min: number; max: number; src: string }[];
 };
@@ -139,7 +141,8 @@ export const VOLCANOES: Volcano[] = [
 
 export const ERUPTIONS: Eruption[] = [
   {
-    id: 'villarrica-2015', volcano: 'villarrica', year: 2015, style: 'strombolian', vei: 2,
+    id: 'villarrica-2015',
+    photo: { caption: { es: 'Villarrica en erupción, 2015', en: 'Villarrica erupting, 2015' }, credit: 'Francisco Barrera Martínez', license: 'CC BY-SA 4.0', page: 'https://commons.wikimedia.org/wiki/File:Erupci%C3%B3n_volc%C3%A1n_Villarrica_2015.jpg' }, volcano: 'villarrica', year: 2015, style: 'strombolian', vei: 2,
     name: { es: 'Villarrica (2015)', en: 'Villarrica (2015)' },
     // 03:08–03:26 hora de Chile (UTC−3); columna sostenida de unos 16 minutos.
     phases: [{ start: '2015-03-03T06:10:00Z', hours: 16 / 60, topKm: 9.7, massKg: 1.4e9, massFrom: 'deposit' }],
@@ -152,7 +155,8 @@ export const ERUPTIONS: Eruption[] = [
     refs: [{ label: 'Romero et al. (2018), Frontiers in Earth Science', url: 'https://doi.org/10.3389/feart.2018.00098' }],
   },
   {
-    id: 'calbuco-2015', volcano: 'calbuco', year: 2015, style: 'subplinian', vei: 4,
+    id: 'calbuco-2015',
+    photo: { caption: { es: 'Calbuco el 22 de abril de 2015, a las 19:13', en: 'Calbuco on 22 April 2015 at 19:13' }, credit: 'Jorge Pacheco', license: 'CC BY-SA 2.0', page: 'https://commons.wikimedia.org/wiki/File:Erupci%C3%B3n_Volc%C3%A1n_Calbuco_(17241322101).jpg' }, volcano: 'calbuco', year: 2015, style: 'subplinian', vei: 4,
     name: { es: 'Calbuco (2015)', en: 'Calbuco (2015)' },
     // Romero et al. (2016): 0,27 km³ de tefra (0,11–0,13 km³ DRE ≈ 3·10¹¹ kg), 38 % en la primera fase y 62 % en la segunda.
     phases: [
@@ -179,7 +183,8 @@ export const ERUPTIONS: Eruption[] = [
     ],
   },
   {
-    id: 'cordon-caulle-2011', volcano: 'cordon-caulle', year: 2011, style: 'subplinian', vei: 5,
+    id: 'cordon-caulle-2011',
+    photo: { caption: { es: 'La columna del Cordón Caulle vista desde un avión, 5 de junio de 2011', en: 'The Cordón Caulle column seen from a plane, 5 June 2011' }, credit: 'Pedro Rebolledo', license: 'CC BY-SA 3.0', page: 'https://commons.wikimedia.org/wiki/File:ErupcionCaulle.jpg' }, volcano: 'cordon-caulle', year: 2011, style: 'subplinian', vei: 5,
     name: { es: 'Cordón Caulle (2011)', en: 'Cordón Caulle (2011)' },
     phases: [{ start: '2011-06-04T18:45:00Z', hours: 27, topKm: 12.5, massKg: 2.9e11, massFrom: 'mastin' }],
     gsd: { md: 2, sigma: 2.2, measured: false },
@@ -191,7 +196,8 @@ export const ERUPTIONS: Eruption[] = [
     refs: [{ label: 'Pistolesi et al. (2015), Bulletin of Volcanology', url: 'https://doi.org/10.1007/s00445-014-0898-3' }],
   },
   {
-    id: 'chaiten-2008', volcano: 'chaiten', year: 2008, style: 'plinian', vei: 4,
+    id: 'chaiten-2008',
+    photo: { caption: { es: 'Chaitén en octubre de 2008, desde un avión de línea', en: 'Chaitén in October 2008, from an airliner' }, credit: 'Gerard Prins', license: 'CC BY-SA 3.0', page: 'https://commons.wikimedia.org/wiki/File:Chaiten_volcano_in_eruption.jpg' }, volcano: 'chaiten', year: 2008, style: 'plinian', vei: 4,
     name: { es: 'Chaitén (2008)', en: 'Chaitén (2008)' },
     phases: [{ start: '2008-05-02T08:00:00Z', hours: 6, topKm: 19, massKg: 4.9e11, massFrom: 'mastin' }],
     gsd: { md: 2, sigma: 2.2, measured: false },
@@ -206,7 +212,8 @@ export const ERUPTIONS: Eruption[] = [
     ],
   },
   {
-    id: 'st-helens-1980', volcano: 'st-helens', year: 1980, style: 'plinian', vei: 5,
+    id: 'st-helens-1980',
+    photo: { caption: { es: 'St. Helens el 18 de mayo de 1980', en: 'St. Helens on 18 May 1980' }, credit: 'Austin Post, USGS', license: 'dominio público', page: 'https://commons.wikimedia.org/wiki/File:MSH80_eruption_mount_st_helens_05-18-80-dramatic-edit.jpg' }, volcano: 'st-helens', year: 1980, style: 'plinian', vei: 5,
     name: { es: 'St. Helens (1980)', en: 'St. Helens (1980)' },
     // Masa total de la caída (incluye la ceniza que se elevó de los flujos piroclásticos): 4,9·10¹¹ kg.
     phases: [{ start: '1980-05-18T15:32:00Z', hours: 9, topKm: 20, massKg: 4.9e11, massFrom: 'deposit' }],
@@ -222,7 +229,8 @@ export const ERUPTIONS: Eruption[] = [
     ],
   },
   {
-    id: 'pinatubo-1991', volcano: 'pinatubo', year: 1991, style: 'plinian', vei: 6,
+    id: 'pinatubo-1991',
+    photo: { caption: { es: 'La columna del 12 de junio de 1991, tres días antes de la fase principal, desde la base aérea Clark', en: 'The 12 June 1991 column, three days before the main phase, from Clark Air Base' }, credit: 'Dave Harlow, USGS', license: 'dominio público', page: 'https://commons.wikimedia.org/wiki/File:Pinatubo_1991-06-12_(USGS).jpg' }, volcano: 'pinatubo', year: 1991, style: 'plinian', vei: 6,
     name: { es: 'Pinatubo (1991)', en: 'Pinatubo (1991)' },
     // 15 de junio, 13:42 hora local (UTC+8), unas 9 horas. Caída: hasta 2 km³ DRE (≈ 5·10¹² kg) según el USGS.
     phases: [{ start: '1991-06-15T05:42:00Z', hours: 9, topKm: 35, massKg: 5e12, massFrom: 'deposit' }],
@@ -238,7 +246,8 @@ export const ERUPTIONS: Eruption[] = [
     ],
   },
   {
-    id: 'vesuvius-79', volcano: 'vesuvius', year: 79, style: 'plinian', vei: 5,
+    id: 'vesuvius-79',
+    photo: { caption: { es: 'La erupción del año 79 según Pierre-Henri de Valenciennes (1813)', en: 'The AD 79 eruption as painted by Pierre-Henri de Valenciennes (1813)' }, credit: 'Didier Descouens (foto de la pintura)', license: 'dominio público', page: 'https://commons.wikimedia.org/wiki/File:Augustins_-_Eruption_du_Vesuve_-_Pierre-Henri_de_Valenciennes_78_1_1.jpg' }, volcano: 'vesuvius', year: 79, style: 'plinian', vei: 5,
     name: { es: 'Vesubio (79 d. C.)', en: 'Vesuvius (AD 79)' },
     // Carey y Sigurdsson (1987): unos 4 km³ de magma en ~19 h; columna de 26 km en la fase blanca y 33 km en la gris
     // (volúmenes por fase de Sigurdsson et al., 1985: ~1,0 y ~2,6 km³ DRE).
