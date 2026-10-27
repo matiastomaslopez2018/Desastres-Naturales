@@ -21,7 +21,7 @@ export type Layers = {
   borders: boolean; plates: boolean; ring: boolean; gvp: boolean; hazard: boolean;
   nhc: boolean; firms: boolean; wvolc: boolean; ibtracs: boolean;
   slab: boolean; platevec: boolean; dart: boolean; fwi: boolean; wind: boolean;
-  lhasa: boolean; glc: boolean; spc: boolean; smn: boolean;
+  lhasa: boolean; glc: boolean; spc: boolean; smn: boolean; smoke: boolean;
 };
 
 /** Datos de las capas que no son eventos del catálogo (los rásteres los pide el propio globo). */

@@ -43,7 +43,7 @@ type Props = {
   /** Cuadros por segundo bajos durante un movimiento: el Atlas pasa a modo liviano. */
   onLowFps?(fps: number): void;
   /** Estado de las capas ráster (amenaza GEM, FWI, LHASA). */
-  onRaster?(id: 'hazard' | 'fwi' | 'lhasa', state: 'wait' | 'ok' | 'err'): void;
+  onRaster?(id: 'hazard' | 'fwi' | 'lhasa' | 'smoke', state: 'wait' | 'ok' | 'err'): void;
   /** Texto del indicador que aparece junto al evento mientras cargan las teselas del destino. */
   loadingText?: string;
   /**
@@ -171,6 +171,7 @@ const RASTERS = {
   hazard: { url: '/data/gem-3857.png', opacity: 0.55, attribution: '© GEM Foundation, Global Seismic Hazard Map v2023.1 (CC BY-NC-SA 4.0)' },
   fwi: { url: '/api/fwi-map', opacity: 0.6, attribution: 'Copernicus GWIS · FWI (ECMWF)' },
   lhasa: { url: '/api/lhasa-map', opacity: 0.85, attribution: 'NASA LHASA' },
+  smoke: { url: '/api/smoke-map', opacity: 0.8, attribution: 'Copernicus CAMS (ECMWF)' },
 } as const;
 type RasterId = keyof typeof RASTERS;
 

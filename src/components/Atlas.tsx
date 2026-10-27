@@ -37,7 +37,7 @@ const toTrack = (s: IbtracsStorm): HistTrack => {
     windKt: s.wind, pressureMb: s.pres, start: s.start, end: s.end, lon: best[0], lat: best[1], points: s.pts,
   };
 };
-const NOW_LAYERS = new Set(['nhc', 'wvolc', 'firms', 'fwi', 'wind', 'dart', 'lhasa', 'spc', 'smn']);
+const NOW_LAYERS = new Set(['nhc', 'wvolc', 'firms', 'fwi', 'wind', 'dart', 'lhasa', 'spc', 'smn', 'smoke']);
 type FirmsState = 'idle' | 'wait' | 'ok' | 'needsKey' | 'err';
 
 /** initialType: ?tipo=eq|volcano|… desde Aprender, para abrir el mapa filtrado por un tipo. */
@@ -45,7 +45,7 @@ type Props = { lang: Lang; initialRange: RangeKey; initialYear: number; initialS
 
 /** Leyenda oficial del mapa FWI de GWIS: color y límite inferior de cada clase. */
 const FWI_LEGEND: [string, string][] = [['#9cffc0', '<11'], ['#cde24e', '11'], ['#e6ac00', '21'], ['#d97010', '38'], ['#ad060e', '50'], ['#3a0015', '70']];
-const LAYER_KEYS = ['nhc', 'smn', 'wvolc', 'firms', 'fwi', 'wind', 'ibtracs', 'borders', 'plates', 'platevec', 'slab', 'ring', 'gvp', 'dart', 'hazard', 'lhasa', 'glc', 'spc'] as const;
+const LAYER_KEYS = ['nhc', 'smn', 'wvolc', 'firms', 'fwi', 'smoke', 'wind', 'ibtracs', 'borders', 'plates', 'platevec', 'slab', 'ring', 'gvp', 'dart', 'hazard', 'lhasa', 'glc', 'spc'] as const;
 /** Etiqueta de las capas históricas y de referencia (vienen apagadas, salvo fronteras y placas). */
 const LAYER_TAG: Partial<Record<(typeof LAYER_KEYS)[number], 'hist' | 'ref'>> = {
   ibtracs: 'hist', glc: 'hist', borders: 'ref', plates: 'ref', platevec: 'ref', slab: 'ref', ring: 'ref', gvp: 'ref', hazard: 'ref',
@@ -73,7 +73,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
   );
   const [layers, setLayers] = useState<Layers>({
     nhc: true, wvolc: true, firms: false, ibtracs: false, borders: true, plates: true, ring: false, gvp: false, hazard: false,
-    slab: false, platevec: false, dart: false, fwi: false, wind: false, lhasa: false, glc: false, spc: false, smn: true,
+    slab: false, platevec: false, dart: false, fwi: false, wind: false, lhasa: false, glc: false, spc: false, smn: true, smoke: false,
   });
   const [storms, setStorms] = useState<NhcStorm[]>([]);
   const [volcanoes, setVolcanoes] = useState<VolcanoActivity[]>([]);
@@ -141,6 +141,13 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
   const selId = useRef<string | null>(null);
 
   const magFloor = rangeInfo(range, year).floor;
+
+  // `?capa=smoke,smn`: prender esas capas al cargar (enlaces desde «Mi lugar» y los avisos). Va antes
+  // de reescribir la URL, que no conserva este parámetro.
+  useEffect(() => {
+    const on = (new URLSearchParams(window.location.search).get('capa') ?? '').split(',').filter((k): k is (typeof LAYER_KEYS)[number] => (LAYER_KEYS as readonly string[]).includes(k));
+    if (on.length) setLayers((s) => ({ ...s, ...Object.fromEntries(on.map((k) => [k, true])) }));
+  }, []);
 
   // Período y evento seleccionado en la URL (compartible).
   const selParam = sel && isEvent(sel) ? sel.id : null;
@@ -236,7 +243,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
 
   // NHC, volcanes y FIRMS son "ahora": en un año pasado no se mezclan con ese año.
   const isNow = range !== 'year' || year === new Date().getUTCFullYear();
-  const drawLayers = useMemo<Layers>(() => (isNow ? layers : { ...layers, nhc: false, wvolc: false, firms: false, fwi: false, wind: false, dart: false, lhasa: false, spc: false, smn: false }), [layers, isNow]);
+  const drawLayers = useMemo<Layers>(() => (isNow ? layers : { ...layers, nhc: false, wvolc: false, firms: false, fwi: false, wind: false, dart: false, lhasa: false, spc: false, smn: false, smoke: false }), [layers, isNow]);
   // FIRMS pesa: solo se pide al encender la capa.
   useEffect(() => {
     if (!drawLayers.firms || firmsState !== 'idle') return;
@@ -294,8 +301,8 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
       setDarts(j.buoys.map((b) => ({ id: b.id, type: 'dart', title: b.name, lon: b.lon, lat: b.lat, reporting: b.reporting, owner: b.owner })))).catch(() => {});
   }, [layers.dart, darts.length]);
   // Fase 3 · D: deslizamientos (LHASA y GLC) y tormentas severas de EE. UU. (SPC y NWS).
-  const [raster, setRaster] = useState<Partial<Record<'hazard' | 'fwi' | 'lhasa', 'wait' | 'ok' | 'err'>>>({});
-  const onRaster = useCallback((id: 'hazard' | 'fwi' | 'lhasa', st: 'wait' | 'ok' | 'err') => setRaster((r) => ({ ...r, [id]: st })), []);
+  const [raster, setRaster] = useState<Partial<Record<'hazard' | 'fwi' | 'lhasa' | 'smoke', 'wait' | 'ok' | 'err'>>>({});
+  const onRaster = useCallback((id: 'hazard' | 'fwi' | 'lhasa' | 'smoke', st: 'wait' | 'ok' | 'err') => setRaster((r) => ({ ...r, [id]: st })), []);
   const [glc, setGlc] = useState<GlcSlide[]>([]);
   const [severe, setSevere] = useState<{ outlook: ColoredArea[]; reports: SpcReport[]; warnings: ColoredArea[]; issued: number | null; expires: number | null } | null>(null);
   useEffect(() => {
@@ -637,7 +644,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
     if (k === 'nhc') return storms.length ? ` · ${nf(storms.length)}` : '';
     if (k === 'wvolc') return volcanoes.length ? ` · ${nf(volcanoes.length)}` : '';
     if (k === 'wind') return view && view.k >= 3 ? (wind ? ` · ${t.windAt(fmtHour(lang, Date.now()))}` : ` · ${t.loadingLayer}`) : ` · ${t.windZoom}`;
-    if (k === 'lhasa' || k === 'fwi' || k === 'hazard') return layers[k] && raster[k] === 'wait' ? ` · ${t.loadingLayer}` : raster[k] === 'err' ? ` · ${t.err}` : '';
+    if (k === 'lhasa' || k === 'fwi' || k === 'hazard' || k === 'smoke') return layers[k] && raster[k] === 'wait' ? ` · ${t.loadingLayer}` : raster[k] === 'err' ? ` · ${t.err}` : '';
     if (k === 'glc') return glc.length ? ` · ${nf(glc.length)}` : '';
     if (k === 'spc') return severe ? ` · ${t.spcCount(severe.reports.filter((r) => r.kind === 'tornado').length, severe.reports.length, severe.warnings.length)}` : layers.spc ? ` · ${t.loadingLayer}` : '';
     if (k === 'smn') return smn ? ` · ${t.smnCount(smn.filter((a) => a.onset <= Date.now()).length, smn.filter((a) => a.onset > Date.now()).length)}` : layers.smn ? ` · ${t.loadingLayer}` : '';
@@ -817,6 +824,13 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
                 </div>
                 <span className="faint small">{t.fwiLegend}</span>
                 <p className="note">{raster.fwi === 'wait' ? t.loadingLayer : t.fwiHelp}</p>
+              </div>
+            )}
+            {layers.smoke && (
+              <div className="hazard-legend">
+                <div className="smoke-scale" role="img" aria-label={t.L.smoke} />
+                <span className="faint small">{t.smokeLegend}</span>
+                <p className="note">{raster.smoke === 'wait' ? t.loadingLayer : t.smokeHelp}</p>
               </div>
             )}
             {layers.wind && <p className="note">{t.windHelp}</p>}

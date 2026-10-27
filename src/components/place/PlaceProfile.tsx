@@ -15,6 +15,7 @@ import { PlaceMap, type MapItems } from './PlaceMap';
 import { GUIDE_T, type HazardKey } from '@/lib/guides';
 
 type Now = { id: string; type: string; title: string; time: number; mag: number | null; km: number }[];
+type Air = { time: number; pm25: number | null; pm10: number | null; pm25Mean24: number | null; pm25Max24: number | null; aod: number | null } | null;
 type Zone = { zone: number; as: number | null } | null;
 type Wx = { id: string; event: string; level: 'yellow' | 'orange' | 'red'; onset: number; expires: number; description: string }[];
 type Place = { name: string; lat: number; lon: number; mine?: boolean };
@@ -31,7 +32,7 @@ const lower = (s: string) => s.replace(/^Placa /, 'placa ');
 export function PlaceProfile({ lang, initial }: { lang: Lang; initial: Place | null }) {
   const t = PLACE_TEXT[lang];
   const [place, setPlace] = useState<Place | null>(initial);
-  const [data, setData] = useState<{ profile: Profile; now: Now; wx?: Wx; zone?: Zone } | 'loading' | 'failed' | null>(null);
+  const [data, setData] = useState<{ profile: Profile; now: Now; wx?: Wx; zone?: Zone; air?: Air } | 'loading' | 'failed' | null>(null);
 
   useEffect(() => {
     if (!place) { setData(null); return; }
@@ -64,7 +65,7 @@ export function PlaceProfile({ lang, initial }: { lang: Lang; initial: Place | n
       )}
       {place && data === 'loading' && <p className="ml-status">{t.loading}</p>}
       {place && data === 'failed' && <p className="qs-warn">{t.failed}</p>}
-      {place && data && typeof data === 'object' && <Result lang={lang} place={place} p={data.profile} now={data.now} wx={data.wx} zone={data.zone ?? null} />}
+      {place && data && typeof data === 'object' && <Result lang={lang} place={place} p={data.profile} now={data.now} wx={data.wx} zone={data.zone ?? null} air={data.air ?? null} />}
       <p className="ed-note">{t.notRisk}</p>
       <section className="ml-sources">
         <h2 className="ed-h3">{t.sources}</h2>
@@ -126,7 +127,7 @@ function Search({ lang, onPick }: { lang: Lang; onPick: (p: Place) => void }) {
 
 /* ───────────── Resultado ───────────── */
 
-function Result({ lang, place, p, now, wx = [], zone }: { lang: Lang; place: Place; p: Profile; now: Now; wx?: Wx; zone: Zone }) {
+function Result({ lang, place, p, now, wx = [], zone, air }: { lang: Lang; place: Place; p: Profile; now: Now; wx?: Wx; zone: Zone; air: Air }) {
   const t = PLACE_TEXT[lang], nf = (x: number, d = 0) => fmtNum(lang, x, d);
   const q = p.quake, cls = q.gem, lvl = cls == null ? null : gemLevel(cls);
   const gLo = cls ? GEM_LEVELS[cls - 1] : 0, gHi = cls != null && cls < GEM_LEVELS.length ? GEM_LEVELS[cls] : null;
@@ -306,6 +307,20 @@ function Result({ lang, place, p, now, wx = [], zone }: { lang: Lang; place: Pla
         <p className="ed-note">{t.slideNote}</p>
         <Todo lang={lang} h="landslide" />
       </section>
+
+      {air && air.pm25 != null && (
+        <section id="ml-air" className="ml-sec">
+          <h2 className="ed-h3">{t.air}</h2>
+          {/* Guías de la OMS (2021) para 24 horas: PM2,5 15 µg/m³ y PM10 45 µg/m³. */}
+          <p className={`ml-head ml-air-${(air.pm25Mean24 ?? air.pm25) > 15 ? 'over' : 'ok'}`}>{t.airHead(nf(air.pm25, 1), (air.pm25Mean24 ?? air.pm25) > 15)}</p>
+          <p className="ed-body">
+            {air.pm25Mean24 != null && t.airNext(nf(air.pm25Mean24, 1), nf(air.pm25Max24 ?? air.pm25Mean24, 1), air.pm25Mean24 > 15 ? nf(air.pm25Mean24 / 15, 1) : null)}
+            {air.pm10 != null && ` ${t.airPm10(nf(air.pm10, 1))}`}
+            {air.aod != null && air.aod >= 0.5 && ` ${t.airAod(nf(air.aod, 1))}`}
+          </p>
+          <p className="ed-note">{t.airNote(fmtTime(lang, air.time))} <Link href={`/${lang}?capa=smoke&v=${p.lon},${p.lat},4`}>{t.airMap} →</Link></p>
+        </section>
+      )}
 
       <section id="ml-now" className="ml-sec">
         <h2 className="ed-h3">{t.now}</h2>
