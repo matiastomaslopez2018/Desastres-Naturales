@@ -26,6 +26,9 @@ import { localTitle } from '@/lib/localize';
 import { simHref } from '@/lib/quake/link';
 import { LocalAgencies } from '@/components/LocalAgencies';
 import { FeltButton } from '@/components/FeltButton';
+import { GuideCard } from '@/components/guides/GuideCard';
+import { hazardsOf } from '@/lib/guides';
+import { guideLinks } from '@/lib/guideLinks';
 
 export const dynamic = 'force-dynamic';
 // Si el evento no está en la base, se consulta a la fuente en el momento.
@@ -113,6 +116,8 @@ export default async function EventPage({ params }: Props) {
             } />
         </div>
         {/* Contexto geológico: tarda unos segundos la primera vez (después queda en la base). */}
+        {/* Qué hacer: "si estás en la zona" si el evento es reciente o sigue activo; si no, "si vuelve a pasar". */}
+        <GuideCard lang={lang} hazards={hazardsOf(e)} links={guideLinks(lang)} iso3={e.iso3} recent={!e.closed && Date.now() - Math.max(e.time, e.end ?? 0) < 3 * 864e5} />
         {e.type === 'eq' && <LocalAgencies lang={lang} local={e.local ?? []} usgs={e.src === 'USGS'} />}
         {e.type === 'eq' && <FeltButton lang={lang} id={e.id} time={e.time} usgs={e.src === 'USGS'} local={e.local ?? []} />}
         <LearnLinks lang={lang} e={e} />

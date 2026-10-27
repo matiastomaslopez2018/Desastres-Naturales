@@ -95,7 +95,7 @@ export const MORE_1: LearnArticle[] = [
     sources: [
       { label: 'USGS · Aftershock Forecasts', url: 'https://earthquake.usgs.gov/data/oaf/' },
       { label: 'USGS · Aftershock forecast overview', url: 'https://earthquake.usgs.gov/data/oaf/overview.php' },
-      { label: 'Great ShakeOut · Drop, Cover, and Hold On', url: 'https://www.shakeout.org/dropcoverholdon/' },
+      { label: 'Ready.gov (FEMA) · Earthquakes', url: 'https://www.ready.gov/earthquakes' },
     ],
     es: {
       slug: 'por-que-hay-replicas', title: 'Por qué hay réplicas',
@@ -375,7 +375,7 @@ export const MORE_1: LearnArticle[] = [
     id: 'tsunami-safety', topic: 'tsunami',
     sources: [
       { label: 'NWS · Tsunami safety', url: 'https://www.weather.gov/safety/tsunami' },
-      { label: 'Great ShakeOut · en español', url: 'https://www.shakeout.org/espanol/' },
+      { label: 'Ready.gov (FEMA) · Tsunamis (en español)', url: 'https://www.ready.gov/es/tsunamis' },
       { label: 'SENAPRED (Chile)', url: 'https://senapred.cl/' },
     ],
     es: {

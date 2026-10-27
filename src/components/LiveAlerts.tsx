@@ -15,6 +15,12 @@ import { localPlace } from '@/lib/localize';
 import { routePath } from '@/lib/seo';
 import type { Lang } from '@/lib/types';
 
+/** Sección de "Qué hacer" para cada tipo de aviso. */
+const GUIDE_ANCHOR: Record<Lang, Record<LiveAlert['kind'], string>> = {
+  es: { eq: 'sismo', tsunami: 'tsunami', storm: 'huracan', ash: 'volcan' },
+  en: { eq: 'earthquake', tsunami: 'tsunami', storm: 'hurricane', ash: 'volcano' },
+};
+
 const POLL_MS = 60_000, FRESH_MS = 15 * 60_000, KEEP_MS = 3 * 24 * 3600_000, MAX_SHOWN = 3;
 const SEEN_KEY = 'atlas-alerts-seen', NOTIFY_KEY = 'atlas-alerts-notify';
 
@@ -25,7 +31,7 @@ const T = {
     word: { hurricane: 'Huracán', typhoon: 'Tifón', cyclone: 'Ciclón', storm: 'Tormenta tropical' },
     levels: { warning: 'Alerta de tsunami', advisory: 'Aviso de tsunami', watch: 'Vigilancia de tsunami' } as Record<string, string>,
     oceanic: 'En zona oceánica: revisá los avisos oficiales de tsunami.',
-    see: 'Ver detalles', close: 'Cerrar aviso', region: 'Avisos de eventos',
+    see: 'Ver detalles', todo: 'Qué hacer', close: 'Cerrar aviso', region: 'Avisos de eventos',
     notifyAsk: 'Avisarme aunque esté en otra pestaña', bell: 'Avisarme de sismos fuertes, tsunamis, ciclones y ceniza volcánica aunque esté en otra pestaña', notifyOn: 'Notificaciones activadas', notifyOff: 'Desactivar notificaciones', denied: 'El navegador bloqueó las notificaciones.',
     src: { eq: 'USGS', tsunami: 'NOAA', storm: 'NHC / GDACS', ash: 'NOAA (SIGMET)' },
   },
@@ -35,7 +41,7 @@ const T = {
     word: { hurricane: 'Hurricane', typhoon: 'Typhoon', cyclone: 'Cyclone', storm: 'Tropical storm' },
     levels: { warning: 'Tsunami warning', advisory: 'Tsunami advisory', watch: 'Tsunami watch' } as Record<string, string>,
     oceanic: 'Offshore: check the official tsunami messages.',
-    see: 'See details', close: 'Close alert', region: 'Event alerts',
+    see: 'See details', todo: 'What to do', close: 'Close alert', region: 'Event alerts',
     notifyAsk: 'Alert me even in another tab', bell: 'Alert me of strong earthquakes, tsunamis, cyclones and volcanic ash even in another tab', notifyOn: 'Notifications on', notifyOff: 'Turn notifications off', denied: 'The browser blocked notifications.',
     src: { eq: 'USGS', tsunami: 'NOAA', storm: 'NHC / GDACS', ash: 'NOAA (SIGMET)' },
   },
@@ -141,7 +147,10 @@ export function LiveAlerts({ lang }: { lang: Lang }) {
               {x.place && <p className="la-place">{x.place}</p>}
               <p className="la-meta">{fmtRel(lang, a.time)} · {t.src[a.kind]}</p>
               {x.extra && <p className="la-extra">{x.extra}</p>}
-              <Link className="la-link" href={x.href} onClick={() => setShown((s) => s.filter((y) => y.id !== a.id))}>{t.see} →</Link>
+              <p className="la-links">
+                <Link className="la-link" href={x.href} onClick={() => setShown((s) => s.filter((y) => y.id !== a.id))}>{t.see} →</Link>
+                <Link className="la-link" href={`${routePath(lang, 'whatToDo')}#${GUIDE_ANCHOR[lang][a.kind]}`}>{t.todo} →</Link>
+              </p>
             </div>
             <button type="button" className="la-close" aria-label={t.close} onClick={() => setShown((s) => s.filter((y) => y.id !== a.id))}>×</button>
           </div>

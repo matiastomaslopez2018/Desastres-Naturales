@@ -19,6 +19,7 @@ export const ROUTES = {
   tsunamiSim: { es: 'simulador-tsunamis', en: 'tsunami-simulator' },
   volcanoSim: { es: 'simulador-volcanes', en: 'volcano-simulator' },
   myPlace: { es: 'mi-lugar', en: 'my-place' },
+  whatToDo: { es: 'que-hacer', en: 'what-to-do' },
 } as const satisfies Record<string, Record<Lang, string>>;
 
 export type RouteKey = keyof typeof ROUTES;

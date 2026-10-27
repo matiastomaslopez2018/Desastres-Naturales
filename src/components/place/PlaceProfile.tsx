@@ -12,6 +12,7 @@ import { routePath } from '@/lib/seo';
 import { plateLabel } from '@/lib/geoText';
 import type { Lang } from '@/lib/types';
 import { PlaceMap, type MapItems } from './PlaceMap';
+import { GUIDE_T, type HazardKey } from '@/lib/guides';
 
 type Now = { id: string; type: string; title: string; time: number; mag: number | null; km: number }[];
 type Place = { name: string; lat: number; lon: number; mine?: boolean };
@@ -208,6 +209,7 @@ function Result({ lang, place, p, now }: { lang: Lang; place: Place; p: Profile;
           </>
         )}
         <p className="ed-note">{t.gemNote}</p>
+        <Todo lang={lang} h="eq" />
       </section>
 
       <section id="ml-volc" className="ml-sec">
@@ -225,6 +227,7 @@ function Result({ lang, place, p, now }: { lang: Lang; place: Place; p: Profile;
           </ul>
         )}
         <p className="ed-note">{t.volcNote}</p>
+        <Todo lang={lang} h="volcano" />
       </section>
 
       <section id="ml-tsu" className="ml-sec">
@@ -243,6 +246,7 @@ function Result({ lang, place, p, now }: { lang: Lang; place: Place; p: Profile;
           </ul>
         )}
         <p className="ed-note">{t.tsuNote}</p>
+        <Todo lang={lang} h="tsunami" />
       </section>
 
       <section id="ml-cyc" className="ml-sec">
@@ -259,6 +263,7 @@ function Result({ lang, place, p, now }: { lang: Lang; place: Place; p: Profile;
           </ul>
         )}
         <p className="ed-note">{t.cycNote}</p>
+        <Todo lang={lang} h="storm" />
       </section>
 
       <section id="ml-slide" className="ml-sec">
@@ -275,6 +280,7 @@ function Result({ lang, place, p, now }: { lang: Lang; place: Place; p: Profile;
           </ul>
         )}
         <p className="ed-note">{t.slideNote}</p>
+        <Todo lang={lang} h="landslide" />
       </section>
 
       <section id="ml-now" className="ml-sec">
@@ -294,4 +300,9 @@ function Result({ lang, place, p, now }: { lang: Lang; place: Place; p: Profile;
       </section>
     </div>
   );
+}
+
+/** Enlace a la guía "Qué hacer" de un peligro. */
+function Todo({ lang, h }: { lang: Lang; h: HazardKey }) {
+  return <Link className="ed-more" href={`${routePath(lang, 'whatToDo')}#${GUIDE_T[lang].anchors[h]}`}>{GUIDE_T[lang].title} →</Link>;
 }

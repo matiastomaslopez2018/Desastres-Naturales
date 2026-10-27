@@ -34,6 +34,10 @@ export function LearnIndex({ lang }: { lang: Lang }) {
           <h1 className="ed-headline">{t.h1}</h1>
           <p className="ed-lead">{t.desc}</p>
         </div>
+        <Link href={routePath(lang, 'whatToDo')} className="learn-todo">
+          <b>{lang === 'es' ? 'Qué hacer ante cada desastre' : 'What to do in each disaster'}</b>
+          <span>{lang === 'es' ? 'Guía rápida, teléfonos de emergencia, mochila y plan familiar para imprimir' : 'Quick guide, emergency numbers, kit and a printable family plan'} →</span>
+        </Link>
         <nav className="learn-tabs" aria-label={t.title}>
           {TOPICS.map((k) => <a key={k} href={`#${k}`} className={`learn-tab t-${k}`}>{TOPIC_NAME[lang][k]}</a>)}
         </nav>

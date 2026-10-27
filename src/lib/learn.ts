@@ -20,8 +20,7 @@ const BASE: LearnArticle[] = [
   {
     id: 'what-to-do', topic: 'eq',
     sources: [
-      { label: 'Great ShakeOut · Drop, Cover, and Hold On', url: 'https://www.shakeout.org/dropcoverholdon/' },
-      { label: 'Great ShakeOut · en español', url: 'https://www.shakeout.org/espanol/' },
+      { label: 'Ready.gov (FEMA) · Terremotos (en español)', url: 'https://www.ready.gov/es/terremotos' },
       { label: 'Ready.gov (FEMA) · Earthquakes', url: 'https://www.ready.gov/earthquakes' },
       { label: 'NOAA · Tsunami FAQ', url: 'https://www.tsunami.gov/?page=tsunamiFAQ' },
       { label: 'SENAPRED (Chile)', url: 'https://senapred.cl/' },
