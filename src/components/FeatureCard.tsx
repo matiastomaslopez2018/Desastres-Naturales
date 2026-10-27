@@ -5,7 +5,7 @@ import { MediaFigure } from './MediaFigure';
 import { T } from '@/lib/i18n';
 import { landslideCategory, landslideTrigger } from '@/lib/landslideText';
 import { fmtCoords, fmtNum, fmtTime } from '@/lib/format';
-import type { DartBuoy, GlcSlide, SpcReport } from '@/lib/mapTypes';
+import type { DartBuoy, GlcSlide, SmnAlertP, SpcReport } from '@/lib/mapTypes';
 import type { HeatBin, HistTrack, Lang, Link, NhcStorm, VolcanoActivity } from '@/lib/types';
 
 /*
@@ -14,7 +14,7 @@ import type { HeatBin, HistTrack, Lang, Link, NhcStorm, VolcanoActivity } from '
  * Mismo marcado que EventCard (ev-card) para que se vean igual.
  */
 
-export type Feature = NhcStorm | HeatBin | VolcanoActivity | HistTrack | DartBuoy | SpcReport | GlcSlide;
+export type Feature = NhcStorm | HeatBin | VolcanoActivity | HistTrack | DartBuoy | SpcReport | GlcSlide | SmnAlertP;
 
 type Props = { lang: Lang; f: Feature; onClose?(): void; actions?: React.ReactNode; onAnimate?(): void; animating?: boolean };
 
@@ -33,6 +33,8 @@ const SEV = {
     glcKicker: 'Deslizamiento · NASA Global Landslide Catalog', death: 'muerte', deaths: 'muertes', date: 'Fecha', trigger: 'Causa según el catálogo', kind: 'Tipo', origTitle: 'Título original del catálogo (en inglés)', country: 'País',
     glcSource: 'Fuente citada por el catálogo', glcLink: 'NASA · Landslides',
     glcNote: 'Registro del catálogo de NASA, armado a partir de noticias e informes. La ubicación puede ser aproximada (a veces, el centro del pueblo o de la región).',
+    smnKicker: 'Alerta · Servicio Meteorológico Nacional', level: 'Nivel', from: 'Desde', until: 'Hasta', state: 'Estado', now: 'Vigente', next: 'Próxima',
+    todo: 'Qué hacer (indicaciones del SMN)', smnLink: 'Alertas del SMN', smnNote: 'Texto oficial del SMN. La zona del mapa es la del aviso: dentro de ella el fenómeno puede darse solo en algunos lugares. Seguí las indicaciones de Defensa Civil de tu localidad.',
   },
   en: {
     spcKicker: 'Preliminary report · NOAA SPC', time: 'Time', ef: 'EF scale', efUnk: 'not rated yet', gust: 'Gust', hail: 'Hail (diameter)',
@@ -41,6 +43,8 @@ const SEV = {
     glcKicker: 'Landslide · NASA Global Landslide Catalog', death: 'death', deaths: 'deaths', date: 'Date', trigger: 'Trigger per the catalog', kind: 'Type', origTitle: 'Original catalog title', country: 'Country',
     glcSource: 'Source cited by the catalog', glcLink: 'NASA · Landslides',
     glcNote: 'Record from the NASA catalog, compiled from news and reports. The location may be approximate (sometimes the center of the town or region).',
+    smnKicker: 'Alert · Servicio Meteorológico Nacional (Argentina)', level: 'Level', from: 'From', until: 'Until', state: 'Status', now: 'In effect', next: 'Upcoming',
+    todo: 'What to do (SMN advice, in Spanish)', smnLink: 'SMN alerts', smnNote: 'Official SMN text, in Spanish. The map area is the alert area: within it, the hazard may occur only in some places. Follow your local civil protection authorities.',
   },
 };
 const ymd = (s: string | undefined) => (s && /^\d{8}$/.test(s) ? Date.UTC(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8)) : null);
@@ -55,6 +59,7 @@ export function FeatureCard({ lang, f, onClose, actions, onAnimate, animating }:
   const day = (ms: number) => fmtTime(lang, ms, 'UTC').split(' · ')[0];
   let kicker = '', big = '', bigUnit = '', title = f.title, note = '';
   let shape: 'square' | 'diamond' | 'triangle' = 'square', glyph = 'storm', lvl = 0;
+  let list: { title: string; items: string[] } | null = null;
 
   if (f.type === 'nhc') {
     const agency = f.agency ?? 'NHC';
@@ -135,6 +140,17 @@ export function FeatureCard({ lang, f, onClose, actions, onAnimate, animating }:
     if (f.link) links.push({ label: x.glcSource, url: f.link });
     links.push({ label: x.glcLink, url: 'https://landslides.nasa.gov/' });
     note = x.glcNote;
+  } else if (f.type === 'smn') {
+    const x = SEV[lang], dt = (ms: number) => fmtTime(lang, ms);
+    kicker = x.smnKicker; glyph = 'storm'; lvl = f.level === 'red' ? 3 : f.level === 'orange' ? 2 : 1;
+    title = t.smnTitle(f.level, f.title);
+    add(x.level, t.smnLevel[f.level]);
+    add(x.state, f.onset > Date.now() ? x.next : x.now);
+    add(x.from, dt(f.onset));
+    add(x.until, dt(f.expires));
+    if (f.instruction.length) list = { title: x.todo, items: f.instruction };
+    links.push({ label: x.smnLink, url: 'https://www.smn.gob.ar/alertas' });
+    note = [f.description, x.smnNote].filter(Boolean).join(' · ');
   } else if (f.type === 'dart') {
     kicker = t.dartKicker; shape = 'diamond'; glyph = 'tsunami';
     title = f.title || `DART ${f.id}`;
@@ -184,6 +200,12 @@ export function FeatureCard({ lang, f, onClose, actions, onAnimate, animating }:
         <button className="anim-btn" onClick={onAnimate} aria-pressed={!!animating}>{animating ? t.animStop : t.animTrack}</button>
       )}
       {note && <p className="ev-note">{note}</p>}
+      {list && (
+        <div className="ev-note">
+          <strong>{list.title}</strong>
+          <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>{list.items.map((s) => <li key={s}>{s}</li>)}</ul>
+        </div>
+      )}
       <div className="ev-sources">
         <span className="ev-sources-title">{t.sources}</span>
         {links.map((l) => (

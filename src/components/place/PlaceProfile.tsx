@@ -15,6 +15,7 @@ import { PlaceMap, type MapItems } from './PlaceMap';
 import { GUIDE_T, type HazardKey } from '@/lib/guides';
 
 type Now = { id: string; type: string; title: string; time: number; mag: number | null; km: number }[];
+type Wx = { id: string; event: string; level: 'yellow' | 'orange' | 'red'; onset: number; expires: number; description: string }[];
 type Place = { name: string; lat: number; lon: number; mine?: boolean };
 type Hit = { id: number; name: string; latitude: number; longitude: number; country?: string; admin1?: string; population?: number };
 
@@ -29,7 +30,7 @@ const lower = (s: string) => s.replace(/^Placa /, 'placa ');
 export function PlaceProfile({ lang, initial }: { lang: Lang; initial: Place | null }) {
   const t = PLACE_TEXT[lang];
   const [place, setPlace] = useState<Place | null>(initial);
-  const [data, setData] = useState<{ profile: Profile; now: Now } | 'loading' | 'failed' | null>(null);
+  const [data, setData] = useState<{ profile: Profile; now: Now; wx?: Wx } | 'loading' | 'failed' | null>(null);
 
   useEffect(() => {
     if (!place) { setData(null); return; }
@@ -62,7 +63,7 @@ export function PlaceProfile({ lang, initial }: { lang: Lang; initial: Place | n
       )}
       {place && data === 'loading' && <p className="ml-status">{t.loading}</p>}
       {place && data === 'failed' && <p className="qs-warn">{t.failed}</p>}
-      {place && data && typeof data === 'object' && <Result lang={lang} place={place} p={data.profile} now={data.now} />}
+      {place && data && typeof data === 'object' && <Result lang={lang} place={place} p={data.profile} now={data.now} wx={data.wx} />}
       <p className="ed-note">{t.notRisk}</p>
       <section className="ml-sources">
         <h2 className="ed-h3">{t.sources}</h2>
@@ -124,7 +125,7 @@ function Search({ lang, onPick }: { lang: Lang; onPick: (p: Place) => void }) {
 
 /* ───────────── Resultado ───────────── */
 
-function Result({ lang, place, p, now }: { lang: Lang; place: Place; p: Profile; now: Now }) {
+function Result({ lang, place, p, now, wx = [] }: { lang: Lang; place: Place; p: Profile; now: Now; wx?: Wx }) {
   const t = PLACE_TEXT[lang], nf = (x: number, d = 0) => fmtNum(lang, x, d);
   const q = p.quake, cls = q.gem, lvl = cls == null ? null : gemLevel(cls);
   const gLo = cls ? GEM_LEVELS[cls - 1] : 0, gHi = cls != null && cls < GEM_LEVELS.length ? GEM_LEVELS[cls] : null;
@@ -163,6 +164,20 @@ function Result({ lang, place, p, now }: { lang: Lang; place: Place; p: Profile;
           <button type="button" className="ml-share" onClick={() => { navigator.clipboard?.writeText(window.location.href).then(() => setCopied(true)).catch(() => {}); }}>{copied ? t.copied : t.share}</button>
         )}
       </header>
+
+      {wx.length > 0 && (
+        <section className="ml-wx" aria-label={t.wxHead}>
+          {/* Mismo orden que el SMN: primero lo vigente; dentro de eso, el nivel más alto. */}
+          {[...wx].sort((a, b) => Number(a.onset > Date.now()) - Number(b.onset > Date.now()) || ['red', 'orange', 'yellow'].indexOf(a.level) - ['red', 'orange', 'yellow'].indexOf(b.level)).map((a) => (
+            <div key={a.id} className={`ml-wx-item ml-wx-${a.level}`}>
+              <b>{t.wxTitle(a.level, a.event)}</b>
+              <span>{a.onset > Date.now() ? t.wxFrom(fmtTime(lang, a.onset), fmtTime(lang, a.expires)) : t.wxUntil(fmtTime(lang, a.expires))}</span>
+              <p>{a.description}</p>
+            </div>
+          ))}
+          <p className="ed-note">{t.wxNote} <Link href={`/${lang}?v=${p.lon},${p.lat},6`}>{t.wxMap} →</Link> · <a href="https://www.smn.gob.ar/alertas" target="_blank" rel="noopener noreferrer">smn.gob.ar/alertas ↗</a></p>
+        </section>
+      )}
 
       <div className="ml-cards" aria-label={t.summary}>
         <a href="#ml-quake" className={`ml-card ml-lvl-${lvl ?? 0}`}><span className="ml-card-k">{t.quake}</span><b>{lvl != null ? t.levels[lvl] : '—'}</b><span>{lvl != null ? range : t.gemNone}</span></a>

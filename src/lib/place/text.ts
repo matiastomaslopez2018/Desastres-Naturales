@@ -67,6 +67,11 @@ const es = {
   landslide: 'Deslizamientos',
   slideHead: (n: number, r: string, d: string) => (n ? `${n === 1 ? '1 deslizamiento' : `${n} deslizamientos`} con víctimas a menos de ${r} km (${d} muertes en total)` : `Sin deslizamientos con víctimas registrados a menos de ${r} km`),
   slideNote: 'Catálogo mundial de deslizamientos de la NASA (sobre todo 2007–2024); faltan muchos eventos, sobre todo los más antiguos.',
+  // Alertas del SMN
+  wxHead: 'Alertas meteorológicas vigentes',
+  wxTitle: (l: 'yellow' | 'orange' | 'red', ev: string) => `Alerta ${{ yellow: 'amarilla', orange: 'naranja', red: 'roja' }[l]} por ${ev.toLowerCase()}`,
+  wxFrom: (a: string, b: string) => `Desde ${a} hasta ${b}`, wxUntil: (b: string) => `Vigente hasta ${b}`,
+  wxNote: 'Alertas del Servicio Meteorológico Nacional cuya zona incluye este lugar.', wxMap: 'Ver en el mapa',
   // Ahora
   now: 'Ahora cerca', nowHead: (n: number) => (n ? `${n === 1 ? '1 evento' : `${n} eventos`} en los últimos 30 días a menos de 300 km` : 'Nada en los últimos 30 días a menos de 300 km'),
   nowNote: 'Sismos de magnitud 4 o más (USGS), erupciones, incendios, tormentas e inundaciones de la misma base del mapa.',
@@ -126,6 +131,10 @@ const en: typeof es = {
   landslide: 'Landslides',
   slideHead: (n: number, r: string, d: string) => (n ? `${n === 1 ? '1 deadly landslide' : `${n} deadly landslides`} within ${r} km (${d} deaths in total)` : `No deadly landslides recorded within ${r} km`),
   slideNote: 'NASA global landslide catalog (mostly 2007–2024); many events are missing, especially older ones.',
+  wxHead: 'Weather alerts in effect',
+  wxTitle: (l: 'yellow' | 'orange' | 'red', ev: string) => `${{ yellow: 'Yellow', orange: 'Orange', red: 'Red' }[l]} alert: ${ev}`,
+  wxFrom: (a: string, b: string) => `From ${a} to ${b}`, wxUntil: (b: string) => `In effect until ${b}`,
+  wxNote: 'Alerts from Argentina’s national weather service (SMN) whose area includes this place (official text, in Spanish).', wxMap: 'See on the map',
   now: 'Nearby now', nowHead: (n: number) => (n ? `${n === 1 ? '1 event' : `${n} events`} in the last 30 days within 300 km` : 'Nothing in the last 30 days within 300 km'),
   nowNote: 'Earthquakes of magnitude 4 or more (USGS), eruptions, fires, storms and floods from the same database as the map.',
   types: { eq: 'Earthquake', volcano: 'Volcano', fire: 'Fire', storm: 'Storm', flood: 'Flood', drought: 'Drought' },

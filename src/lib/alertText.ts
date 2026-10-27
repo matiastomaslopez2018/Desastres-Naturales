@@ -15,6 +15,8 @@ const T = {
     word: { hurricane: 'Huracán', typhoon: 'Tifón', cyclone: 'Ciclón', storm: 'Tormenta tropical' },
     levels: { warning: 'Alerta de tsunami', advisory: 'Aviso de tsunami', watch: 'Vigilancia de tsunami' } as Record<string, string>,
     oceanic: 'En zona oceánica: revisá los avisos oficiales de tsunami.',
+    wx: (lvl: string, ev: string) => `Alerta ${lvl === 'red' ? 'roja' : 'naranja'} por ${ev.toLowerCase()}`,
+    wxNow: 'Argentina · vigente', wxFrom: (d: string) => `Argentina · desde el ${d}`, wxUntil: (d: string) => `Hasta el ${d}`,
   },
   en: {
     eq: (m: string) => `Magnitude ${m} earthquake`, tsunami: 'Tsunami message', storm: (w: string) => w,
@@ -22,6 +24,8 @@ const T = {
     word: { hurricane: 'Hurricane', typhoon: 'Typhoon', cyclone: 'Cyclone', storm: 'Tropical storm' },
     levels: { warning: 'Tsunami warning', advisory: 'Tsunami advisory', watch: 'Tsunami watch' } as Record<string, string>,
     oceanic: 'Offshore: check the official tsunami messages.',
+    wx: (lvl: string, ev: string) => `${lvl === 'red' ? 'Red' : 'Orange'} alert: ${ev}`,
+    wxNow: 'Argentina · in effect', wxFrom: (d: string) => `Argentina · from ${d}`, wxUntil: (d: string) => `Until ${d}`,
   },
 };
 
@@ -29,6 +33,12 @@ export function alertTexts(lang: Lang, a: LiveAlert) {
   const t = T[lang];
   if (a.kind === 'eq') return { title: t.eq(fmtNum(lang, a.mag ?? 0, 1)), place: localPlace(a.title, lang), extra: a.tsunami ? t.oceanic : null, href: `/${lang}/evento/${encodeURIComponent(a.id)}` };
   if (a.kind === 'tsunami') return { title: (a.level && t.levels[a.level]) || t.tsunami, place: a.title, extra: a.mag ? `M ${fmtNum(lang, a.mag, 1)}` : null, href: routePath(lang, 'tsunami') };
+  if (a.kind === 'wx') {
+    // Hora argentina: el aviso es de allá (y la notificación push se arma en el servidor, en UTC).
+    const d = (ms?: number) => (ms ? new Intl.DateTimeFormat(lang === 'es' ? 'es-AR' : 'en-GB', { weekday: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'America/Argentina/Buenos_Aires' }).format(ms) : '');
+    const started = (a.onset ?? 0) <= Date.now();
+    return { title: t.wx(a.level ?? 'orange', a.title), place: started ? t.wxNow : t.wxFrom(d(a.onset)), extra: a.expires ? t.wxUntil(d(a.expires)) : null, href: `/${lang}?v=${(a.lon ?? -64).toFixed(2)},${(a.lat ?? -36).toFixed(2)},5` };
+  }
   if (a.kind === 'ash') return { title: t.ash(a.title), place: [a.country?.[lang], t.ashTop(fmtNum(lang, a.topKm ?? 0, 1))].filter(Boolean).join(' · '), extra: null, href: `${routePath(lang, 'volcanoSim')}${a.sim ? `?${lang === 'es' ? 'erupcion' : 'eruption'}=${a.sim}` : ''}` };
   const strong = /^(HU|TY|STY|MH)/i.test(a.classification ?? '') || (a.windKt ?? 0) >= 64;
   const word = strong ? t.word[a.basinWord ?? 'hurricane'] : t.word.storm;

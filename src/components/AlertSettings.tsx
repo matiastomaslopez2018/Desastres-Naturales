@@ -13,7 +13,7 @@ import { INSTALL_EVENT, clearInstall, getInstall } from './Pwa';
 const T = {
   es: {
     title: 'Avisos', closed: 'Avisarme aunque tenga la página cerrada', on: 'Activados en este dispositivo', off: 'Desactivar',
-    kinds: { eq: 'Sismos fuertes', tsunami: 'Tsunamis', storm: 'Ciclones', ash: 'Ceniza volcánica' } as Record<AlertKind, string>,
+    kinds: { eq: 'Sismos fuertes', tsunami: 'Tsunamis', storm: 'Ciclones', ash: 'Ceniza volcánica', wx: 'Alertas naranjas y rojas del SMN (Argentina)' } as Record<AlertKind, string>,
     rules: 'Sismos de magnitud 6 o más en el mundo y de 5 o más en la Argentina, Chile y la región; mensajes de tsunami de la NOAA; ciclones con nombre; nubes de ceniza de 10 km o más (o cualquiera sobre la Argentina y Chile).',
     where: 'Dónde', world: 'En todo el mundo', near: 'Solo cerca de mí', radius: (km: string) => `a menos de ${km} km`, locate: 'Usar mi ubicación', locating: 'Buscando…',
     nearOf: (n: string) => `Cerca de ${n}`, myLoc: 'tu ubicación', locNote: 'Tu ubicación se guarda redondeada a ~10 km, solo para filtrar los avisos.',
@@ -25,7 +25,7 @@ const T = {
   },
   en: {
     title: 'Alerts', closed: 'Alert me even with the page closed', on: 'On for this device', off: 'Turn off',
-    kinds: { eq: 'Strong earthquakes', tsunami: 'Tsunamis', storm: 'Cyclones', ash: 'Volcanic ash' },
+    kinds: { eq: 'Strong earthquakes', tsunami: 'Tsunamis', storm: 'Cyclones', ash: 'Volcanic ash', wx: 'Orange and red SMN alerts (Argentina)' },
     rules: 'Earthquakes of magnitude 6+ worldwide and 5+ in Argentina, Chile and the region; NOAA tsunami messages; named cyclones; ash clouds of 10 km or more (or any over Argentina and Chile).',
     where: 'Where', world: 'Worldwide', near: 'Only near me', radius: (km: string) => `within ${km} km`, locate: 'Use my location', locating: 'Locating…',
     nearOf: (n: string) => `Near ${n}`, myLoc: 'your location', locNote: 'Your location is stored rounded to ~10 km, only to filter alerts.',

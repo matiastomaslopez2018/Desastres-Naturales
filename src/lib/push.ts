@@ -4,7 +4,7 @@
 import type { LiveAlert } from './alerts';
 
 export type AlertKind = LiveAlert['kind'];
-export const PUSH_KINDS: AlertKind[] = ['eq', 'tsunami', 'storm', 'ash'];
+export const PUSH_KINDS: AlertKind[] = ['eq', 'tsunami', 'storm', 'ash', 'wx'];
 /** Radios posibles para "solo cerca de un lugar" (km). */
 export const PUSH_RADII = [300, 1000, 3000];
 
@@ -39,5 +39,7 @@ export function wants(p: PushPrefs, a: LiveAlert): boolean {
   if (!p.near) return true;
   // Los mensajes de tsunami no traen posición: con filtro por lugar, solo las alertas (el nivel más alto).
   if (a.lon == null || a.lat == null) return a.kind === 'tsunami' && a.level === 'warning';
-  return km([p.near.lon, p.near.lat], [a.lon, a.lat]) <= p.near.km;
+  // Alertas del SMN: cuenta la zona más cercana.
+  const spots = a.spots?.length ? a.spots : [[a.lon, a.lat] as [number, number]];
+  return spots.some((s) => km([p.near!.lon, p.near!.lat], s) <= p.near!.km);
 }

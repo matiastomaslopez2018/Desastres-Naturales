@@ -185,10 +185,12 @@ button, input, select { font: inherit; color: inherit; }
 .la-tsunami { border-left-color: var(--type-tsunami); }
 .la-storm { border-left-color: var(--type-storm); }
 .la-ash { border-left-color: var(--type-volcano); }
+.la-wx { border-left-color: #fd7e14; }
 .la-dot { flex: none; width: 10px; height: 10px; margin-top: 6px; border-radius: 50%; background: var(--type-eq); box-shadow: 0 0 0 0 rgba(232,89,12,.6); animation: la-pulse 1.6s infinite; }
 .la-tsunami .la-dot { background: var(--type-tsunami); }
 .la-storm .la-dot { background: var(--type-storm); }
 .la-ash .la-dot { background: var(--type-volcano); }
+.la-wx .la-dot { background: #fd7e14; }
 .la-body { min-width: 0; }
 .la-body p { margin: 0; }
 .la-links { display: flex; flex-wrap: wrap; gap: 4px 16px; }

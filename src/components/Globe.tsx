@@ -13,7 +13,7 @@ import type { Topology, GeometryCollection } from 'topojson-specification';
 import world from 'world-atlas/countries-110m.json';
 
 import { RING, alertLevel } from '@/lib/symbols';
-import { SPC_COLORS, TYPE_COLOR, ssColor, type GlobeHandle, type Layers, type Overlays, type Pickable } from '@/lib/mapTypes';
+import { SMN_COLORS, SPC_COLORS, TYPE_COLOR, ssColor, type GlobeHandle, type Layers, type Overlays, type Pickable } from '@/lib/mapTypes';
 import type { DisasterEvent, GvpVolcano, SourceStatus } from '@/lib/types';
 
 /*
@@ -210,7 +210,7 @@ const appearAt = (e: DisasterEvent) => e.start ?? e.time;
 /** Anillo blanco: sismo M6+ o alerta oficial (PAGER/GDACS) distinta de verde. */
 const hasRing = (e: DisasterEvent) => (e.type === 'eq' && (e.mag ?? 0) >= 6) || alertLevel(e) >= 1;
 /** Zoom del vuelo según el tipo. */
-const ZOOM_FOR: Record<string, number> = { eq: 7, volcano: 10.5, gvp: 10.5, wvolc: 10.5, fire: 9, heat: 9 };
+const ZOOM_FOR: Record<string, number> = { eq: 7, volcano: 10.5, gvp: 10.5, wvolc: 10.5, fire: 9, heat: 9, smn: 5.5 };
 
 /* ───────────── Íconos (dibujados con su color, a 2× para pantallas densas) ───────────── */
 
@@ -275,7 +275,7 @@ function buildStyle(p: Profile): StyleSpecification {
     ['dem', { ...DEM, maxzoom: demMaxZoom(p) }],
     geo('borders'), geo('ring'), geo('plates'), geo('slab'), geo('platevec'), geo('platehead'), geo('ibt-lines'), geo('ibt-pts'), geo('heat'),
     geo('storm-areas'), geo('storm-lines'), geo('storm-pts'), geo('ev-tracks'), geo('glc'), geo('gvp'), geo('wvolc'), geo('dart'),
-    geo('spc-areas'), geo('nws'), geo('spc-pts'), geo('wind'),
+    geo('spc-areas'), geo('nws'), geo('smn'), geo('spc-pts'), geo('wind'),
     geo('ev'), geo('evc', { cluster: true, clusterRadius: 38, clusterMaxZoom: 6 }), geo('sel'),
   ]) as StyleSpecification['sources'];
 
@@ -290,6 +290,10 @@ function buildStyle(p: Profile): StyleSpecification {
     { id: 'spc-line', type: 'line', source: 'spc-areas', layout: vis(), paint: { 'line-color': ['get', 'stroke'], 'line-width': 1 } },
     { id: 'nws-fill', type: 'fill', source: 'nws', layout: vis(), paint: { 'fill-color': ['get', 'fill'], 'fill-opacity': 0.3 } },
     { id: 'nws-line', type: 'line', source: 'nws', layout: vis(), paint: { 'line-color': ['get', 'stroke'], 'line-width': 1.6 } },
+    // Alertas del SMN: las vigentes con color pleno; las que empiezan más adelante, tenues y con borde punteado.
+    { id: 'smn-fill', type: 'fill', source: 'smn', layout: vis(), paint: { 'fill-color': ['get', 'c'], 'fill-opacity': ['case', ['get', 'next'], 0.14, 0.38] } },
+    { id: 'smn-line', type: 'line', source: 'smn', filter: ['!', ['get', 'next']], layout: vis(), paint: { 'line-color': ['get', 'c'], 'line-width': 1.4 } },
+    { id: 'smn-line-next', type: 'line', source: 'smn', filter: ['get', 'next'], layout: vis(), paint: { 'line-color': ['get', 'c'], 'line-width': 1.2, 'line-dasharray': [2, 2] } },
     { id: 'borders', type: 'line', source: 'borders', layout: vis(true), paint: { 'line-color': '#ffffff', 'line-opacity': 0.55, 'line-width': ['interpolate', ['linear'], ['zoom'], 1, 0.4, 6, 1] } },
     { id: 'ring', type: 'line', source: 'ring', layout: { ...vis(true), 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#e8590c', 'line-opacity': 0.13, 'line-width': ['interpolate', ['exponential', 2], ['zoom'], 1, 8, 6, 120] } },
     { id: 'plates', type: 'line', source: 'plates', layout: vis(true), paint: { 'line-color': '#ffffff', 'line-opacity': 0.9, 'line-dasharray': [2, 2], 'line-width': ['interpolate', ['linear'], ['zoom'], 1, 0.8, 8, 1.6] } },
@@ -359,12 +363,13 @@ function buildStyle(p: Profile): StyleSpecification {
 }
 
 /** Capas que se pueden tocar, de arriba hacia abajo. */
-const PICK_LAYERS = ['sel', 'evc-cluster', 'ev', 'evc-pt', 'storm-mark', 'storm-fpts', 'wvolc', 'spc-pts', 'dart', 'heat-pt', 'gvp', 'ibt-pts', 'glc'];
+const PICK_LAYERS = ['sel', 'evc-cluster', 'ev', 'evc-pt', 'storm-mark', 'storm-fpts', 'wvolc', 'spc-pts', 'dart', 'heat-pt', 'gvp', 'ibt-pts', 'glc', 'smn-fill'];
 /** Capa del Atlas → capas de MapLibre que muestra. */
 const LAYER_MAP: Partial<Record<keyof Layers, string[]>> = {
   borders: ['borders'], plates: ['plates'], ring: ['ring'], gvp: ['gvp'], nhc: ['storm-wind', 'storm-cone', 'storm-cone-line', 'storm-past', 'storm-fc', 'storm-fpts', 'storm-mark'],
   firms: ['heat-map', 'heat-pt'], wvolc: ['wvolc', 'wvolc-new'], ibtracs: ['ibt-lines', 'ibt-pts'], slab: ['slab', 'slab-label'], platevec: ['platevec', 'platehead'],
   dart: ['dart'], wind: ['wind'], glc: ['glc'], spc: ['spc-fill', 'spc-line', 'nws-fill', 'nws-line', 'spc-pts'],
+  smn: ['smn-fill', 'smn-line', 'smn-line-next'],
 };
 
 export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
@@ -766,6 +771,10 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
     setData('dart', fc((ov.darts ?? []).map((b, i) => pt(b.lon, b.lat, { pid: reg('d', i, b), on: b.reporting }))));
     setData('spc-areas', fc((ov.spcOutlook ?? []).map((a) => ({ type: 'Feature', properties: { fill: a.fill, stroke: a.stroke }, geometry: a.geometry }))));
     setData('nws', fc((ov.nwsWarnings ?? []).map((a) => ({ type: 'Feature', properties: { fill: a.fill, stroke: a.stroke }, geometry: a.geometry }))));
+    // Las vigentes encima de las próximas (al tocar, gana la que ya rige); a igual estado, la de mayor nivel.
+    const rank = (a: { onset: number; level: string }) => (a.onset <= Date.now() ? 10 : 0) + ['yellow', 'orange', 'red'].indexOf(a.level);
+    setData('smn', fc((ov.smn ?? []).map((a, i) => ({ a, i })).sort((x, y) => rank(x.a) - rank(y.a))
+      .map(({ a, i }) => ({ type: 'Feature', properties: { pid: reg('s', i, a), c: SMN_COLORS[a.level], next: a.onset > Date.now() }, geometry: a.geometry }))));
     setData('spc-pts', fc((ov.spcReports ?? []).map((p, i) => pt(p.lon, p.lat, { pid: reg('p', i, p), c: SPC_COLORS[p.kind], r: p.kind === 'tornado' ? 5 : 3.5 }))));
     setData('wind', fc((ov.wind?.points ?? []).map(([lon, lat, kmh, to]) => pt(lon, lat, { kmh, to }))));
 

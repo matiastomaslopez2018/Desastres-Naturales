@@ -251,6 +251,18 @@ export const METHOD_GROUPS: MethodGroup[] = [
     ],
   },
   {
+    title: { es: 'Alertas meteorológicas (Argentina)', en: 'Weather alerts (Argentina)' },
+    sources: [
+      {
+        name: 'Servicio Meteorológico Nacional (SMN) · alertas en formato CAP', url: 'https://www.smn.gob.ar/alertas',
+        covers: { es: 'Alertas amarillas, naranjas y rojas del Sistema de Alerta Temprana (tormentas, lluvias, viento, nieve y otros fenómenos), vigentes y de los próximos días, con su zona, el texto oficial y qué hacer. Se muestran en el mapa y en «Mi lugar»; las naranjas y rojas, también como aviso y notificación.', en: 'Yellow, orange and red alerts from the Early Warning System (thunderstorms, rain, wind, snow and other hazards), current and for the next days, with their area, official text and advice. Shown on the map and in “My place”; orange and red ones also as alerts and notifications.' },
+        freq: { es: 'El SMN las emite y actualiza varias veces por día; acá se leen cada 10 minutos.', en: 'The SMN issues and updates them several times a day; read here every 10 minutes.' },
+        license: { es: 'Formato CAP (Common Alerting Protocol), pensado para que las alertas se difundan tal como las emite el organismo. Se reproduce el texto sin cambios, se cita al SMN y se enlaza su sitio.', en: 'CAP (Common Alerting Protocol) format, designed for alerts to be redistributed as issued. The text is reproduced unchanged, the SMN is credited and its site is linked.' },
+        limits: { es: 'Puede haber hasta 15 minutos de demora respecto del SMN. Dentro de la zona, el fenómeno puede darse solo en algunos lugares. Ante una emergencia, seguí las indicaciones del SMN y de Defensa Civil.', en: 'May lag the SMN by up to 15 minutes. Within the area, the hazard may occur only in some places. In an emergency, follow the SMN and civil protection authorities.' },
+      },
+    ],
+  },
+  {
     title: { es: 'Calor y frío extremos', en: 'Extreme heat and cold' },
     sources: [
       {

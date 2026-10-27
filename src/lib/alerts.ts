@@ -2,24 +2,27 @@
  * Avisos en vivo: qué eventos merecen avisar mientras alguien tiene la página abierta.
  * Sismos de M6+ en cualquier lugar (unos 15 por año en el mundo) y de M5+ en Argentina, Chile y los países
  * vecinos; avisos de tsunami de la NOAA; ciclones activos; nubes de ceniza volcánica de 10 km o más en el
- * mundo y de cualquier altura sobre la Argentina y Chile (SIGMET de ceniza).
+ * mundo y de cualquier altura sobre la Argentina y Chile (SIGMET de ceniza); alertas naranjas y rojas del Servicio
+ * Meteorológico Nacional (Argentina), vigentes o que empiezan en las próximas 24 horas.
  */
 
 export type LiveAlert = {
   id: string;
-  kind: 'eq' | 'tsunami' | 'storm' | 'ash';
+  kind: 'eq' | 'tsunami' | 'storm' | 'ash' | 'wx';
   time: number;
   title: string;
   mag?: number | null;
   lon?: number; lat?: number;
   /** Sismo: el USGS lo marca en zona oceánica (no confirma tsunami). */
   tsunami?: boolean;
-  /** Tsunami: nivel del mensaje de la NOAA. */
+  /** Tsunami: nivel del mensaje de la NOAA. Alerta del SMN: 'orange' o 'red'. */
   level?: string;
   /** Ciclón: clasificación (HU, TS…), viento (kt) y palabra según la cuenca. */
   classification?: string; windKt?: number | null; basinWord?: 'hurricane' | 'typhoon' | 'cyclone';
   /** Ceniza: tope de la nube (km s. n. m.), país y volcán del simulador. */
   topKm?: number; country?: Record<'es' | 'en', string> | null; sim?: string | null;
+  /** Alerta del SMN: inicio y fin, y el centro de cada zona (para el filtro "cerca de un lugar"). */
+  onset?: number; expires?: number; spots?: [number, number][];
   url?: string;
 };
 

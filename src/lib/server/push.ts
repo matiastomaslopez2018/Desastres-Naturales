@@ -65,7 +65,7 @@ export async function sendWelcome(sub: PushRow) {
   const es = sub.lang === 'es';
   const body = JSON.stringify({
     title: es ? 'Avisos activados' : 'Alerts turned on',
-    body: es ? 'Te vamos a avisar de sismos fuertes, tsunamis, ciclones y ceniza volcánica aunque tengas la página cerrada.' : 'We will alert you of strong earthquakes, tsunamis, cyclones and volcanic ash even with the page closed.',
+    body: es ? 'Te vamos a avisar de sismos fuertes, tsunamis, ciclones, ceniza volcánica y alertas del SMN aunque tengas la página cerrada.' : 'We will alert you of strong earthquakes, tsunamis, cyclones, volcanic ash and SMN alerts even with the page closed.',
     url: `/${sub.lang}`, tag: 'welcome',
   });
   return send(sub, body, await vapidKeys());

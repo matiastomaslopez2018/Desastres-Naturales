@@ -403,6 +403,13 @@ button.ed-button { background: none; cursor: pointer; color: inherit; font-famil
 .ml-name { margin: 0; font-family: var(--font-display); font-size: clamp(28px, 3.6vw, 40px); font-weight: 600; line-height: 1.1; }
 .ml-meta { margin: 0; font-size: 15px; color: var(--faint); flex-basis: 100%; }
 .ml-share { padding: 6px 12px; border: 1px solid var(--rule-strong); border-radius: 999px; background: #fff; font: inherit; font-size: 13px; cursor: pointer; }
+/* Alertas del SMN en "Mi lugar" (colores del SMN). */
+.ml-wx { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.ml-wx-item { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--rule); border-left: 5px solid #fcc419; background: #fffbea; }
+.ml-wx-orange { border-left-color: #fd7e14; background: #fff4e6; }
+.ml-wx-red { border-left-color: #e03131; background: #fff5f5; }
+.ml-wx-item span { font-size: 13px; color: var(--ink-2, #555); }
+.ml-wx-item p { margin: 4px 0 0; font-size: 14px; }
 .ml-cards { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
 .ml-card { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border: 1px solid var(--rule); border-radius: 12px; background: #fff; text-decoration: none; min-width: 0; }
 .ml-card:hover { border-color: var(--rule-strong); }

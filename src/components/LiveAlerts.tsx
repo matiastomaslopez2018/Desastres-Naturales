@@ -1,7 +1,7 @@
 'use client';
 /*
  * Avisos en vivo: mientras la página está abierta se consulta /api/alerts cada minuto y, si aparece un
- * evento nuevo (sismo fuerte, aviso de tsunami, ciclón o nube de ceniza volcánica), sale una tarjeta abajo a la derecha. Quien lo
+ * evento nuevo (sismo fuerte, aviso de tsunami, ciclón, nube de ceniza volcánica o alerta naranja o roja del SMN), sale una tarjeta abajo a la derecha. Quien lo
  * active recibe además una notificación del navegador, que se ve aunque esté en otra pestaña.
  *
  * Lo ya avisado se recuerda en este navegador (localStorage) para no repetirlo al recargar o cambiar de
@@ -18,9 +18,11 @@ import type { Lang } from '@/lib/types';
 
 /** Sección de "Qué hacer" para cada tipo de aviso. */
 const GUIDE_ANCHOR: Record<Lang, Record<LiveAlert['kind'], string>> = {
-  es: { eq: 'sismo', tsunami: 'tsunami', storm: 'huracan', ash: 'volcan' },
-  en: { eq: 'earthquake', tsunami: 'tsunami', storm: 'hurricane', ash: 'volcano' },
+  es: { eq: 'sismo', tsunami: 'tsunami', storm: 'huracan', ash: 'volcan', wx: 'inundacion' },
+  en: { eq: 'earthquake', tsunami: 'tsunami', storm: 'hurricane', ash: 'volcano', wx: 'flood' },
 };
+/** Alertas del SMN: la guía de calor para el calor extremo; la de inundaciones para lluvias y tormentas. */
+const guideAnchor = (lang: Lang, a: LiveAlert) => (a.kind === 'wx' && /calor/i.test(a.title) ? (lang === 'es' ? 'calor' : 'heat') : GUIDE_ANCHOR[lang][a.kind]);
 
 const POLL_MS = 60_000, FRESH_MS = 15 * 60_000, KEEP_MS = 3 * 24 * 3600_000, MAX_SHOWN = 3;
 const SEEN_KEY = 'atlas-alerts-seen', NOTIFY_KEY = 'atlas-alerts-notify';
@@ -28,13 +30,13 @@ const SEEN_KEY = 'atlas-alerts-seen', NOTIFY_KEY = 'atlas-alerts-notify';
 const T = {
   es: {
     see: 'Ver detalles', todo: 'Qué hacer', close: 'Cerrar aviso', region: 'Avisos de eventos',
-    notifyAsk: 'Avisarme aunque esté en otra pestaña', bell: 'Avisarme de sismos fuertes, tsunamis, ciclones y ceniza volcánica aunque esté en otra pestaña', notifyOn: 'Notificaciones activadas', notifyOff: 'Desactivar notificaciones', denied: 'El navegador bloqueó las notificaciones.',
-    src: { eq: 'USGS', tsunami: 'NOAA', storm: 'NHC / GDACS', ash: 'NOAA (SIGMET)' },
+    notifyAsk: 'Avisarme aunque esté en otra pestaña', bell: 'Avisarme de sismos fuertes, tsunamis, ciclones, ceniza volcánica y alertas del SMN aunque esté en otra pestaña', notifyOn: 'Notificaciones activadas', notifyOff: 'Desactivar notificaciones', denied: 'El navegador bloqueó las notificaciones.',
+    src: { eq: 'USGS', tsunami: 'NOAA', storm: 'NHC / GDACS', ash: 'NOAA (SIGMET)', wx: 'SMN' },
   },
   en: {
     see: 'See details', todo: 'What to do', close: 'Close alert', region: 'Event alerts',
-    notifyAsk: 'Alert me even in another tab', bell: 'Alert me of strong earthquakes, tsunamis, cyclones and volcanic ash even in another tab', notifyOn: 'Notifications on', notifyOff: 'Turn notifications off', denied: 'The browser blocked notifications.',
-    src: { eq: 'USGS', tsunami: 'NOAA', storm: 'NHC / GDACS', ash: 'NOAA (SIGMET)' },
+    notifyAsk: 'Alert me even in another tab', bell: 'Alert me of strong earthquakes, tsunamis, cyclones, volcanic ash and SMN alerts even in another tab', notifyOn: 'Notifications on', notifyOff: 'Turn notifications off', denied: 'The browser blocked notifications.',
+    src: { eq: 'USGS', tsunami: 'NOAA', storm: 'NHC / GDACS', ash: 'NOAA (SIGMET)', wx: 'SMN' },
   },
 };
 
@@ -131,7 +133,7 @@ export function LiveAlerts({ lang }: { lang: Lang }) {
               {x.extra && <p className="la-extra">{x.extra}</p>}
               <p className="la-links">
                 <Link className="la-link" href={x.href} onClick={() => setShown((s) => s.filter((y) => y.id !== a.id))}>{t.see} →</Link>
-                <Link className="la-link" href={`${routePath(lang, 'whatToDo')}#${GUIDE_ANCHOR[lang][a.kind]}`}>{t.todo} →</Link>
+                <Link className="la-link" href={`${routePath(lang, 'whatToDo')}#${guideAnchor(lang, a)}`}>{t.todo} →</Link>
               </p>
             </div>
             <button type="button" className="la-close" aria-label={t.close} onClick={() => setShown((s) => s.filter((y) => y.id !== a.id))}>×</button>

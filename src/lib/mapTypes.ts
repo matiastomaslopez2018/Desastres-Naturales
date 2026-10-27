@@ -8,15 +8,20 @@ import type { DisasterEvent, GvpVolcano, HeatBin, HistTrack, NhcStorm, VolcanoAc
 export type DartBuoy = { id: string; type: 'dart'; title: string; lon: number; lat: number; reporting: boolean; owner: string };
 export type SpcReport = { id: string; type: 'spc'; kind: 'tornado' | 'wind' | 'hail'; title: string; lon: number; lat: number; time: number; magnitude: string; county: string; state: string; comments: string };
 export type GlcSlide = { id: string; type: 'glc'; title: string; lon: number; lat: number; time: number | null; deaths: number; trigger: string | null; link: string | null; country: string | null; category: string | null };
+/** Alerta meteorológica del SMN (Argentina): zona coloreada por nivel; "next" = empieza más adelante. */
+export type SmnAlertP = {
+  id: string; type: 'smn'; title: string; level: 'yellow' | 'orange' | 'red'; lon: number; lat: number;
+  onset: number; expires: number; description: string; instruction: string[]; geometry: GeoJSON.MultiPolygon;
+};
 export type ColoredArea = { fill: string; stroke: string; geometry: GeoJSON.Geometry };
 
-export type Pickable = DisasterEvent | GvpVolcano | NhcStorm | HeatBin | VolcanoActivity | HistTrack | DartBuoy | SpcReport | GlcSlide;
+export type Pickable = DisasterEvent | GvpVolcano | NhcStorm | HeatBin | VolcanoActivity | HistTrack | DartBuoy | SpcReport | GlcSlide | SmnAlertP;
 
 export type Layers = {
   borders: boolean; plates: boolean; ring: boolean; gvp: boolean; hazard: boolean;
   nhc: boolean; firms: boolean; wvolc: boolean; ibtracs: boolean;
   slab: boolean; platevec: boolean; dart: boolean; fwi: boolean; wind: boolean;
-  lhasa: boolean; glc: boolean; spc: boolean;
+  lhasa: boolean; glc: boolean; spc: boolean; smn: boolean;
 };
 
 /** Datos de las capas que no son eventos del catálogo (los rásteres los pide el propio globo). */
@@ -32,6 +37,7 @@ export type Overlays = {
   spcOutlook?: ColoredArea[];
   spcReports?: SpcReport[];
   nwsWarnings?: ColoredArea[];
+  smn?: SmnAlertP[];
 };
 
 export interface GlobeHandle {
@@ -50,6 +56,9 @@ export const TYPE_COLOR = {
   eq: '#e8590c', volcano: '#d6336c', fire: '#f59f00', storm: '#228be6', flood: '#12b886', drought: '#b08c4a',
   tsunami: '#0c8599', landslide: '#8f5b2e', gvp: '#868e96',
 } as const;
+
+/** Niveles de alerta del SMN (amarillo, naranja y rojo de su mapa). */
+export const SMN_COLORS = { yellow: '#fcc419', orange: '#fd7e14', red: '#e03131' } as const;
 
 /** Reportes de SPC (mismos colores que usa SPC en sus mapas). */
 export const SPC_COLORS = { tornado: '#e03131', wind: '#1c7ed6', hail: '#2f9e44' } as const;
