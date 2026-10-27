@@ -64,7 +64,8 @@ export default async function EmbedPage({ searchParams }: Props) {
                 <span className="wg-text">
                   <span className="wg-title">{localTitle(e, lang)}</span>
                   <span className="wg-meta">
-                    <time dateTime={new Date(e.time).toISOString()} data-t={e.time}>{fmtTime(lang, e.time, 'UTC')}</time>
+                    {/* El script cambia este texto por la hora relativa: React no lo tiene que corregir al hidratar. */}
+                    <time dateTime={new Date(e.time).toISOString()} data-t={e.time} suppressHydrationWarning>{fmtTime(lang, e.time, 'UTC')}</time>
                     {e.type === 'eq' && e.depth != null ? ` · ${t.depth(fmtNum(lang, e.depth))}` : ''}{e.src !== 'USGS' ? ` · ${e.src}` : ''}
                   </span>
                 </span>
