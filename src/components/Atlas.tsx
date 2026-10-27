@@ -8,6 +8,7 @@ import { HAZARD_LEVELS, SPC_COLORS, SS_SCALE, type ColoredArea, type DartBuoy, t
 import { Glyph, TypeDot } from './Glyph';
 import { LogoMark } from './Logo';
 import { AlertsBell } from './LiveAlerts';
+import { DownloadLinks } from './DownloadLinks';
 import { EventCard } from './EventCard';
 import { FeatureCard } from './FeatureCard';
 import { ShareButtons } from './ShareButtons';
@@ -741,6 +742,8 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
             <input id="minmag" className="night-range" type="range" min={magFloor} max={8} step={0.1} value={minMag}
               onChange={(e) => setMinMag(+e.target.value)} />
           </div>
+          {/* Descarga de lo que se ve: período, tipos y magnitud mínima de los filtros. */}
+          <DownloadLinks className="dl-night" q={{ lang, range, year, min: minMag, types: TYPE_ORDER.filter((k) => types[k]) }} />
           </details>
 
           <div className="night-legend" aria-label={t.legSize}>

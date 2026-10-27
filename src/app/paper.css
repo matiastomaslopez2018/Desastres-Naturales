@@ -514,3 +514,8 @@ a.qs-chip { text-decoration: none; color: inherit; display: inline-block; }
 .wb-code { width: 100%; padding: 10px 12px; border: 1px solid var(--rule-strong); border-radius: 10px; background: #f6f6f2; font: 13px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; resize: vertical; }
 .wb-actions { display: flex; gap: 10px; }
 @media (max-width: 800px) { .wb { grid-template-columns: minmax(0, 1fr); } }
+
+/* Enlaces de descarga (CSV) */
+.dl-links { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; margin: 8px 0 0; font-size: 14px; color: var(--faint); }
+.dl-links a { padding: 3px 10px; border: 1px solid var(--rule-strong); border-radius: 999px; color: inherit; font-weight: 600; text-decoration: none; }
+.dl-links a:hover { background: var(--paper-2); }

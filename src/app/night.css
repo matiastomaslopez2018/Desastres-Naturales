@@ -228,3 +228,7 @@
 .lhasa-scale { height: 10px; border-radius: 4px; background: linear-gradient(90deg, #0000ff, #00ffff, #ffff00, #ff0000); }
 .spc-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11px; }
 .spc-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+
+/* Descarga en el panel de filtros del mapa (tema oscuro) */
+.dl-links.dl-night { color: inherit; opacity: .85; font-size: 13px; }
+.dl-links.dl-night a { border-color: rgba(127,127,127,.5); }

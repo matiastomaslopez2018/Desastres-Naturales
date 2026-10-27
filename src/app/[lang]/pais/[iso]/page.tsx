@@ -17,6 +17,7 @@ import { SHAPE, alertLevel, isHighlighted } from '@/lib/symbols';
 import { countryShape } from '@/lib/server/countries';
 import { alertTag, localTitle } from '@/lib/localize';
 import { RANK_TYPES, getCountry } from '@/lib/server/stats';
+import { DownloadLinks } from '@/components/DownloadLinks';
 import type { Lang } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -132,6 +133,8 @@ export default async function CountryPage({ params, searchParams }: Props) {
               {events.length > LIST_MAX && <span className="ed-note">{t.showing(LIST_MAX, events.length)}</span>}
             </div>
             {list.length === 0 && <p className="ed-note">{t.noData}</p>}
+            {/* Todos los eventos del período (la lista muestra los primeros), con el mismo piso de M4,5 del ranking. */}
+            {list.length > 0 && <DownloadLinks q={{ lang, range, year, country: iso3, min: 4.5 }} />}
             {list.map((e) => (
               <Link key={e.id} href={`/${lang}/evento/${encodeURIComponent(e.id)}`} className="ed-list-row">
                 <span className={`ed-list-mag${isHighlighted(e) ? ' red' : ''}`}>{e.type === 'eq' && e.mag != null ? nf(e.mag, 1) : ''}</span>

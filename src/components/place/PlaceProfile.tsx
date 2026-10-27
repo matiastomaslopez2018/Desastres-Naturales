@@ -195,6 +195,7 @@ function Result({ lang, place, p, now }: { lang: Lang; place: Place; p: Profile;
               ))}
             </ul>
             <p className="qs-help">{t.simulateHelp}</p>
+            <p className="dl-links"><a href={`https://earthquake.usgs.gov/fdsnws/event/1/query?format=csv&latitude=${p.lat}&longitude=${p.lon}&maxradiuskm=${q.radiusKm}&minmagnitude=5&starttime=1900-01-01&orderby=time`} download>⬇ {t.usgsCsv}</a></p>
           </>
         )}
         {q.harmful.length > 0 && (

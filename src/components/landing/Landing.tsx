@@ -7,6 +7,7 @@ import { Glyph } from '@/components/Glyph';
 import { MediaFigure } from '@/components/MediaFigure';
 import { NATIONAL } from '@/components/CountryHistory';
 import { SiteFooter, SiteHeader } from '@/components/SiteHeader';
+import { DownloadLinks } from '@/components/DownloadLinks';
 import { countryName } from '@/lib/countries';
 import { fmtCoords, fmtNum, fmtRel, fmtTime } from '@/lib/format';
 import { T, isLang } from '@/lib/i18n';
@@ -157,6 +158,7 @@ export async function QuakesToday({ lang }: { lang: Lang }) {
       <section>
         <h2 className="ed-h3">{s.listTitle}</h2>
         <EventRows lang={lang} events={list.slice(0, LIST_MAX)} />
+        <DownloadLinks q={{ lang, range: '24h', types: ['eq'] }} />
       </section>
     </Shell>
   );
@@ -212,6 +214,7 @@ export async function QuakesIn({ lang, slug }: { lang: Lang; slug: string }) {
       <section>
         <h2 className="ed-h3">{s.listTitle}</h2>
         <EventRows lang={lang} events={list.slice(0, LIST_MAX)} />
+        <DownloadLinks q={{ lang, range: '30d', types: ['eq'], country: c.iso3 }} />
         <p><Link href={`/${lang}/pais/${c.iso3.toLowerCase()}`} className="ed-more">{s.history(name)} →</Link></p>
       </section>
       <section className="stack">
