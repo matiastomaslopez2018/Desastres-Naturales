@@ -32,9 +32,13 @@ const loadGeo = () => (geoCache ??= import('world-atlas/countries-50m.json').the
   return { land: feature(topo, topo.objects.countries), borders: mesh(topo, topo.objects.countries, (a, b) => a !== b) as unknown as GeoJSON.MultiLineString };
 }));
 
-type Props = { lang: Lang; ash: AshOut | null; vent: [number, number]; name: string; computing: boolean; computingText: string };
+type Props = {
+  lang: Lang; ash: AshOut | null; vent: [number, number]; name: string; computing: boolean; computingText: string;
+  /** Nube de ceniza en el aire de un aviso (polígono lon/lat), para comparar con la caída simulada. */
+  cloud?: { ring: [number, number][]; label: string } | null;
+};
 
-export function AshMap({ lang, ash, vent, name, computing, computingText }: Props) {
+export function AshMap({ lang, ash, vent, name, computing, computingText, cloud }: Props) {
   const wrap = useRef<HTMLDivElement>(null), cv = useRef<HTMLCanvasElement>(null);
   const { w, h, dpr } = useCanvasSize(wrap);
   const [geo, setGeo] = useState<Geo | null>(null);
@@ -93,6 +97,12 @@ export function AshMap({ lang, ash, vent, name, computing, computingText }: Prop
       for (const f of feats) { const g = f.geometry; const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : []; for (const poly of polys) for (const ring of poly) { path(ring); ctx.closePath(); } }
       ctx.stroke();
     }
+    // Nube del aviso: contorno gris a rayas.
+    if (cloud) {
+      ctx.beginPath(); path(cloud.ring); ctx.closePath();
+      ctx.fillStyle = 'rgba(70,70,80,.16)'; ctx.fill();
+      ctx.strokeStyle = 'rgba(40,40,50,.85)'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]); ctx.stroke(); ctx.setLineDash([]);
+    }
     // Lugares.
     ctx.font = '600 12px var(--font-isans), system-ui, sans-serif'; ctx.textBaseline = 'middle';
     for (const p of ash.places) {
@@ -115,7 +125,7 @@ export function AshMap({ lang, ash, vent, name, computing, computingText }: Prop
     ctx.textAlign = 'left'; ctx.font = '11px var(--font-isans), system-ui, sans-serif'; ctx.fillText(`${fmtNum(lang, nice)} km`, 12, h - 26);
     // Norte.
     ctx.textAlign = 'center'; ctx.font = '600 12px var(--font-isans), system-ui, sans-serif'; ctx.fillText('N ↑', w - 22, 16);
-  }, [w, h, dpr, ash, iso, geo, vent, name, lang]);
+  }, [w, h, dpr, ash, iso, geo, vent, name, lang, cloud]);
 
   return (
     <div className="vs-map-wrap">
@@ -125,6 +135,7 @@ export function AshMap({ lang, ash, vent, name, computing, computingText }: Prop
       </div>
       <div className="vs-legend" aria-hidden="true">
         {LEVELS_MM.map((m, k) => <span key={m}><i style={{ background: BAND[k] }} />{k === LEVELS_MM.length - 1 ? `> ${fmtThick(lang, m)}` : `${fmtThick(lang, m)} – ${fmtThick(lang, LEVELS_MM[k + 1])}`}</span>)}
+        {cloud && <span><i className="vs-legend-cloud" />{cloud.label}</span>}
       </div>
     </div>
   );

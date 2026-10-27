@@ -17,6 +17,8 @@ import type { Lang } from '@/lib/types';
 import { useClock, useClockTime, type Clock } from '../quake/clock';
 import { AshMap, fmtThick, mmFromLoad } from './AshMap';
 import { TypeCards } from './TypeCards';
+import { LiveAshList } from './LiveAshList';
+import type { LiveAsh } from '@/lib/server/volcanicAsh';
 import type { AshIn, AshOut } from './ash.worker';
 import type { HazardIn, HazardKind, HazardOut } from './hazard.worker';
 import type { Dem } from '@/lib/volcano/hazards';
@@ -219,8 +221,22 @@ export function VolcanoSim({ lang, initial }: { lang: Lang; initial?: string }) 
   const sorted = ash ? [...ash.places].sort((a, b) => a.km - b.km) : [];
   const impactOf = (mm: number) => t.impactCuts.reduce((k, c, i) => (mm >= c ? i + 1 : k), 0);
 
-  const pickEruption = (id: string) => { setEruptionId(id); setAsh(null); };
-  const pickCustom = (patch: Partial<typeof custom>) => { setEruptionId(null); setAsh(null); setCustom((c) => ({ ...c, ...patch })); };
+  // Volcán con un aviso de ceniza vigente elegido en "En erupción ahora" (se borra al cambiar cualquier otra cosa).
+  const [live, setLive] = useState<LiveAsh | null>(null);
+  const pickEruption = (id: string) => { setEruptionId(id); setAsh(null); setLive(null); };
+  const pickCustom = (patch: Partial<typeof custom>) => { setEruptionId(null); setAsh(null); setLive(null); setCustom((c) => ({ ...c, ...patch })); };
+  const pickLive = (a: LiveAsh) => {
+    const v = VOLCANOES.find((x) => x.id === a.sim);
+    if (!v) return;
+    // Altura sobre el cráter: el tope de la nube del aviso menos la altura del volcán (de a 0,5 km, mínimo 0,5).
+    const km = Math.max(0.5, Math.round((a.topKm - v.elev / 1000) * 2) / 2);
+    const st: Style = km < 3 ? 'strombolian' : km < 10 ? 'vulcanian' : km < 20 ? 'subplinian' : 'plinian';
+    // Duración: la validez del aviso (suele ser 6 h).
+    const hours = Math.min(12, Math.max(1, Math.round((a.validTo - a.validFrom) / 36e5)));
+    pickCustom({ volcano: v.id, style: st, km, hours, wind: 'now' });
+    setLive(a);
+  };
+  const liveCloud = useMemo(() => (live && live.cloud.length > 2 ? { ring: live.cloud, label: t.live.cloud } : null), [live, t]);
   const onType = (k: VolcanoType) => {
     const p = TYPE_PICK[k];
     if (p.eruption) pickEruption(p.eruption);
@@ -252,6 +268,7 @@ export function VolcanoSim({ lang, initial }: { lang: Lang; initial?: string }) 
 
       <div className="qs-grid">
         <aside className="qs-controls" aria-label={t.presets}>
+          <LiveAshList lang={lang} current={live} onPick={pickLive} hours={hm(lang, custom.hours * 3600)} />
           <div className="qs-block">
             <h2 className="qs-h">{t.presets}</h2>
             <div className="qs-presets">
@@ -398,7 +415,8 @@ export function VolcanoSim({ lang, initial }: { lang: Lang; initial?: string }) 
 
           <section className="qs-card" aria-label={t.ashMap}>
             <h2 className="qs-h">{t.ashMap}</h2>
-            <AshMap lang={lang} ash={ash} vent={[volcano.lon, volcano.lat]} name={volcano.name} computing={busy} computingText={t.computing} />
+            <AshMap lang={lang} ash={ash} vent={[volcano.lon, volcano.lat]} name={volcano.name} computing={busy} computingText={t.computing}
+              cloud={liveCloud} />
             <p className="qs-help">{t.ashMapHelp}</p>
             {ash && (
               <div className="ed-table-wrap">

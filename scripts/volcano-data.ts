@@ -273,39 +273,51 @@ async function main() {
   mkdirSync(join(OUT, 'winds'), { recursive: true });
   for (const v of VOLCANOES) {
     if (only && !only.includes(v.id)) continue;
-    const dir = join(OUT, v.id);
-    mkdirSync(dir, { recursive: true });
-    const b = box(v);
-    const d = await dem(v);
-    writeFileSync(join(dir, 'dem.bin'), Buffer.from(d.out.buffer));
-    let scene = null;
-    if (!existsSync(join(dir, 'image.jpg')) || process.env.FORCE_IMAGE) {
-      // La lectura de los COG a veces corta la conexión: hasta 3 intentos.
-      let im: Awaited<ReturnType<typeof image>> | null = null;
-      for (let k = 0; k < 3 && !im; k++) im = await image(v).catch((e) => { console.warn(v.id, 'imagen, intento', k + 1, String(e).slice(0, 80)); return null; });
-      if (!im) throw new Error(v.id + ': no se pudo armar la imagen');
-      writeFileSync(join(dir, 'image.jpg'), im.jpg);
-      scene = im.scene;
-    } else {
-      scene = JSON.parse(await (await import('node:fs/promises')).readFile(join(dir, 'meta.json'), 'utf8')).scene;
-    }
-    const clim = await climatology(v.lon, v.lat);
-    writeFileSync(join(dir, 'meta.json'), JSON.stringify({ id: v.id, box: b, n: N, image: IMG, maxElev: d.max, scene, climate: { source: 'NCEP/NCAR Reanalysis 1, promedio mensual 1991–2020 (NOAA PSL)', months: clim } }));
-    console.log(v.id, `relieve: ${d.tiles} tiles, máx ${d.max} m (GVP ${v.elev} m)`, scene ? `imagen ${scene.scenes.map((x: { date: string; cloud: number }) => x.date + ' (' + x.cloud + '%)').join(', ')} sin datos ${scene.missing * 100}%` : '');
+    // Si falla un volcán se sigue con los demás (se vuelve a correr solo con los que faltan).
+    try { await volcanoData(v); } catch (e) { failed.push(v.id); console.error(v.id, String(e).slice(0, 200)); }
   }
+  if (failed.length) console.error(`Fallaron: ${failed.join(',')}`);
   for (const e of ERUPTIONS) {
     if (only && !only.includes(e.volcano) && !only.includes(e.id)) continue;
-    const v = VOLCANOES.find((x) => x.id === e.volcano)!;
-    const phases = [];
-    for (const p of e.phases) {
-      // Hora de la mitad de la fase.
-      const mid = new Date(Date.parse(p.start.replace(/^00(\d\d)/, '20$1')) + (p.hours * 36e5) / 2).toISOString();
-      const y = new Date(mid).getUTCFullYear();
-      phases.push(e.wind === 'reanalysis' && y >= 1959 && y <= 2022 ? await era5Profile(v.lon, v.lat, mid) : await windProfile(v.lon, v.lat, e.wind === 'reanalysis' ? mid : e.wind));
-    }
-    writeFileSync(join(OUT, 'winds', `${e.id}.json`), JSON.stringify({ id: e.id, source: e.wind === 'reanalysis' ? 'ERA5 (Copernicus/ECMWF), copia ARCO-ERA5 de Google' : 'NCEP/NCAR Reanalysis 1, promedio mensual 1991–2020 (NOAA PSL)', phases }, null, 1));
-    console.log(e.id, phases.map((ph) => `${ph.time}: ${ph.levels.filter((l) => [850, 500, 250, 100].includes(l.p)).map((l) => `${l.p} hPa ${(l.h / 1000).toFixed(1)} km ${Math.hypot(l.u, l.v).toFixed(0)} m/s hacia ${(((Math.atan2(l.u, l.v) * 180) / Math.PI + 360) % 360).toFixed(0)}°`).join(' · ')}`).join('\n   '));
+    await eruptionWind(e);
   }
+}
+
+const failed: string[] = [];
+
+async function volcanoData(v: Volcano) {
+  const dir = join(OUT, v.id);
+  mkdirSync(dir, { recursive: true });
+  const b = box(v);
+  const d = await dem(v);
+  writeFileSync(join(dir, 'dem.bin'), Buffer.from(d.out.buffer));
+  let scene = null;
+  if (!existsSync(join(dir, 'image.jpg')) || process.env.FORCE_IMAGE) {
+    // La lectura de los COG a veces corta la conexión: hasta 3 intentos.
+    let im: Awaited<ReturnType<typeof image>> | null = null;
+    for (let k = 0; k < 3 && !im; k++) im = await image(v).catch((e) => { console.warn(v.id, 'imagen, intento', k + 1, String(e).slice(0, 80)); return null; });
+    if (!im) throw new Error(v.id + ': no se pudo armar la imagen');
+    writeFileSync(join(dir, 'image.jpg'), im.jpg);
+    scene = im.scene;
+  } else {
+    scene = JSON.parse(await (await import('node:fs/promises')).readFile(join(dir, 'meta.json'), 'utf8')).scene;
+  }
+  const clim = await climatology(v.lon, v.lat);
+  writeFileSync(join(dir, 'meta.json'), JSON.stringify({ id: v.id, box: b, n: N, image: IMG, maxElev: d.max, scene, climate: { source: 'NCEP/NCAR Reanalysis 1, promedio mensual 1991–2020 (NOAA PSL)', months: clim } }));
+  console.log(v.id, `relieve: ${d.tiles} tiles, máx ${d.max} m (GVP ${v.elev} m)`, scene ? `imagen ${scene.scenes.map((x: { date: string; cloud: number }) => x.date + ' (' + x.cloud + '%)').join(', ')} sin datos ${scene.missing * 100}%` : '');
+}
+
+async function eruptionWind(e: (typeof ERUPTIONS)[number]) {
+  const v = VOLCANOES.find((x) => x.id === e.volcano)!;
+  const phases = [];
+  for (const p of e.phases) {
+    // Hora de la mitad de la fase.
+    const mid = new Date(Date.parse(p.start.replace(/^00(\d\d)/, '20$1')) + (p.hours * 36e5) / 2).toISOString();
+    const y = new Date(mid).getUTCFullYear();
+    phases.push(e.wind === 'reanalysis' && y >= 1959 && y <= 2022 ? await era5Profile(v.lon, v.lat, mid) : await windProfile(v.lon, v.lat, e.wind === 'reanalysis' ? mid : e.wind));
+  }
+  writeFileSync(join(OUT, 'winds', `${e.id}.json`), JSON.stringify({ id: e.id, source: e.wind === 'reanalysis' ? 'ERA5 (Copernicus/ECMWF), copia ARCO-ERA5 de Google' : 'NCEP/NCAR Reanalysis 1, promedio mensual 1991–2020 (NOAA PSL)', phases }, null, 1));
+  console.log(e.id, phases.map((ph) => `${ph.time}: ${ph.levels.filter((l) => [850, 500, 250, 100].includes(l.p)).map((l) => `${l.p} hPa ${(l.h / 1000).toFixed(1)} km ${Math.hypot(l.u, l.v).toFixed(0)} m/s hacia ${(((Math.atan2(l.u, l.v) * 180) / Math.PI + 360) % 360).toFixed(0)}°`).join(' · ')}`).join('\n   '));
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
