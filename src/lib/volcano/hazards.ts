@@ -162,9 +162,9 @@ export function lahar(d: Dem, opts: { volume: number; channels?: number }): Haza
   const value = new Float32Array(n * n), arrival = new Float32Array(n * n).fill(2);
   let reach = 0;
   for (const s of chosen) {
-    const wet = new Set<number>();
     let k = s, area = 0, dist = 0;
-    const path: { k: number; dist: number }[] = [];
+    // Línea del cauce con el nivel del barro en cada celda.
+    const center: { k: number; lev: number; dist: number }[] = [];
     while (k >= 0 && area < B) {
       const i = k % n, j = (k - i) / n, nx = dir[k];
       if (nx < 0) break;
@@ -186,20 +186,56 @@ export function lahar(d: Dem, opts: { volume: number; channels?: number }): Haza
         const sec = flooded(mid).reduce((sum, c) => sum + Math.max(0, mid - d.h[c]) * cell, 0);
         if (sec < A) lo = mid; else hi = mid;
       }
-      // Celdas inundadas y sus vecinas bajo el nivel (para que secciones contiguas en diagonal no dejen huecos).
-      for (const c of flooded(lo)) {
-        const ci = c % n, cj = (c - ci) / n;
-        for (const [di, dj] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
-          const ii = ci + di, jj = cj + dj, cc = jj * n + ii;
-          if (ii < 0 || jj < 0 || ii >= n || jj >= n || wet.has(cc) || d.h[cc] >= lo) continue;
-          wet.add(cc); area += cell * cell; path.push({ k: cc, dist });
-        }
-      }
+      center.push({ k, lev: lo, dist });
+      area += flooded(lo).length * cell * cell;
       dist += L * cell; k = nx;
       if (k % n === 0 || k % n === n - 1 || k < n || k >= n * (n - 1)) break;
     }
-    reach = Math.max(reach, dist);
-    for (const p of path) { value[p.k] = 1; arrival[p.k] = Math.min(arrival[p.k], p.dist); }
+    // Zona inundada: desde el cauce, las celdas conectadas que quedan bajo el nivel del barro de la celda del cauce
+    // más cercana, hasta 1,5 km. Así el borde sigue las curvas de nivel del valle en vez de franjas sueltas.
+    const src = new Int32Array(n * n).fill(-1), dd = new Float32Array(n * n).fill(Infinity), maxD = 1500 / cell;
+    const heap: number[] = [];
+    const less = (a: number, b: number) => dd[a] < dd[b];
+    const push = (x: number) => { heap.push(x); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (!less(heap[i], heap[p])) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
+    const pop = () => { const top = heap[0], last = heap.pop()!; if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < heap.length && less(heap[l], heap[m])) m = l; if (r < heap.length && less(heap[r], heap[m])) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return top; };
+    // 1) Celda del cauce más cercana a cada celda (distancia en la grilla, hasta 1,5 km). Comparar con el nivel
+    //    de la celda del cauce más cercana, y no con el de más arriba, evita inundar todo lo que queda cuesta abajo.
+    center.forEach((c, ci) => { if (dd[c.k] > 0) { dd[c.k] = 0; src[c.k] = ci; push(c.k); } });
+    const done = new Uint8Array(n * n);
+    while (heap.length) {
+      const x = pop();
+      if (done[x]) continue;
+      done[x] = 1;
+      const xi = x % n, xj = (x - xi) / n;
+      for (const [di, dj] of NB) {
+        const ii = xi + di, jj = xj + dj;
+        if (ii < 0 || jj < 0 || ii >= n || jj >= n) continue;
+        const y = jj * n + ii, nd = dd[x] + (di && dj ? DIAG : 1);
+        if (done[y] || nd > maxD || nd >= dd[y]) continue;
+        dd[y] = nd; src[y] = src[x]; push(y);
+      }
+    }
+    // 2) Desde el cauce, las celdas conectadas que quedan bajo el nivel del barro de su celda del cauce más cercana.
+    const wet: number[] = [], seen = new Uint8Array(n * n), queue = center.map((c) => c.k);
+    for (const q of queue) seen[q] = 1;
+    while (queue.length) {
+      const x = queue.pop()!;
+      wet.push(x);
+      const xi = x % n, xj = (x - xi) / n;
+      for (const [di, dj] of NB) {
+        const ii = xi + di, jj = xj + dj;
+        if (ii < 0 || jj < 0 || ii >= n || jj >= n) continue;
+        const y = jj * n + ii;
+        if (seen[y] || src[y] < 0 || d.h[y] >= center[src[y]].lev) continue;
+        seen[y] = 1; queue.push(y);
+      }
+    }
+    // Se recorta al área total B, en el orden en que llega el barro.
+    wet.sort((a, b) => center[src[a]].dist - center[src[b]].dist || dd[a] - dd[b]);
+    const keep = Math.max(center.length, Math.round(B / (cell * cell)));
+    let last = 0;
+    for (const x of wet.slice(0, keep)) { const t = center[src[x]].dist; value[x] = 1; arrival[x] = Math.min(arrival[x], t); last = Math.max(last, t); }
+    reach = Math.max(reach, last);
   }
   // Cierre morfológico (dilatar y erosionar una celda): rellena huecos sueltos dentro de la zona inundada.
   const dil = new Float32Array(n * n);

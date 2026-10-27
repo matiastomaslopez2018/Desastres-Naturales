@@ -10,6 +10,7 @@ const es = {
   lead: 'Cada volcán erupciona a su manera. Elegí una erupción real o armá la tuya: el relieve y la imagen satelital son los del volcán, la altura de la columna sale de la cantidad de magma que sale por segundo y la ceniza cae arrastrada por el viento real de cada altura, con el mismo modelo que usan los observatorios para sus pronósticos.',
   otherQuake: 'Simulador de sismos', otherTsunami: 'Simulador de tsunamis', thisSim: 'Simulador de volcanes',
   types: 'Tipos de volcán', photo: 'Foto',
+  front: (k: 'lava' | 'pdc' | 'lahar', km: string) => `${k === 'lava' ? 'La lava' : k === 'pdc' ? 'El flujo' : 'El lahar'} va a ${km} km del cráter`,
   watchMovie: 'Ver la película', movieHint: 'Poco más de un minuto: el volcán, la erupción, la ceniza, los otros peligros y la foto de la erupción real.',
   live: {
     title: 'En erupción ahora',
@@ -127,6 +128,7 @@ const en: typeof es = {
   lead: 'Every volcano erupts in its own way. Pick a real eruption or build your own: the relief and satellite image are the volcano’s own, the column height follows from how much magma comes out per second, and the ash falls carried by the real wind at each height, with the same model observatories use for their forecasts.',
   otherQuake: 'Earthquake simulator', otherTsunami: 'Tsunami simulator', thisSim: 'Volcano simulator',
   types: 'Volcano types', photo: 'Photo',
+  front: (k: 'lava' | 'pdc' | 'lahar', km: string) => `${k === 'lava' ? 'Lava' : k === 'pdc' ? 'Flow' : 'Lahar'} front: ${km} km from the crater`,
   watchMovie: 'Watch the movie', movieHint: 'Just over a minute: the volcano, the eruption, the ash, the other hazards and a photo of the real eruption.',
   live: {
     title: 'Erupting now',
