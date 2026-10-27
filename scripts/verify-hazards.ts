@@ -12,6 +12,12 @@ import { energyCone, lahar, lavaFlow, ventCell, type Dem } from '../src/lib/volc
 
 let fails = 0;
 const check = (name: string, ok: boolean, detail: string) => { console.log(`${ok ? 'OK ' : 'MAL'} ${name}: ${detail}`); if (!ok) fails++; };
+/** La llegada de las celdas alcanzadas tiene que ir de cerca de 0 (la boca) a 1 (el frente): si no, no se ve el avance. */
+const spread = (r: { value: Float32Array; arrival: Float32Array }) => {
+  let lo = 9, hi = -1;
+  for (let k = 0; k < r.value.length; k++) if (r.value[k] > 0) { lo = Math.min(lo, r.arrival[k]); hi = Math.max(hi, r.arrival[k]); }
+  return { ok: lo < 0.15 && hi > 0.95 && hi <= 1 + 1e-6, txt: `llegada de ${lo.toFixed(2)} a ${hi.toFixed(2)}` };
+};
 const cell = 100;
 const grid = (f: (x: number, y: number) => number, n = 201): Dem => { const c = (n - 1) / 2, h = new Float32Array(n * n); for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) h[j * n + i] = f((i - c) * cell, (c - j) * cell); return { h, n, cell }; };
 
@@ -20,6 +26,8 @@ const grid = (f: (x: number, y: number) => number, n = 201): Dem => { const c = 
   const d = grid((x, y) => (x === 0 && y === 0 ? 0 : 0));
   const r = energyCone(d, { collapseM: 500, angleDeg: 10 }), expect = 500 / Math.tan((10 * Math.PI) / 180);
   check('cono de energía en el plano', Math.abs(r.reachM - expect) <= cell, `${r.reachM.toFixed(0)} m (esperado ${expect.toFixed(0)} m)`);
+  const sp = spread(r);
+  check('cono de energía: avance', sp.ok, sp.txt);
 }
 // 2. Ladera que baja hacia el este (pendiente 10 %) con ondulaciones.
 {
@@ -36,6 +44,8 @@ const grid = (f: (x: number, y: number) => number, n = 201): Dem => { const c = 
   const d = grid((x, y) => { const r = Math.hypot(x, y); return 3000 * Math.exp(-r / 1500) - (y < 0 ? 60 * Math.exp(-(x * x) / (2 * 300 * 300)) * Math.min(1, -y / 2000) : 0); }, 301);
   const V = 1e6, B = 200 * V ** (2 / 3), r = lahar(d, { volume: V, channels: 1 });
   const area = r.value.reduce((a, v) => a + (v > 0 ? 1 : 0), 0) * cell * cell;
+  const spl = spread(r);
+  check('LAHARZ: avance', spl.ok, spl.txt);
   check('LAHARZ: área ≈ B', r.starts === 1 && area <= B + 40 * cell * cell && area >= 0.5 * B, `${(area / 1e6).toFixed(2)} km² (B = ${(B / 1e6).toFixed(2)} km², ${r.starts} cauce)`);
 }
 // 4. Calbuco.

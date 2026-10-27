@@ -267,8 +267,10 @@ export default function VolcanoScene3D(p: SceneProps) {
             r = 255 - 150 * cool; g = 60 + 190 * f - 45 * cool * (1 - f); b = 15 + 150 * f * f; a = Math.min(1, 0.45 + val[q] * 3);
           } else if (L.kind === 'pdc') {
             // Flujo piroclástico: nube gris, más clara y densa en el frente.
-            r = 184 + 60 * f; g = 178 + 60 * f; b = 168 + 60 * f;
-            a = Math.min(0.9, 0.1 + 0.7 * (val[q] - 0.35) / 0.65 + 0.35 * f);
+            // Flujo piroclástico: detrás queda el depósito gris parduzco (más espeso cerca de la boca); la nube
+            // que avanza la dibujan las partículas (ver updatePdc).
+            r = 168 + 50 * f; g = 156 + 50 * f; b = 140 + 50 * f;
+            a = Math.min(0.85, 0.35 + 0.35 * (val[q] - 0.35) / 0.65 + 0.25 * f);
           } else {
             // Lahar: barro claro y húmedo en el frente, más oscuro detrás.
             r = 168 + 70 * f; g = 122 + 80 * f; b = 70 + 70 * f; a = 0.95;
@@ -311,6 +313,55 @@ export default function VolcanoScene3D(p: SceneProps) {
     lgeo.setAttribute('position', new THREE.BufferAttribute(lpos, 3)); lgeo.setAttribute('size', new THREE.BufferAttribute(lsize, 1)); lgeo.setAttribute('alpha', new THREE.BufferAttribute(lalpha, 1)); lgeo.setAttribute('color', new THREE.BufferAttribute(lcol, 3));
     const lmat = pmat.clone(); lmat.blending = THREE.AdditiveBlending; lmat.uniforms.map.value = tex2;
     const lava = new THREE.Points(lgeo, lmat); lava.frustumCulled = false; scene.add(lava);
+    // Frente que avanza: en un flujo piroclástico, una nube de gas y ceniza caliente pegada al suelo que crece y se
+    // disipa; en un lahar, una ola baja de barro que corre por los cauces.
+    const N_FLOW = 2600, cpos = new Float32Array(N_FLOW * 3), csize = new Float32Array(N_FLOW), calpha = new Float32Array(N_FLOW), ccol = new Float32Array(N_FLOW * 3);
+    const cgeo = new THREE.BufferGeometry();
+    cgeo.setAttribute('position', new THREE.BufferAttribute(cpos, 3)); cgeo.setAttribute('size', new THREE.BufferAttribute(csize, 1)); cgeo.setAttribute('alpha', new THREE.BufferAttribute(calpha, 1)); cgeo.setAttribute('color', new THREE.BufferAttribute(ccol, 3));
+    const cmat = pmat.clone(); cmat.uniforms.map.value = tex2;
+    const flowFx = new THREE.Points(cgeo, cmat); flowFx.frustumCulled = false; flowFx.visible = false; scene.add(flowFx);
+    let flowSeed: { L: HazardLayer; k: Int32Array; t: Float32Array; jx: Float32Array; jz: Float32Array; r: Float32Array } | null = null;
+    /** Cada partícula nace en una celda alcanzada, cuando llega el frente, y vive un tramo corto del avance. */
+    function updateFlow(step: number) {
+      const L = hzLayer;
+      if (!L || L.kind === 'lava') { flowFx.visible = false; return; }
+      if (flowSeed?.L !== L) {
+        const cells: number[] = [];
+        for (let k = 0; k < L.n * L.n; k++) if (L.value[k] > 0.01 && L.arrival[k] <= 1) cells.push(k);
+        if (!cells.length) { flowFx.visible = false; return; }
+        const k = new Int32Array(N_FLOW), t = new Float32Array(N_FLOW), jx = new Float32Array(N_FLOW), jz = new Float32Array(N_FLOW), r = new Float32Array(N_FLOW);
+        for (let i = 0; i < N_FLOW; i++) {
+          k[i] = cells[Math.floor(rnd(i, 41) * cells.length)];
+          t[i] = L.arrival[k[i]] - 0.02 * rnd(i, 42); jx[i] = rnd(i, 43) - 0.5; jz[i] = rnd(i, 44) - 0.5; r[i] = rnd(i, 45);
+        }
+        flowSeed = { L, k, t, jx, jz, r };
+      }
+      const S = flowSeed, tp = geo.attributes.position.array as Float32Array, cw = W / (L.n - 1), mud = L.kind === 'lahar', LIFE = mud ? 0.07 : 0.2;
+      for (let i = 0; i < N_FLOW; i++) {
+        const age = step - S.t[i], k = S.k[i];
+        if (age < 0 || age > LIFE) { calpha[i] = 0; continue; }
+        const u = age / LIFE;
+        // Unos 200 m de espesor que crecen hasta ~1 km mientras la nube se levanta y se diluye (unidades de 100 m).
+        if (mud) {
+          // Lahar: pegado al cauce, apenas sobre el terreno, marrón; se aclara (salpica) y se apaga enseguida.
+          cpos[3 * i] = tp[3 * k] + S.jx[i] * cw; cpos[3 * i + 2] = tp[3 * k + 2] + S.jz[i] * cw;
+          cpos[3 * i + 1] = tp[3 * k + 1] + 0.25 + 0.5 * u * S.r[i];
+          csize[i] = 1.2 + 1.6 * u + S.r[i];
+          calpha[i] = 0.8 * Math.min(1, u / 0.1) * (1 - u);
+          ccol[3 * i] = 0.42 + 0.2 * u; ccol[3 * i + 1] = 0.31 + 0.17 * u; ccol[3 * i + 2] = 0.19 + 0.12 * u;
+          continue;
+        }
+        cpos[3 * i] = tp[3 * k] + S.jx[i] * cw * 2.5; cpos[3 * i + 2] = tp[3 * k + 2] + S.jz[i] * cw * 2.5;
+        cpos[3 * i + 1] = tp[3 * k + 1] + 2 + u * (5 + 7 * S.r[i]);
+        csize[i] = 6 + 16 * u + 5 * S.r[i];
+        calpha[i] = 0.75 * Math.min(1, u / 0.1) * (1 - u) ** 1.2;
+        // Recién formada, oscura y parda; al diluirse, gris clara.
+        const c = 0.42 + 0.3 * u;
+        ccol[3 * i] = c * 1.04; ccol[3 * i + 1] = c; ccol[3 * i + 2] = c * 0.93;
+      }
+      cgeo.attributes.position.needsUpdate = true; cgeo.attributes.size.needsUpdate = true; cgeo.attributes.alpha.needsUpdate = true; cgeo.attributes.color.needsUpdate = true;
+      flowFx.visible = true;
+    }
 
     const rnd = (k: number, s: number) => { const x = Math.sin(k * 127.1 + s * 311.7) * 43758.5453; return x - Math.floor(x); };
     const sunDir = sun.position.clone().normalize();
@@ -387,7 +438,8 @@ export default function VolcanoScene3D(p: SceneProps) {
       ashMat.opacity = hzLayer ? 0 : 0.92 * st.deposited;
       // Sin columna para los lahares (ocurren después, con lluvia) ni en la película cuando muestra un peligro.
       points.visible = hzLayer?.kind !== 'lahar' && !(P.drive && hzLayer); lava.visible = points.visible;
-      paintHazard(Math.min(1, t / (P.slots[P.slots.length - 1]?.end || 1)));
+      const hzProgress = Math.min(1, t / (P.slots[P.slots.length - 1]?.end || 1));
+      paintHazard(hzProgress); updateFlow(hzProgress);
       return { st, phase };
     }
 
@@ -419,7 +471,7 @@ export default function VolcanoScene3D(p: SceneProps) {
     const resize = () => {
       Wpx = el.clientWidth; Hpx = el.clientHeight; renderer.setSize(Wpx, Hpx, false); renderer.domElement.style.width = '100%'; renderer.domElement.style.height = '100%';
       camera.aspect = Wpx / Math.max(1, Hpx); camera.updateProjectionMatrix();
-      for (const m of [pmat, lmat]) { m.uniforms.scale.value = Hpx * 0.9; m.uniforms.maxSize.value = Hpx * 0.28; }
+      for (const m of [pmat, lmat, cmat]) { m.uniforms.scale.value = Hpx * 0.9; m.uniforms.maxSize.value = Hpx * 0.28; }
       dirty = true;
     };
     const ro = new ResizeObserver(resize); ro.observe(el); resize();
@@ -486,7 +538,7 @@ export default function VolcanoScene3D(p: SceneProps) {
           let r = 0;
           for (let k = 0; k < n * n; k++) if (h.value[k] > 0.02) r = Math.max(r, Math.hypot(pos[3 * k] - cx, pos[3 * k + 2] - cz));
           const toT = new THREE.Vector3(cx, cy, cz), d = Math.min(controls.maxDistance, Math.max(W * 0.25, r * 2.3));
-          const az = Math.atan2(camera.position.x - controls.target.x, camera.position.z - controls.target.z), el = 0.95;
+          const az = Math.atan2(camera.position.x - controls.target.x, camera.position.z - controls.target.z), el = h.kind === 'pdc' ? 0.55 : 0.95;
           const toP = new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el)).multiplyScalar(d).add(toT);
           fly = { t0: performance.now(), fromT: controls.target.clone(), toT, fromP: camera.position.clone(), toP };
         }

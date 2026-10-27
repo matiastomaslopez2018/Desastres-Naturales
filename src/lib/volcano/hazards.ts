@@ -76,7 +76,8 @@ export function lavaFlow(d: Dem, opts: { lengthM: number; runs?: number; dh?: nu
 export function energyCone(d: Dem, opts: { collapseM: number; angleDeg: number }): Hazard {
   const { n, cell } = d, start = ventCell(d, 500), si = start % n, sj = (start - si) / n;
   const top = d.h[start] + opts.collapseM, slope = Math.tan((opts.angleDeg * Math.PI) / 180);
-  const value = new Float32Array(n * n), arrival = new Float32Array(n * n).fill(2);
+  // Llegada en metros (Infinity = no llega); al final se pasa a fracción del alcance (2 = no llega).
+  const value = new Float32Array(n * n), arrival = new Float32Array(n * n).fill(Infinity);
   let reach = 0;
   // Rayos desde la boca: el flujo avanza mientras la línea de energía vaya por encima del terreno.
   const rays = 1440, maxR = n * cell;
@@ -95,7 +96,7 @@ export function energyCone(d: Dem, opts: { collapseM: number; angleDeg: number }
   // Intensidad relativa (altura de energía) y avance normalizados.
   let vmax = 0;
   value.forEach((v) => { vmax = Math.max(vmax, v); });
-  for (let k = 0; k < n * n; k++) { if (value[k] > 0) { value[k] = 0.35 + 0.65 * Math.sqrt(value[k] / vmax); arrival[k] /= Math.max(1, reach); } }
+  for (let k = 0; k < n * n; k++) { if (value[k] > 0) { value[k] = 0.35 + 0.65 * Math.sqrt(value[k] / vmax); arrival[k] /= Math.max(1, reach); } else arrival[k] = 2; }
   return { value, arrival, reachM: reach };
 }
 
@@ -159,7 +160,8 @@ export function lahar(d: Dem, opts: { volume: number; channels?: number }): Haza
     for (let k2 = s, step = 0; step < 2000 && k2 >= 0; step++) { used.add(k2); k2 = dir[k2]; }
   }
   const A = 0.05 * opts.volume ** (2 / 3), B = 200 * opts.volume ** (2 / 3);
-  const value = new Float32Array(n * n), arrival = new Float32Array(n * n).fill(2);
+  // Llegada en metros a lo largo del cauce (Infinity = no llega); al final, fracción del alcance (2 = no llega).
+  const value = new Float32Array(n * n), arrival = new Float32Array(n * n).fill(Infinity);
   let reach = 0;
   for (const s of chosen) {
     let k = s, area = 0, dist = 0;
@@ -243,12 +245,12 @@ export function lahar(d: Dem, opts: { volume: number; channels?: number }): Haza
   for (let k = 0; k < n * n; k++) {
     if (!dil[k] || value[k]) continue;
     const i = k % n, j = (k - i) / n;
-    let all = true, best = 2;
+    let all = true, best = Infinity;
     for (const [di, dj] of NB) { const ii = i + di, jj = j + dj; if (ii < 0 || jj < 0 || ii >= n || jj >= n || !dil[jj * n + ii]) { all = false; break; } }
     if (!all) continue;
     for (const [di, dj] of NB) { const kk = (j + dj) * n + (i + di); if (value[kk]) best = Math.min(best, arrival[kk]); }
-    if (best < 2) { value[k] = 1; arrival[k] = best; }
+    if (Number.isFinite(best)) { value[k] = 1; arrival[k] = best; }
   }
-  for (let k = 0; k < n * n; k++) if (value[k]) arrival[k] /= Math.max(1, reach);
+  for (let k = 0; k < n * n; k++) arrival[k] = value[k] ? arrival[k] / Math.max(1, reach) : 2;
   return { value, arrival, reachM: reach, starts: chosen.length };
 }
