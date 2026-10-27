@@ -4,6 +4,7 @@ import { Instrument_Sans, Instrument_Serif } from 'next/font/google';
 import { LANGS, T, isLang } from '@/lib/i18n';
 import { SITE_URL } from '@/lib/site';
 import { LiveAlerts } from '@/components/LiveAlerts';
+import { Pwa } from '@/components/Pwa';
 import '../base.css';
 import '../night.css';
 import '../paper.css';
@@ -34,6 +35,8 @@ export async function generateMetadata({ params }: { params: Promise<{ lang: str
     metadataBase: new URL(SITE_URL),
     title: t.homeTitle,
     applicationName: t.brand,
+    appleWebApp: { capable: true, title: t.brand, statusBarStyle: 'default' },
+    icons: { apple: '/icons/apple-180.png' },
     description: t.brandSub,
     alternates: { languages: { es: '/es', en: '/en' } },
     openGraph: { title: t.homeTitle, siteName: t.brand, description: t.brandSub, type: 'website', locale: lang === 'es' ? 'es_AR' : 'en_US' },
@@ -47,7 +50,7 @@ export default async function RootLayout({ children, params }: { children: React
   if (!isLang(lang)) notFound();
   return (
     <html lang={lang} className={`${sans.variable} ${serif.variable}`}>
-      <body>{children}<LiveAlerts lang={lang} /></body>
+      <body>{children}<LiveAlerts lang={lang} /><Pwa /></body>
     </html>
   );
 }

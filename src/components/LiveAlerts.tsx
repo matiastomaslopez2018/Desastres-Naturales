@@ -10,9 +10,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { LiveAlert } from '@/lib/alerts';
-import { fmtNum, fmtRel } from '@/lib/format';
-import { localPlace } from '@/lib/localize';
+import { fmtRel } from '@/lib/format';
+import { alertTexts as texts } from '@/lib/alertText';
 import { routePath } from '@/lib/seo';
+import { AlertSettings, pushOn, usePushState } from './AlertSettings';
 import type { Lang } from '@/lib/types';
 
 /** Sección de "Qué hacer" para cada tipo de aviso. */
@@ -26,21 +27,11 @@ const SEEN_KEY = 'atlas-alerts-seen', NOTIFY_KEY = 'atlas-alerts-notify';
 
 const T = {
   es: {
-    eq: (m: string) => `Sismo de magnitud ${m}`, tsunami: 'Mensaje de tsunami', storm: (w: string) => w,
-    ash: (v: string) => `Ceniza del volcán ${v}`, ashTop: (km: string) => `Nube hasta ${km} km de altura`,
-    word: { hurricane: 'Huracán', typhoon: 'Tifón', cyclone: 'Ciclón', storm: 'Tormenta tropical' },
-    levels: { warning: 'Alerta de tsunami', advisory: 'Aviso de tsunami', watch: 'Vigilancia de tsunami' } as Record<string, string>,
-    oceanic: 'En zona oceánica: revisá los avisos oficiales de tsunami.',
     see: 'Ver detalles', todo: 'Qué hacer', close: 'Cerrar aviso', region: 'Avisos de eventos',
     notifyAsk: 'Avisarme aunque esté en otra pestaña', bell: 'Avisarme de sismos fuertes, tsunamis, ciclones y ceniza volcánica aunque esté en otra pestaña', notifyOn: 'Notificaciones activadas', notifyOff: 'Desactivar notificaciones', denied: 'El navegador bloqueó las notificaciones.',
     src: { eq: 'USGS', tsunami: 'NOAA', storm: 'NHC / GDACS', ash: 'NOAA (SIGMET)' },
   },
   en: {
-    eq: (m: string) => `Magnitude ${m} earthquake`, tsunami: 'Tsunami message', storm: (w: string) => w,
-    ash: (v: string) => `Ash from ${v} volcano`, ashTop: (km: string) => `Cloud up to ${km} km high`,
-    word: { hurricane: 'Hurricane', typhoon: 'Typhoon', cyclone: 'Cyclone', storm: 'Tropical storm' },
-    levels: { warning: 'Tsunami warning', advisory: 'Tsunami advisory', watch: 'Tsunami watch' } as Record<string, string>,
-    oceanic: 'Offshore: check the official tsunami messages.',
     see: 'See details', todo: 'What to do', close: 'Close alert', region: 'Event alerts',
     notifyAsk: 'Alert me even in another tab', bell: 'Alert me of strong earthquakes, tsunamis, cyclones and volcanic ash even in another tab', notifyOn: 'Notifications on', notifyOff: 'Turn notifications off', denied: 'The browser blocked notifications.',
     src: { eq: 'USGS', tsunami: 'NOAA', storm: 'NHC / GDACS', ash: 'NOAA (SIGMET)' },
@@ -74,16 +65,6 @@ function useNotify() {
   return on;
 }
 
-function texts(lang: Lang, a: LiveAlert) {
-  const t = T[lang];
-  if (a.kind === 'eq') return { title: t.eq(fmtNum(lang, a.mag ?? 0, 1)), place: localPlace(a.title, lang), extra: a.tsunami ? t.oceanic : null, href: `/${lang}/evento/${encodeURIComponent(a.id)}` };
-  if (a.kind === 'tsunami') return { title: (a.level && t.levels[a.level]) || t.tsunami, place: a.title, extra: a.mag ? `M ${fmtNum(lang, a.mag, 1)}` : null, href: routePath(lang, 'tsunami') };
-  if (a.kind === 'ash') return { title: t.ash(a.title), place: [a.country?.[lang], t.ashTop(fmtNum(lang, a.topKm ?? 0, 1))].filter(Boolean).join(' · '), extra: null, href: `${routePath(lang, 'volcanoSim')}${a.sim ? `?${lang === 'es' ? 'erupcion' : 'eruption'}=${a.sim}` : ''}` };
-  const strong = /^(HU|TY|STY|MH)/i.test(a.classification ?? '') || (a.windKt ?? 0) >= 64;
-  const word = strong ? t.word[a.basinWord ?? 'hurricane'] : t.word.storm;
-  return { title: `${word} ${a.title}`, place: a.windKt ? `${fmtNum(lang, a.windKt * 1.852)} km/h` : '', extra: null, href: routePath(lang, 'hurricanes') };
-}
-
 export function LiveAlerts({ lang }: { lang: Lang }) {
   const t = T[lang];
   const [shown, setShown] = useState<LiveAlert[]>([]);
@@ -94,7 +75,8 @@ export function LiveAlerts({ lang }: { lang: Lang }) {
   const announce = useCallback((fresh: LiveAlert[]) => {
     if (!fresh.length) return;
     setShown((s) => [...fresh, ...s.filter((x) => !fresh.some((f) => f.id === x.id))].slice(0, MAX_SHOWN));
-    if (notifyOn()) {
+    // Con avisos push activos, la notificación llega por ahí (con la misma etiqueta): no se repite acá.
+    if (notifyOn() && !pushOn()) {
       for (const a of fresh) {
         const x = texts(lang, a);
         try {
@@ -165,19 +147,24 @@ export function LiveAlerts({ lang }: { lang: Lang }) {
   );
 }
 
-/** Campanita del encabezado: activa o desactiva las notificaciones del navegador para los avisos en vivo. */
+/** Campanita del encabezado: abre el panel de avisos (con la página cerrada, tipos y lugar) e instalar como app. */
 export function AlertsBell({ lang }: { lang: Lang }) {
   const t = T[lang];
-  const on = useNotify();
-  const [ok, setOk] = useState(false);
+  const tab = useNotify(), push = usePushState();
+  const [open, setOpen] = useState(false);
   const [denied, setDenied] = useState(false);
-  useEffect(() => { setOk(supported()); setDenied(supported() && Notification.permission === 'denied'); }, [on]);
-  if (!ok) return null;
-  const label = denied ? t.denied : on ? `${t.notifyOn}. ${t.notifyOff}` : t.bell;
+  const on = tab || !!push;
+  const label = on ? t.notifyOn : t.bell;
+  // Si el navegador no permite push pero sí notificaciones, queda la opción de la pestaña abierta.
+  const tabToggle = supported() ? (
+    <p className="as-sub">{denied ? t.denied : tab ? <>{t.notifyOn} · <button type="button" className="as-link" onClick={() => writeNotify(false)}>{t.notifyOff}</button></> : <button type="button" className="as-link" onClick={async () => { if (!(await enableNotify())) setDenied(true); }}>🔔 {t.notifyAsk}</button>}</p>
+  ) : null;
   return (
-    <button type="button" className={`la-bell${on ? ' on' : ''}`} aria-pressed={on} title={label} aria-label={label} disabled={denied}
-      onClick={async () => { if (on) writeNotify(false); else if (!(await enableNotify())) setDenied(true); }}>
-      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3a6 6 0 0 0-6 6v3.6L4.3 16h15.4L18 12.6V9a6 6 0 0 0-6-6Zm-2.2 15a2.3 2.3 0 0 0 4.4 0" fill={on ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /></svg>
-    </button>
+    <span className="la-bell-wrap">
+      <button type="button" className={`la-bell${on ? ' on' : ''}`} aria-expanded={open} aria-haspopup="dialog" title={label} aria-label={label} onClick={() => setOpen((o) => !o)}>
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3a6 6 0 0 0-6 6v3.6L4.3 16h15.4L18 12.6V9a6 6 0 0 0-6-6Zm-2.2 15a2.3 2.3 0 0 0 4.4 0" fill={on ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /></svg>
+      </button>
+      {open && <AlertSettings lang={lang} onClose={() => setOpen(false)} tabToggle={tabToggle} />}
+    </span>
   );
 }

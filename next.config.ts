@@ -9,7 +9,11 @@ const nextConfig: NextConfig = {
   },
   // Datos estáticos del mapa (GEM, losas, vectores, catálogos): caché larga en el navegador y en la CDN.
   async headers() {
-    return [{ source: "/data/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" }] }];
+    return [
+      { source: "/data/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" }] },
+      // El service worker se revisa siempre, para que las versiones nuevas lleguen enseguida.
+      { source: "/sw.js", headers: [{ key: "Cache-Control", value: "no-cache" }, { key: "Content-Type", value: "application/javascript; charset=utf-8" }] },
+    ];
   },
   // Cliente libSQL con binarios nativos: no empaquetarlo.
   serverExternalPackages: ["@libsql/client", "libsql"],

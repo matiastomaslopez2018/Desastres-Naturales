@@ -211,3 +211,18 @@ button, input, select { font: inherit; color: inherit; }
 @media (prefers-reduced-motion: reduce) { .la-card, .la-dot { animation: none; } }
 @media (max-width: 640px) { .la { right: 8px; left: 8px; bottom: 8px; width: auto; } }
 .ed-lang .la-bell, .map-lang .la-bell { width: 28px; height: 28px; margin-right: 6px; vertical-align: middle; }
+
+/* Panel de avisos (campanita) */
+.la-bell-wrap { position: relative; display: inline-block; }
+.as { position: absolute; right: 0; top: calc(100% + 8px); z-index: 1000; width: min(340px, calc(100vw - 24px)); display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid #e7e7e2; border-radius: 14px; background: #fff; color: #141414; box-shadow: 0 12px 36px rgba(0,0,0,.18); font-family: var(--font-sans); font-size: 14px; text-align: left; white-space: normal; letter-spacing: 0; text-transform: none; font-weight: 400; }
+.as-head { display: flex; justify-content: space-between; align-items: center; font-size: 16px; }
+.as-x { border: 0; background: none; font-size: 22px; line-height: 1; cursor: pointer; color: #555; }
+.as-sub { margin: 0; font-weight: 600; }
+.as-kinds, .as-where { margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 4px; }
+.as-where legend { padding: 0; margin-bottom: 4px; font-weight: 600; }
+.as-near { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; padding-left: 22px; }
+.as-near select { font: inherit; padding: 3px 6px; border-radius: 6px; border: 1px solid #ccc; }
+.as-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.as-ok { margin: 0; color: #24561a; font-weight: 600; }
+.as-note { margin: 0; color: #666; font-size: 12.5px; line-height: 1.45; }
+.as-link { border: 0; padding: 0; background: none; font: inherit; color: var(--accent); font-weight: 600; cursor: pointer; text-decoration: underline; }

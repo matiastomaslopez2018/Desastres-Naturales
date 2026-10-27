@@ -65,6 +65,10 @@ const SCHEMA = [
     event_id TEXT NOT NULL, level INTEGER NOT NULL, lat REAL, lon REAL, at INTEGER NOT NULL
   )`,
   'CREATE INDEX IF NOT EXISTS felt_event ON felt (event_id)',
+  // Notificaciones push: una fila por navegador suscripto (endpoint y claves del navegador, idioma y preferencias).
+  `CREATE TABLE IF NOT EXISTS push_subs (
+    endpoint TEXT PRIMARY KEY, keys TEXT NOT NULL, lang TEXT NOT NULL, prefs TEXT NOT NULL, created_at INTEGER NOT NULL, last_ok INTEGER
+  )`,
 ];
 
 let client: Client | null = null;
@@ -301,4 +305,37 @@ export async function feltReports(eventId: string): Promise<{ level: number; lat
 export async function kvDeleteOlder(prefix: string, before: number): Promise<void> {
   const c = await db();
   await c.execute({ sql: 'DELETE FROM kv WHERE key LIKE ? AND updated_at < ?', args: [prefix.replace(/[%_]/g, '') + '%', before] });
+}
+
+/* ───────────── Notificaciones push ───────────── */
+
+export type PushRow = { endpoint: string; keys: { p256dh: string; auth: string }; lang: 'es' | 'en'; prefs: unknown };
+
+export async function savePushSub(r: PushRow): Promise<void> {
+  const c = await db();
+  await c.execute({
+    sql: `INSERT INTO push_subs (endpoint, keys, lang, prefs, created_at) VALUES (?, ?, ?, ?, ?)
+          ON CONFLICT(endpoint) DO UPDATE SET keys = excluded.keys, lang = excluded.lang, prefs = excluded.prefs`,
+    args: [r.endpoint, JSON.stringify(r.keys), r.lang, JSON.stringify(r.prefs), Date.now()],
+  });
+}
+
+export async function deletePushSub(endpoint: string): Promise<void> {
+  const c = await db();
+  await c.execute({ sql: 'DELETE FROM push_subs WHERE endpoint = ?', args: [endpoint] });
+}
+
+export async function allPushSubs(): Promise<PushRow[]> {
+  const c = await db();
+  const r = await c.execute('SELECT endpoint, keys, lang, prefs FROM push_subs');
+  return r.rows.map((x) => ({ endpoint: String(x.endpoint), keys: JSON.parse(String(x.keys)), lang: x.lang === 'en' ? 'en' : 'es', prefs: JSON.parse(String(x.prefs)) }));
+}
+
+export async function markPushOk(endpoints: string[]): Promise<void> {
+  if (!endpoints.length) return;
+  const c = await db();
+  for (let i = 0; i < endpoints.length; i += 200) {
+    const chunk = endpoints.slice(i, i + 200);
+    await c.execute({ sql: `UPDATE push_subs SET last_ok = ? WHERE endpoint IN (${chunk.map(() => '?').join(',')})`, args: [Date.now(), ...chunk] });
+  }
 }
