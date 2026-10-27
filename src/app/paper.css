@@ -410,6 +410,9 @@ button.ed-button { background: none; cursor: pointer; color: inherit; font-famil
 .ml-wx-red { border-left-color: #e03131; background: #fff5f5; }
 .ml-wx-item span { font-size: 13px; color: var(--ink-2, #555); }
 .ml-wx-item p { margin: 4px 0 0; font-size: 14px; }
+.ml-zone { margin: 12px 0; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--rule); border-left: 5px solid #adb5bd; }
+.ml-zone-1 { border-left-color: #74c0fc; } .ml-zone-2 { border-left-color: #fcc419; } .ml-zone-3 { border-left-color: #fd7e14; } .ml-zone-4 { border-left-color: #e03131; }
+.ml-zone .ml-head { margin-top: 0; }
 .ml-cards { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
 .ml-card { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border: 1px solid var(--rule); border-radius: 12px; background: #fff; text-decoration: none; min-width: 0; }
 .ml-card:hover { border-color: var(--rule-strong); }

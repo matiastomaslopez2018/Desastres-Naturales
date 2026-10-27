@@ -15,6 +15,7 @@ import { PlaceMap, type MapItems } from './PlaceMap';
 import { GUIDE_T, type HazardKey } from '@/lib/guides';
 
 type Now = { id: string; type: string; title: string; time: number; mag: number | null; km: number }[];
+type Zone = { zone: number; as: number | null } | null;
 type Wx = { id: string; event: string; level: 'yellow' | 'orange' | 'red'; onset: number; expires: number; description: string }[];
 type Place = { name: string; lat: number; lon: number; mine?: boolean };
 type Hit = { id: number; name: string; latitude: number; longitude: number; country?: string; admin1?: string; population?: number };
@@ -30,7 +31,7 @@ const lower = (s: string) => s.replace(/^Placa /, 'placa ');
 export function PlaceProfile({ lang, initial }: { lang: Lang; initial: Place | null }) {
   const t = PLACE_TEXT[lang];
   const [place, setPlace] = useState<Place | null>(initial);
-  const [data, setData] = useState<{ profile: Profile; now: Now; wx?: Wx } | 'loading' | 'failed' | null>(null);
+  const [data, setData] = useState<{ profile: Profile; now: Now; wx?: Wx; zone?: Zone } | 'loading' | 'failed' | null>(null);
 
   useEffect(() => {
     if (!place) { setData(null); return; }
@@ -63,7 +64,7 @@ export function PlaceProfile({ lang, initial }: { lang: Lang; initial: Place | n
       )}
       {place && data === 'loading' && <p className="ml-status">{t.loading}</p>}
       {place && data === 'failed' && <p className="qs-warn">{t.failed}</p>}
-      {place && data && typeof data === 'object' && <Result lang={lang} place={place} p={data.profile} now={data.now} wx={data.wx} />}
+      {place && data && typeof data === 'object' && <Result lang={lang} place={place} p={data.profile} now={data.now} wx={data.wx} zone={data.zone ?? null} />}
       <p className="ed-note">{t.notRisk}</p>
       <section className="ml-sources">
         <h2 className="ed-h3">{t.sources}</h2>
@@ -125,7 +126,7 @@ function Search({ lang, onPick }: { lang: Lang; onPick: (p: Place) => void }) {
 
 /* ───────────── Resultado ───────────── */
 
-function Result({ lang, place, p, now, wx = [] }: { lang: Lang; place: Place; p: Profile; now: Now; wx?: Wx }) {
+function Result({ lang, place, p, now, wx = [], zone }: { lang: Lang; place: Place; p: Profile; now: Now; wx?: Wx; zone: Zone }) {
   const t = PLACE_TEXT[lang], nf = (x: number, d = 0) => fmtNum(lang, x, d);
   const q = p.quake, cls = q.gem, lvl = cls == null ? null : gemLevel(cls);
   const gLo = cls ? GEM_LEVELS[cls - 1] : 0, gHi = cls != null && cls < GEM_LEVELS.length ? GEM_LEVELS[cls] : null;
@@ -180,7 +181,7 @@ function Result({ lang, place, p, now, wx = [] }: { lang: Lang; place: Place; p:
       )}
 
       <div className="ml-cards" aria-label={t.summary}>
-        <a href="#ml-quake" className={`ml-card ml-lvl-${lvl ?? 0}`}><span className="ml-card-k">{t.quake}</span><b>{lvl != null ? t.levels[lvl] : '—'}</b><span>{lvl != null ? range : t.gemNone}</span></a>
+        <a href="#ml-quake" className={`ml-card ml-lvl-${lvl ?? 0}`}><span className="ml-card-k">{t.quake}</span><b>{lvl != null ? t.levels[lvl] : '—'}</b><span>{lvl != null ? range : t.gemNone}{zone ? ` · ${t.zoneCard(zone.zone)}` : ''}</span></a>
         <a href="#ml-volc" className="ml-card"><span className="ml-card-k">{t.volcano}</span><b>{v0 ? `${nf(v0.km)} km` : '—'}</b><span>{v0 ? v0.name : t.volcNone}</span></a>
         <a href="#ml-tsu" className="ml-card"><span className="ml-card-k">{t.tsunami}</span><b>{coastal ? (maxRun ? t.m(nf(maxRun, 1)) : '—') : '—'}</b><span>{coastal ? t.tsuCard(p.tsunami.runups.length) : t.coast(nf(p.coastKm ?? 0))}</span></a>
         <a href="#ml-cyc" className="ml-card"><span className="ml-card-k">{t.cyclone}</span><b>{nf(p.cyclone.list.length)}</b><span>{t.cycCard}</span></a>
@@ -195,6 +196,13 @@ function Result({ lang, place, p, now, wx = [] }: { lang: Lang; place: Place; p:
       <section id="ml-quake" className="ml-sec">
         <h2 className="ed-h3">{t.quake}</h2>
         {cls != null ? <><p className="ml-head">{t.gemHead(t.levels[lvl!])}</p><p className="ed-body">{t.gemText(range, mmi)}</p></> : <p className="ed-body">{t.gemNone}</p>}
+        {zone && (
+          <div className={`ml-zone ml-zone-${zone.zone}`}>
+            <p className="ml-head">{t.zoneHead(zone.zone, t.zoneNames[zone.zone])}</p>
+            <p className="ed-body">{t.zoneText(zone.as != null ? nf(zone.as, 2) : null)}{' '}
+              <a href="http://contenidos.inpres.gob.ar/zonas" target="_blank" rel="noopener noreferrer">{t.zoneSrc} ↗</a></p>
+          </div>
+        )}
         {q.plate.boundary && q.plate.here && q.plate.other && <p className="ed-body">{t.plate(lower(plateLabel(lang, q.plate.here.code, q.plate.here.name)), lower(plateLabel(lang, q.plate.other.code, q.plate.other.name)), nf(q.plate.boundary.distKm), t.kinds[q.plate.boundary.kind])}{q.slab ? ` ${t.subduction(nf(q.slab.depth))}` : ''}</p>}
         {q.m5 != null && <p className="ed-body">{t.counts(nf(q.radiusKm), nf(q.m5), nf(q.m6 ?? 0), nf(q.m7 ?? 0))}</p>}
         {q.big.length > 0 && (

@@ -39,6 +39,13 @@ export const METHOD_GROUPS: MethodGroup[] = [
         limits: { es: 'Mismo criterio de unión con el USGS que el INPRES. Un sismo informado por los dos organismos se muestra una vez, con el del país donde ocurrió.', en: 'Same rule for merging with the USGS as INPRES. A quake reported by both agencies is shown once, by the one of the country where it happened.' },
       },
       {
+        name: 'INPRES · zonificación sísmica (Reglamento INPRES-CIRSOC 103)', url: 'http://contenidos.inpres.gob.ar/zonas',
+        covers: { es: 'Zona sísmica oficial (0 a 4) y aceleración máxima del suelo de diseño de un punto de la Argentina, que se muestra en «Mi lugar».', en: 'Official seismic zone (0 to 4) and design peak ground acceleration of a point in Argentina, shown in “My place”.' },
+        freq: { es: 'La zonificación es la del reglamento vigente; cada punto se consulta una vez y se guarda un año.', en: 'The zoning is that of the current building code; each point is queried once and kept for a year.' },
+        license: { es: 'Herramienta pública del INPRES. Se cita la fuente y se enlaza la herramienta.', en: 'Public INPRES tool. The source is credited and the tool is linked.' },
+        limits: { es: 'Es un mapa normativo para construir, no un pronóstico. El INPRES terminó en 2022 un mapa de peligrosidad actualizado que todavía no reemplaza al del reglamento. La ubicación se redondea a ~1 km.', en: 'It is a building-code map, not a forecast. INPRES completed an updated hazard map in 2022 that does not yet replace the code map. The location is rounded to ~1 km.' },
+      },
+      {
         name: 'NOAA NCEI · bases de sismos y tsunamis significativos', url: 'https://www.ngdc.noaa.gov/hazel/',
         covers: { es: 'Sismos y tsunamis históricos con daños, víctimas, M7,5+ o tsunami, desde la Antigüedad. Se muestran los que están a 300 km o menos del evento.', en: 'Historical earthquakes and tsunamis with damage, deaths, M7.5+ or a tsunami, since antiquity. Those within 300 km of the event are shown.' },
         freq: { es: 'NCEI la actualiza de forma continua; acá se consulta cada 7 días.', en: 'NCEI updates it continuously; it is queried here every 7 days.' },
