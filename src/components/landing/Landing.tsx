@@ -85,7 +85,7 @@ export function SeoLinks({ lang, current }: { lang: Lang; current?: RouteKey }) 
   const items: [RouteKey, string][] = [
     ['quakesToday', s.quakesToday.h1], ['volcanoesNow', s.volcanoesNow.h1], ['fires', s.fires.h1],
     ['hurricanes', s.hurricanes.h1], ['tsunami', s.tsunami.h1], ['learn', T[lang].learn.title],
-    ['simulator', T[lang].nav2.sim], ['myPlace', T[lang].nav2.place], ['whatToDo', lang === 'es' ? 'Qué hacer' : 'What to do'],
+    ['simulator', T[lang].nav2.sim], ['myPlace', T[lang].nav2.place], ['whatToDo', lang === 'es' ? 'Qué hacer' : 'What to do'], ['widget', lang === 'es' ? 'Widget para tu sitio' : 'Widget for your site'],
   ];
   return (
     <nav className="seo-links" aria-label={T[lang].learn.related}>

@@ -77,6 +77,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...entries((l) => routePath(l as Lang, 'volcanoSim'), { changeFrequency: 'monthly', priority: 0.7 }),
     ...entries((l) => routePath(l as Lang, 'myPlace'), { changeFrequency: 'monthly', priority: 0.8 }),
     ...entries((l) => routePath(l as Lang, 'whatToDo'), { changeFrequency: 'monthly', priority: 0.8 }),
+    ...entries((l) => routePath(l as Lang, 'widget'), { changeFrequency: 'monthly', priority: 0.5 }),
     ...ARTICLES.flatMap((a) => entries((l) => routePath(l as Lang, 'learn', a[l as Lang].slug), { changeFrequency: 'monthly', priority: 0.7 })),
     ...[...(volcanoes?.bySlug.keys() ?? [])].sort().flatMap((slug) =>
       entries((l) => routePath(l as Lang, 'volcano', slug), { changeFrequency: 'weekly', priority: 0.4 })),

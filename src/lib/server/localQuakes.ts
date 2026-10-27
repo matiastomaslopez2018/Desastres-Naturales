@@ -18,7 +18,7 @@ import type { DisasterEvent, LocalReport } from '../types';
 
 const UA = 'Mozilla/5.0 (compatible; MapaDeDesastres/1.0; +https://desastres-naturales-rho.vercel.app)';
 const KM = 6371;
-const title = (s: string) => s.toLowerCase().replace(/(^|[\s(-])\p{L}/gu, (c) => c.toUpperCase()).replace(/\b(De|Del|La|Las|Los|Y)\b/g, (w) => w.toLowerCase());
+const title = (s: string) => s.toLowerCase().replace(/(^|[\s(-])\p{L}/gu, (c) => c.toUpperCase()).replace(/(?<=\s)(De|Del|La|Las|Los|Y)\b/g, (w) => w.toLowerCase());
 
 async function text(url: string, timeout = 20000) {
   const r = await fetch(url, { headers: { 'User-Agent': UA }, cache: 'no-store', signal: AbortSignal.timeout(timeout) });

@@ -505,3 +505,12 @@ button.ed-button { background: none; cursor: pointer; color: inherit; font-famil
 .learn-todo span { color: #444; font-size: 15px; }
 .learn-todo:hover b { text-decoration: underline; }
 a.qs-chip { text-decoration: none; color: inherit; display: inline-block; }
+
+/* ───────────── Configurador del widget ───────────── */
+.wb { display: grid; grid-template-columns: minmax(240px, 320px) minmax(0, 1fr); gap: 24px 36px; align-items: start; }
+.wb-form { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid var(--rule); border-radius: 14px; background: #fff; }
+.wb-out { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.wb-frame { width: 100%; max-width: 520px; height: 460px; border: 0; border-radius: 12px; background: transparent; }
+.wb-code { width: 100%; padding: 10px 12px; border: 1px solid var(--rule-strong); border-radius: 10px; background: #f6f6f2; font: 13px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; resize: vertical; }
+.wb-actions { display: flex; gap: 10px; }
+@media (max-width: 800px) { .wb { grid-template-columns: minmax(0, 1fr); } }
