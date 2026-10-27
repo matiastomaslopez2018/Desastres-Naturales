@@ -4,11 +4,12 @@
  * la orilla por la ley de Green, lo medido por la NOAA cerca y una escena animada de una costa baja.
  */
 import { useEffect, useMemo, useRef } from 'react';
-import { greensFactor, km } from '@/lib/tsunami/analysis';
+import { km, shoreSeries } from '@/lib/tsunami/analysis';
 import { TSU_TEXT } from '@/lib/tsunami/text';
 import { fmtNum } from '@/lib/format';
 import type { Lang } from '@/lib/types';
 import { prep, useCanvasSize, type Clock } from '../quake/clock';
+import { drawBeach } from './beach';
 
 type Props = {
   lang: Lang; clock: Clock; site: { name: string; lon: number; lat: number };
@@ -21,20 +22,10 @@ type Props = {
 export function Coast({ lang, clock, site, series, seriesDt, depth, hours, runups, distKm, land }: Props) {
   const t = TSU_TEXT[lang], nf = (x: number, d = 0) => fmtNum(lang, x, d);
   const { now, subscribe } = clock;
-  const k = greensFactor(depth, 1);
   // Nivel en la orilla, relativo a la costa: la ola del punto simulado, amplificada por la ley de Green y
   // demorada lo que tarda en cruzar la plataforma (a la velocidad media √(g·h/2) de una pendiente uniforme),
   // menos el movimiento vertical de la propia costa en el sismo (si la costa se hunde, el mar sube enseguida).
-  const delay = (distKm * 1e3) / Math.sqrt((9.81 * depth) / 2);
-  const shore = useMemo(() => {
-    const out = new Float32Array(series.length);
-    for (let i = 0; i < series.length; i++) {
-      const j = i - delay / seriesDt, a = Math.floor(j);
-      const wave = j < 0 ? 0 : a + 1 < series.length ? series[a] * (1 - (j - a)) + series[a + 1] * (j - a) : series[series.length - 1];
-      out[i] = k * wave - land;
-    }
-    return out;
-  }, [series, seriesDt, delay, k, land]);
+  const shore = useMemo(() => shoreSeries(series, seriesDt, depth, distKm, land).shore, [series, seriesDt, depth, distKm, land]);
   const info = useMemo(() => {
     let first = -1, sign = 0, max = 0, maxAt = 0, min = 0;
     for (let i = 0; i < shore.length; i++) {
@@ -79,47 +70,11 @@ export function Coast({ lang, clock, site, series, seriesDt, depth, hours, runup
       trace(shore, '#141414', 1.4);
       ctx.strokeStyle = '#c8102e'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(X(time), T); ctx.lineTo(X(time), T + ph); ctx.stroke();
     };
-    // Escena: perfil de costa baja; alturas reales, ancho comprimido. Agua plana al nivel estimado en la orilla.
-    const r0 = (n: number) => ((Math.sin(n * 12.9898) * 43758.5453) % 1 + 1) % 1;
-    const houses = Array.from({ length: 7 }, (_, i) => ({ x: 0.18 + i * 0.11 + r0(i) * 0.03, w: 0.045 + r0(i + 9) * 0.02, hh: 3 + r0(i + 3) * (i % 3 === 0 ? 6 : 2.5), concrete: i % 3 === 0 }));
     const drawScene = (time: number) => {
       const ctx = prep(scene, ss.w, ss.h, ss.dpr);
       if (!ctx) return;
-      const W = ss.w, H = ss.h, top = Math.max(yMax, 12) + 4, bottom = -Math.max(4, yMax * 0.5);
-      const Y = (m: number) => ((top - m) / (top - bottom)) * H;
-      // Terreno: mar a la izquierda (fondo con pendiente 1:50), orilla en x = 0,32·W, tierra con pendiente 1:100 (comprimida).
-      const shoreX = 0.32 * W;
-      const ground = (x: number) => (x < shoreX ? -((shoreX - x) / shoreX) * (-bottom) * 0.9 : ((x - shoreX) / (W - shoreX)) * Math.min(top - 2, 30));
-      const sky = ctx.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, '#cfe3f0'); sky.addColorStop(1, '#eef3f4');
-      ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
       const level = at(time);
-      // Agua: hasta donde el terreno queda por debajo del nivel.
-      ctx.fillStyle = 'rgba(46,112,160,.85)';
-      ctx.beginPath(); ctx.moveTo(0, H);
-      let xEnd = 0;
-      for (let x = 0; x <= W; x += 2) { if (ground(x) < level) xEnd = x; else break; }
-      for (let x = 0; x <= xEnd; x += 2) ctx.lineTo(x, Y(level) + Math.sin(x * 0.05 - time * 0.02) * 1.2);
-      ctx.lineTo(xEnd, H); ctx.closePath(); ctx.fill();
-      // Espuma en el frente cuando el agua avanza sobre tierra.
-      if (level > 0.2 && xEnd > shoreX) { ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.beginPath(); ctx.ellipse(xEnd, Y(level), 6, 3, 0, 0, Math.PI * 2); ctx.fill(); }
-      // Terreno.
-      ctx.fillStyle = '#c9b48d'; ctx.beginPath(); ctx.moveTo(0, H);
-      for (let x = 0; x <= W; x += 2) ctx.lineTo(x, Y(ground(x)));
-      ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
-      // Casas (madera bajas y algunas de hormigón más altas) con la marca de agua.
-      for (const hs of houses) {
-        const x = hs.x * W + shoreX * 0.4, g = ground(x), wpx = hs.w * W;
-        ctx.fillStyle = hs.concrete ? '#b8b8b2' : '#d9c8a4';
-        ctx.fillRect(x, Y(g + hs.hh), wpx, Y(g) - Y(g + hs.hh));
-        ctx.fillStyle = hs.concrete ? '#8f8f8a' : '#9c4a2f';
-        if (!hs.concrete) { ctx.beginPath(); ctx.moveTo(x - 2, Y(g + hs.hh)); ctx.lineTo(x + wpx / 2, Y(g + hs.hh + 1.6)); ctx.lineTo(x + wpx + 2, Y(g + hs.hh)); ctx.closePath(); ctx.fill(); }
-        const depthW = level - g;
-        if (depthW > 0) { ctx.fillStyle = 'rgba(46,112,160,.55)'; ctx.fillRect(x, Y(Math.min(level, g + hs.hh)), wpx, Y(g) - Y(Math.min(level, g + hs.hh))); }
-      }
-      // Rótulo con el nivel.
-      ctx.font = '600 13px var(--font-isans), system-ui, sans-serif'; ctx.fillStyle = '#141414'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-      ctx.fillText(`${level >= 0 ? '+' : '−'}${fmtNum(lang, Math.abs(level), 1)} m · ${fmtT(time)}`, 10, 8);
-      ctx.strokeStyle = 'rgba(20,20,20,.35)'; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(0, Y(0)); ctx.lineTo(W, Y(0)); ctx.stroke(); ctx.setLineDash([]);
+      drawBeach(ctx, ss.w, ss.h, level, yMax, time, `${level >= 0 ? '+' : '−'}${fmtNum(lang, Math.abs(level), 1)} m · ${fmtT(time)}`);
     };
     const draw = (time: number) => { drawChart(time); drawScene(time); };
     draw(now());

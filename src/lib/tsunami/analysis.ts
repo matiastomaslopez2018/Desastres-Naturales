@@ -58,3 +58,19 @@ export function km([lo1, la1]: number[], [lo2, la2]: number[]) {
   const r = Math.PI / 180, a = Math.sin(((la2 - la1) * r) / 2) ** 2 + Math.cos(la1 * r) * Math.cos(la2 * r) * Math.sin(((lo2 - lo1) * r) / 2) ** 2;
   return 2 * 6371 * Math.asin(Math.sqrt(a));
 }
+
+/**
+ * Nivel del mar en la orilla, relativo a la costa: la ola del punto simulado (profundidad `depth`),
+ * amplificada por la ley de Green y demorada lo que tarda en cruzar la plataforma (a la velocidad media
+ * √(g·h/2) de una pendiente uniforme), menos el movimiento vertical de la propia costa en el sismo.
+ */
+export function shoreSeries(series: Float32Array, seriesDt: number, depth: number, distKm: number, land: number) {
+  const k = greensFactor(depth, 1), delay = (distKm * 1e3) / Math.sqrt((9.81 * depth) / 2);
+  const out = new Float32Array(series.length);
+  for (let i = 0; i < series.length; i++) {
+    const j = i - delay / seriesDt, a = Math.floor(j);
+    const wave = j < 0 ? 0 : a + 1 < series.length ? series[a] * (1 - (j - a)) + series[a + 1] * (j - a) : series[series.length - 1];
+    out[i] = k * wave - land;
+  }
+  return { shore: out, k, delay };
+}

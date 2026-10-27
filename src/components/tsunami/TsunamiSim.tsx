@@ -4,7 +4,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { TSUNAMI_PRESETS, type TsunamiPreset } from '@/lib/tsunami/presets';
 import { cropGrid, MIN_DEPTH, type Grid } from '@/lib/tsunami/swe';
-import { cellAt, compare, km, type Gauge } from '@/lib/tsunami/analysis';
+import { cellAt, compare, km, shoreSeries, type Gauge } from '@/lib/tsunami/analysis';
+import type { MovieFacts, Timing } from '@/lib/tsunami/movie';
+import dynamic from 'next/dynamic';
+import type { MovieInput } from './movieTypes';
 import { dzAt, prepare } from '@/lib/tsunami/okada';
 import { toSubfault } from '@/lib/tsunami/source';
 import type { FaultRow } from '@/lib/tsunami/source';
@@ -19,6 +22,9 @@ import { SourcePanel } from './SourcePanel';
 import { Validation } from './Validation';
 import { Coast } from './Coast';
 import type { WorkerIn, WorkerOut } from './tsunami.worker';
+
+// La película (y three.js) se descargan recién cuando se abre.
+const TsunamiMovie = dynamic(() => import('./TsunamiMovie'), { ssr: false });
 
 type Global = { z: Int16Array; nx: number; ny: number; lon0: number; lat0: number; step: number };
 type EventData = { id: string; usgs: string; source: 'usgs-ffm' | 'uniform'; faults: FaultRow[]; gauges: Gauge[]; runups: number[][] };
@@ -125,8 +131,51 @@ export function TsunamiSim({ lang, initial }: { lang: Lang; initial?: string }) 
     return [x / sw, y / sw];
   }, [data]);
 
+  // Película: datos de entrada y números para los textos (se arman al abrirla).
+  const [movie, setMovie] = useState(false);
+  const movieData = useMemo<{ input: MovieInput; facts: MovieFacts } | null>(() => {
+    if (!movie || !r || !grid || !wet || !data) return null;
+    const sites = preset.coast.map((c, i) => {
+      const k = probes[i];
+      if (k < 0 || !r.series[i]) return { name: c.name, arrivalS: null, shoreMax: 0, obsMed: null, obsMax: null, shore: new Float32Array(1) };
+      const { shore } = shoreSeries(r.series[i], r.seriesDt, grid.h[k], coastGeo[i]?.distKm ?? 0, coastGeo[i]?.land ?? 0);
+      const land = coastGeo[i]?.land ?? 0;
+      let arrival: number | null = null, max = 0;
+      shore.forEach((v, j) => { if (arrival == null && Math.abs(v + land) >= 0.05) arrival = j * r.seriesDt; if (v > max) max = v; });
+      const near = coastObs.filter((o) => km([o[0], o[1]], [c.lon, c.lat]) <= 50).map((o) => o[2]).sort((a, b) => a - b);
+      return { name: c.name, arrivalS: arrival, shoreMax: max, obsMed: near.length ? near[Math.floor(near.length / 2)] : null, obsMax: near.length ? near[near.length - 1] : null, shore };
+    });
+    const cs = sites[site] ?? sites[0];
+    const from = Math.max(0, (cs.arrivalS ?? 0) - 300);
+    const timing: Timing = { hours: HOURS, coastFrom: from, coastTo: Math.min(HOURS * 3600, from + 100 * 60) };
+    // Largo de la ruptura: extensión de las subfallas a lo largo del rumbo medio.
+    let sx = 0, sy = 0;
+    for (const f of data.faults) { sx += f[8] * Math.sin((f[5] * Math.PI) / 180); sy += f[8] * Math.cos((f[5] * Math.PI) / 180); }
+    // Coordenadas locales (km) respecto de la primera subfalla: con la longitud absoluta, el coseno de cada latitud deforma la proyección.
+    const [lon0, lat0] = data.faults[0], cos0 = Math.cos((lat0 * Math.PI) / 180);
+    // Solo cuentan las subfallas que se deslizaron de forma apreciable (≥ 15 % del máximo): la grilla del USGS es más grande que la ruptura.
+    const smax = Math.max(...data.faults.map((f) => f[8]));
+    const az = Math.atan2(sx, sy), proj = data.faults.filter((f) => f[8] >= 0.15 * smax).map((f) => (f[0] - lon0) * 111.19 * cos0 * Math.sin(az) + (f[1] - lat0) * 111.19 * Math.cos(az));
+    const lengthKm = Math.max(...proj) - Math.min(...proj) + (data.faults[0]?.[3] ?? 0);
+    let up = 0, down = 0;
+    r.fine.dz.forEach((v) => { up = Math.max(up, v); down = Math.min(down, v); });
+    const nDart = cmp ? cmp.arrivals.filter((a) => a.g[4] === 3).length : 0;
+    const shoreYMax = Math.max(3, ...Array.from(cs.shore, (v) => Math.abs(v) * 1.25));
+    return {
+      input: {
+        lang, grid, wet, box: preset.box, frames: r.frames, frameS: r.frameS, amp: r.amp, local: r.local, fine: r.fine,
+        gauges: data.gauges, sites: preset.coast, epi, coastSite: site, shore: cs.shore, shoreDt: r.seriesDt, shoreYMax, timing,
+      },
+      facts: {
+        name: preset.name[lang], mag: preset.mag + dMag, lengthKm, up, down: -down,
+        sites: sites.map((x) => ({ name: x.name, arrivalS: x.arrivalS, shoreMax: x.shoreMax, obsMed: x.obsMed, obsMax: x.obsMax })), coastSite: site, dartPct: dMag === 0 ? cmp?.medDart ?? null : null, dartN: nDart,
+      },
+    };
+  }, [movie, r, grid, wet, data, preset, probes, coastGeo, coastObs, site, cmp, dMag, epi, lang]);
+
   return (
     <div className="qs ts">
+      {movieData && <TsunamiMovie input={movieData.input} facts={movieData.facts} onClose={() => setMovie(false)} />}
       <nav className="ts-switch" aria-label={t.kicker}>
         <Link href={routePath(lang, 'simulator')}>{t.otherSim}</Link>
         <span aria-current="page">{t.h1}</span>
@@ -162,6 +211,10 @@ export function TsunamiSim({ lang, initial }: { lang: Lang; initial?: string }) 
         </aside>
 
         <div className="qs-main">
+          <div className="ts-movie-cta">
+            <button type="button" className="ts-movie-btn" disabled={!r} onClick={() => setMovie(true)}>▶ {t.watchMovie}</button>
+            <span className="qs-help">{t.movieHint}</span>
+          </div>
           <section className="qs-card" aria-label={t.ocean}>
             <div className="qs-card-head">
               <h2 className="qs-h">{t.ocean}</h2>
