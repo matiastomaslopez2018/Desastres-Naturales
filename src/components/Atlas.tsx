@@ -7,6 +7,7 @@ import { Globe } from './Globe';
 import { HAZARD_LEVELS, SPC_COLORS, SS_SCALE, type ColoredArea, type DartBuoy, type GlcSlide, type GlobeHandle, type Layers, type Overlays, type Pickable, type SpcReport } from '@/lib/mapTypes';
 import { Glyph, TypeDot } from './Glyph';
 import { LogoMark } from './Logo';
+import { AlertsBell } from './LiveAlerts';
 import { EventCard } from './EventCard';
 import { FeatureCard } from './FeatureCard';
 import { ShareButtons } from './ShareButtons';
@@ -189,6 +190,26 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
         setSrc((s) => ({ ...s, usgs: { state: 'err' }, eonet: { state: 'err' }, gdacs: { state: 'err' } }));
       });
     return () => ctrl.abort();
+  }, [range, year]);
+
+  // Con la página abierta, los períodos que llegan hasta hoy se vuelven a pedir cada 5 minutos (y al volver
+  // a la pestaña), sin tocar la selección ni el estado de carga.
+  useEffect(() => {
+    if (range === 'year' && year !== new Date().getUTCFullYear()) return;
+    let last = Date.now();
+    const refresh = () => {
+      if (document.hidden) return;
+      last = Date.now();
+      const p = new URLSearchParams({ range, ...(range === 'year' ? { year: String(year) } : {}) });
+      fetch(`/api/events?${p}`)
+        .then((r) => (r.ok ? (r.json() as Promise<EventsResponse>) : Promise.reject(r.status)))
+        .then((j) => { setEvents(j.events); setSrc((s) => ({ ...s, ...j.sources })); setFetchedAt(j.fetchedAt); setWin({ s: Date.parse(j.range.start), e: Date.parse(j.range.end) }); })
+        .catch((err) => console.warn('[atlas] actualización', err));
+    };
+    const id = setInterval(refresh, 5 * 6e4);
+    const onVis = () => { if (!document.hidden && Date.now() - last > 5 * 6e4) refresh(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVis); };
   }, [range, year]);
 
   useEffect(() => { setMinMag((m) => Math.max(m, magFloor)); }, [magFloor]);
@@ -656,6 +677,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
             <Link href={`/${lang}/metodologia`}>{t.nav2.method}</Link>
           </nav>
           <span className="map-lang">
+            <AlertsBell lang={lang} />
             {(['es', 'en'] as Lang[]).map((l, i) => (
               <span key={l}>
                 {i > 0 && ' / '}
