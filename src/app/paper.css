@@ -548,3 +548,13 @@ a.qs-chip { text-decoration: none; color: inherit; display: inline-block; }
 .td-links { display: flex; gap: 14px; flex-wrap: wrap; font-size: 14px; margin-top: 2px; }
 @media (max-width: 560px) { .td-item { flex-direction: column; gap: 4px; } .td-year { width: auto; font-size: 20px; } .td-sort { margin-left: 0; } }
 .td-filters .qs-chip { display: inline-flex; align-items: center; gap: 6px; }
+
+/* «¿Y si pasara acá?» */
+.wi-controls { display: flex; flex-wrap: wrap; gap: 12px 24px; margin-bottom: 12px; }
+.wi-field { display: flex; flex-direction: column; gap: 4px; min-width: min(100%, 280px); }
+.wi-field select { font: inherit; padding: 8px 10px; border: 1px solid var(--rule-strong); border-radius: 8px; background: #fff; max-width: 100%; }
+.wi-result { margin-top: 18px; }
+.wi-table { border-collapse: collapse; width: 100%; margin: 10px 0 14px; font-size: 14px; }
+.wi-table th { text-align: left; font-weight: 600; font-size: 13px; color: var(--faint); border-bottom: 1px solid var(--rule-strong); padding: 6px 8px 6px 0; }
+.wi-table td { border-bottom: 1px solid var(--rule); padding: 7px 8px 7px 0; }
+.wi-table .ml-key { vertical-align: -1px; }

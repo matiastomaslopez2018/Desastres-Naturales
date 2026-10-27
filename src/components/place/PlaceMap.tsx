@@ -13,7 +13,7 @@ import { prep, useCanvasSize } from '../quake/clock';
 
 type Geo = { land: GeoJSON.FeatureCollection | GeoJSON.Feature; borders: GeoJSON.MultiLineString };
 let geoCache: Promise<Geo> | null = null;
-const loadGeo = () => (geoCache ??= import('world-atlas/countries-50m.json').then((m) => {
+export const loadGeo = () => (geoCache ??= import('world-atlas/countries-50m.json').then((m) => {
   const topo = (m.default ?? m) as unknown as Topology<{ countries: GeometryCollection }>;
   return { land: feature(topo, topo.objects.countries), borders: mesh(topo, topo.objects.countries, (a, b) => a !== b) as unknown as GeoJSON.MultiLineString };
 }));

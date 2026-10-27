@@ -18,7 +18,7 @@ type Now = { id: string; type: string; title: string; time: number; mag: number 
 type Air = { time: number; pm25: number | null; pm10: number | null; pm25Mean24: number | null; pm25Max24: number | null; aod: number | null } | null;
 type Zone = { zone: number; as: number | null } | null;
 type Wx = { id: string; event: string; level: 'yellow' | 'orange' | 'red'; onset: number; expires: number; description: string }[];
-type Place = { name: string; lat: number; lon: number; mine?: boolean };
+export type Place = { name: string; lat: number; lon: number; mine?: boolean };
 type Hit = { id: number; name: string; latitude: number; longitude: number; country?: string; admin1?: string; population?: number };
 
 const EXAMPLES: Place[] = [
@@ -78,7 +78,7 @@ export function PlaceProfile({ lang, initial }: { lang: Lang; initial: Place | n
 
 /* ───────────── Buscador ───────────── */
 
-function Search({ lang, onPick }: { lang: Lang; onPick: (p: Place) => void }) {
+export function Search({ lang, onPick }: { lang: Lang; onPick: (p: Place) => void }) {
   const t = PLACE_TEXT[lang];
   const [q, setQ] = useState('');
   const [hits, setHits] = useState<Hit[] | null>(null);
