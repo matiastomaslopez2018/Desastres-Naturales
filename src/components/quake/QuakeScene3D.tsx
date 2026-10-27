@@ -70,7 +70,7 @@ export default function QuakeScene3D(p: QSceneProps) {
   propsRef.current = p;
 
   useEffect(() => {
-    const el = wrap.current!, P = propsRef.current, T = SIM_TEXT[P.lang];
+    const el = wrap.current!, P = propsRef.current, T = SIM_TEXT[P.lang], labelBox = labels.current;
     let renderer: THREE.WebGLRenderer;
     try {
       renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -384,7 +384,7 @@ export default function QuakeScene3D(p: QSceneProps) {
 
     /* ── Rótulos (HTML proyectado) ── */
     type Lab = { el: HTMLSpanElement; pos: THREE.Vector3 };
-    const mkLab = (text: string, cls = 'mv-label') => { const d = document.createElement('span'); d.className = cls; d.textContent = text; labels.current?.appendChild(d); return d; };
+    const mkLab = (text: string, cls = 'mv-label') => { const d = document.createElement('span'); d.className = cls; d.textContent = text; labelBox?.appendChild(d); return d; };
     const tLabs: Lab[] = [
       { el: mkLab(T.hypocenter), pos: new THREE.Vector3(X(0), Y(P.depth), 0) },
       { el: mkLab(T.epicenter), pos: new THREE.Vector3(X(0), 0.5, 0) },
@@ -504,7 +504,7 @@ export default function QuakeScene3D(p: QSceneProps) {
     const unsub = P.clock.subscribe(draw);
     return () => {
       unsub(); ro.disconnect();
-      labels.current?.replaceChildren();
+      labelBox?.replaceChildren();
       scene.traverse((o) => {
         const m = o as THREE.Mesh;
         m.geometry?.dispose();

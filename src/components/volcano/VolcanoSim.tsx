@@ -3,7 +3,7 @@
  * Simulador de volcanes: tipos de volcán, erupciones reales o propias, el volcán en 3D con la columna y la
  * ceniza, el mapa regional de la caída y lo que significa en cada lugar.
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { ERUPTIONS, VOLCANOES, type Eruption, type Style, type VolcanoType } from '@/lib/volcano/presets';
@@ -13,7 +13,7 @@ import { VOLC_SOURCES, VOLC_TEXT } from '@/lib/volcano/text';
 import { fmtNum } from '@/lib/format';
 import { routePath } from '@/lib/seo';
 import type { Lang } from '@/lib/types';
-import { useClock } from '../quake/clock';
+import { useClock, useClockTime, type Clock } from '../quake/clock';
 import { AshMap, fmtThick, mmFromLoad } from './AshMap';
 import { TypeCards } from './TypeCards';
 import type { AshIn, AshOut } from './ash.worker';
@@ -133,11 +133,10 @@ export function VolcanoSim({ lang, initial }: { lang: Lang; initial?: string }) 
   }, [run, volcano, ground, eruption]);
 
   // Animación.
-  const clock = useClock(ANIM_S);
+  const clock = useClock(ANIM_S, { textHz: 0 });
   const sl = useMemo(() => (run ? makeSlots(run.phases) : []), [run]);
   const masses = useMemo(() => (run ? run.phases.map((p) => p.massKg) : []), [run]);
   useEffect(() => { clock.pause(); clock.seek(sl.length ? Math.min(ANIM_S, sl[0].start + (sl[0].end - sl[0].start) * 0.6) : 0); /* cuadro de muestra */ }, [sl]); // eslint-disable-line react-hooks/exhaustive-deps
-  const st = sl.length ? at(sl, masses, clock.shown) : null;
   const [no3D, setNo3D] = useState(false);
 
   // Peligros sobre el relieve (lava, flujos piroclásticos, lahares): se calculan en otro worker con el relieve.
@@ -209,7 +208,10 @@ export function VolcanoSim({ lang, initial }: { lang: Lang; initial?: string }) 
   }, [eruption, volcano, lang]);
 
   const year = meta?.scene?.date?.slice(0, 4) ?? '2023';
-  const phaseLabel = st && run ? (st.phase >= 0 ? `${run.phases.length > 1 ? `${t.phase(st.phase + 1)} · ` : ''}${t.elapsed(hm(lang, st.realS))}` : '') : '';
+  const phaseLabel = (time: number) => {
+    const st = sl.length ? at(sl, masses, time) : null;
+    return st && run && st.phase >= 0 ? `${run.phases.length > 1 ? `${t.phase(st.phase + 1)} · ` : ''}${t.elapsed(hm(lang, st.realS))}` : '';
+  };
 
   return (
     <div className="qs vs">
@@ -286,9 +288,11 @@ export function VolcanoSim({ lang, initial }: { lang: Lang; initial?: string }) 
                 ))}
               </div>
               <div className="qs-transport">
-                <button type="button" className="qs-play" disabled={!run} onClick={() => (clock.playing ? clock.pause() : (clock.shown >= ANIM_S - 0.05 && clock.seek(0), clock.play()))}>
-                  {clock.playing ? t.pause : clock.shown >= ANIM_S - 0.05 ? t.replay : t.play}
-                </button>
+                <Live clock={clock} hz={4}>{(time) => (
+                  <button type="button" className="qs-play" disabled={!run} onClick={() => (clock.playing ? clock.pause() : (clock.now() >= ANIM_S - 0.05 && clock.seek(0), clock.play()))}>
+                    {clock.playing ? t.pause : time >= ANIM_S - 0.05 ? t.replay : t.play}
+                  </button>
+                )}</Live>
               </div>
             </div>
             <div className="vs-stage">
@@ -301,9 +305,9 @@ export function VolcanoSim({ lang, initial }: { lang: Lang; initial?: string }) 
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={`/data/volcano/${volcano.id}/image.jpg`} alt="" className="vs-flat" />
               ) : <div className="vs-3d vs-busy">…</div>}
-              {phaseLabel && <span className="vs-clock">{phaseLabel}</span>}
+              <Live clock={clock} hz={4}>{(time) => { const l = phaseLabel(time); return l ? <span className="vs-clock">{l}</span> : null; }}</Live>
             </div>
-            <input className="qs-scrub" type="range" min={0} max={ANIM_S} step={0.05} value={clock.shown} aria-label={t.duration} onChange={(e) => { clock.pause(); clock.seek(+e.target.value); }} />
+            <Live clock={clock} hz={8}>{(time) => <input className="qs-scrub" type="range" min={0} max={ANIM_S} step={0.05} value={time} aria-label={t.duration} onChange={(e) => { clock.pause(); clock.seek(+e.target.value); }} />}</Live>
             <p className="qs-help">{no3D ? t.noWebGL : t.sceneHelp} {t.credits(year)}</p>
           </section>
 
@@ -431,7 +435,10 @@ export function VolcanoSim({ lang, initial }: { lang: Lang; initial?: string }) 
         </section>
         <section className="qs-card" aria-label={t.column}>
           <h2 className="qs-h">{t.column}</h2>
-          {run && <ColumnProfile lang={lang} top={run.phases[Math.max(0, st?.phase ?? 0)].topKm * 1000} vent={volcano.elev} wind={run.phases[Math.max(0, st?.phase ?? 0)].wind} />}
+          {run && <Live clock={clock} hz={2}>{(time) => {
+            const ph = Math.max(0, sl.length ? at(sl, masses, time).last : 0), p = run.phases[Math.min(ph, run.phases.length - 1)];
+            return <ColumnProfile lang={lang} top={p.topKm * 1000} vent={volcano.elev} wind={p.wind} />;
+          }}</Live>}
           <p className="qs-help">{t.columnHelp}</p>
         </section>
       </div>
@@ -454,8 +461,14 @@ export function VolcanoSim({ lang, initial }: { lang: Lang; initial?: string }) 
   );
 }
 
+/** Parte de la página que depende del tiempo de la animación (se redibuja sola, no toda la página). */
+function Live({ clock, hz, children }: { clock: Clock; hz: number; children: (t: number) => React.ReactNode }) {
+  const t = useClockTime(clock, hz);
+  return <>{children(t)}</>;
+}
+
 /** Perfil vertical: la columna hasta su tope y el viento a cada altura (flecha hacia donde sopla, vista en planta). */
-function ColumnProfile({ lang, top, vent, wind }: { lang: Lang; top: number; vent: number; wind: WindProfile }) {
+const ColumnProfile = memo(function ColumnProfile({ lang, top, vent, wind }: { lang: Lang; top: number; vent: number; wind: WindProfile }) {
   const Hmax = Math.max(20000, Math.ceil((top * 1.15) / 5000) * 5000), W = 320, H = 260, y = (h: number) => H - 20 - ((H - 40) * h) / Hmax;
   // Niveles separados al menos un 6 % de la altura del gráfico (cerca del suelo hay muchos y se pisan).
   const rows = wind.filter((l) => l.h > 0 && l.h <= Hmax).sort((a, b) => a.h - b.h).filter((l, i, a) => i === 0 || l.h - a[i - 1].h >= Hmax * 0.06);
@@ -481,4 +494,4 @@ function ColumnProfile({ lang, top, vent, wind }: { lang: Lang; top: number; ven
       <text x={200} y={10} textAnchor="middle" className="qs-axis">N ↑</text>
     </svg>
   );
-}
+});

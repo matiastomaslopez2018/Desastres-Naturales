@@ -20,7 +20,7 @@ import type { Lang } from '@/lib/types';
 import { mmFromLoad } from './AshMap';
 
 const VE = 1.5, U = 100; // exageración vertical del relieve; metros por unidad
-const N_PART = 9000, N_SAMP = 96, N_CLASS = 6;
+const N_PART = 5000, N_SAMP = 96, N_CLASS = 6;
 
 export type SceneProps = {
   lang: Lang;
@@ -373,22 +373,24 @@ export default function VolcanoScene3D(p: SceneProps) {
     const resize = () => {
       Wpx = el.clientWidth; Hpx = el.clientHeight; renderer.setSize(Wpx, Hpx, false); renderer.domElement.style.width = '100%'; renderer.domElement.style.height = '100%';
       camera.aspect = Wpx / Math.max(1, Hpx); camera.updateProjectionMatrix();
-      for (const m of [pmat, lmat]) { m.uniforms.scale.value = Hpx * 0.9; m.uniforms.maxSize.value = Hpx * 0.45; }
+      for (const m of [pmat, lmat]) { m.uniforms.scale.value = Hpx * 0.9; m.uniforms.maxSize.value = Hpx * 0.28; }
       dirty = true;
     };
     const ro = new ResizeObserver(resize); ro.observe(el); resize();
     // Solo se recalcula lo que cambió: las partículas si avanzó el tiempo (o cambió la calidad) y el cuadro si
     // además se movió la cámara. La cantidad de partículas se adapta a lo que el equipo puede dibujar.
-    let lastT = -1, cached: ReturnType<typeof updatePlume> | null = null, frameMs = 16, lastFrame = performance.now(), slow = 0, fast = 0;
+    let lastPlume = 0, lastT = -1, cached: ReturnType<typeof updatePlume> | null = null, frameMs = 16, lastFrame = performance.now(), slow = 0, fast = 0;
     function draw() {
       const now = performance.now(), dtF = now - lastFrame;
       lastFrame = now;
       const t = P.clock.now(), moved = controls.update();
       if (t !== lastT) frameMs = frameMs * 0.9 + Math.min(100, dtF) * 0.1;
-      if (frameMs > 26 && nVis > 2400) { if (++slow > 20) { nVis = Math.max(2400, Math.round(nVis * 0.75)); slow = 0; dirty = true; } } else slow = 0;
+      if (frameMs > 22 && nVis > 1500) { if (++slow > 8) { nVis = Math.max(1500, Math.round(nVis * 0.7)); slow = 0; dirty = true; } } else slow = 0;
       if (frameMs < 14 && nVis < N_PART) { if (++fast > 120) { nVis = Math.min(N_PART, Math.round(nVis * 1.25)); fast = 0; dirty = true; } } else fast = 0;
       if (!moved && !dirty && t === lastT && cached) return;
-      if (t !== lastT || dirty || !cached) {
+      // El humo se mueve despacio: se recalcula a ~30 cuadros por segundo; la cámara, en cada cuadro.
+      if (dirty || !cached || (t !== lastT && now - lastPlume > 30)) {
+        lastPlume = now;
         pgeo.setDrawRange(0, nVis);
         pmat.uniforms.alphaScale.value = Math.sqrt(N_PART / nVis);
         cached = updatePlume(t);

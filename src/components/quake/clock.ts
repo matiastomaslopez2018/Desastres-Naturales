@@ -20,7 +20,12 @@ export type Clock = {
   end: number;
 };
 
-export function useClock(end: number): Clock {
+/**
+ * Con `textHz: 0` el componente que crea el reloj no se vuelve a dibujar mientras corre: los textos que
+ * dependen del tiempo usan useClockTime en componentes chicos (así no se recalcula toda la página).
+ */
+export function useClock(end: number, opts: { textHz?: number } = {}): Clock {
+  const textMs = opts.textHz === 0 ? Infinity : 1000 / (opts.textHz ?? 10);
   const tRef = useRef(0);
   const subs = useRef(new Set<(t: number) => void>());
   const [playing, setPlaying] = useState(false);
@@ -46,7 +51,7 @@ export function useClock(end: number): Clock {
       last = now;
       tRef.current = Math.min(endRef.current, tRef.current + dt * speedRef.current);
       emit();
-      if (now - lastShown > 100) { lastShown = now; setShown(tRef.current); }
+      if (now - lastShown > textMs) { lastShown = now; setShown(tRef.current); }
       if (tRef.current >= endRef.current) { setShown(tRef.current); setPlaying(false); return; }
       raf = requestAnimationFrame(step);
     };
@@ -55,7 +60,7 @@ export function useClock(end: number): Clock {
     const onVis = () => { if (document.hidden) setPlaying(false); };
     document.addEventListener('visibilitychange', onVis);
     return () => { cancelAnimationFrame(raf); document.removeEventListener('visibilitychange', onVis); };
-  }, [playing, emit]);
+  }, [playing, emit, textMs]);
 
   return {
     now, subscribe,
@@ -64,6 +69,17 @@ export function useClock(end: number): Clock {
     pause: () => setPlaying(false),
     seek,
   };
+}
+
+/** Tiempo del reloj para un componente chico, actualizado como mucho `hz` veces por segundo. */
+export function useClockTime(clock: Pick<Clock, 'now' | 'subscribe'>, hz = 10) {
+  const [t, setT] = useState(clock.now());
+  useEffect(() => {
+    let last = 0;
+    setT(clock.now());
+    return clock.subscribe((v) => { const now = performance.now(); if (now - last >= 1000 / hz) { last = now; setT(v); } });
+  }, [clock, hz]);
+  return t;
 }
 
 /** Tamaño CSS del lienzo y su resolución (con tope de 2× para no gastar memoria). */
