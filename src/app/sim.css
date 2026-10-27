@@ -163,3 +163,34 @@
 @media (max-width: 900px) {
   .ts-source-maps, .ts-check-grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ───────────── Simulador de volcanes ───────────── */
+.vs-types { display: flex; flex-direction: column; gap: 8px; }
+.vs-type-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.vs-type { display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid var(--rule); border-radius: 12px; background: #fff; font: inherit; text-align: left; cursor: pointer; color: inherit; }
+.vs-type:hover { border-color: var(--rule-strong); }
+.vs-type[aria-pressed='true'] { border-color: #c8102e; box-shadow: 0 0 0 1px #c8102e inset; }
+.vs-type-svg { width: 100%; height: auto; background: linear-gradient(#e9f1f6, #f7f5ef); border-radius: 8px; }
+.vs-type-name { font-weight: 600; font-size: 15px; }
+.vs-type-text { font-size: 13px; line-height: 1.45; color: #333; }
+.vs-type-ex { font-size: 12px; line-height: 1.4; color: var(--faint); }
+.vs-select { width: 100%; padding: 7px 8px; border: 1px solid var(--rule-strong); border-radius: 8px; background: #fff; font: inherit; font-size: 14px; }
+.vs-seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 3px; border-radius: 10px; background: var(--paper-2); }
+.vs-stage { position: relative; height: clamp(340px, 52vw, 600px); border-radius: 10px; overflow: hidden; background: #9fc2dc; }
+.vs-3d { position: absolute; inset: 0; touch-action: none; }
+.vs-flat { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.vs-busy { display: grid; place-items: center; color: rgba(20,20,20,.6); font-size: 14px; }
+.vs-labels { position: absolute; inset: 0; pointer-events: none; }
+.vs-label { position: absolute; left: 0; top: 0; margin: -26px 0 0 -4px; padding: 2px 8px; border-radius: 6px; background: rgba(20,20,20,.72); color: #fff; font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+.vs-clock { position: absolute; left: 10px; top: 10px; padding: 4px 10px; border-radius: 8px; background: rgba(255,255,255,.85); font-size: 13px; font-weight: 600; }
+.vs-map-wrap { display: flex; flex-direction: column; gap: 8px; }
+.vs-map { position: relative; height: clamp(320px, 50vw, 560px); border-radius: 10px; overflow: hidden; background: #cfe0ea; }
+.vs-map .vs-busy { position: absolute; inset: 0; background: rgba(255,255,255,.4); }
+.vs-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; color: #333; }
+.vs-legend i { display: inline-block; width: 14px; height: 10px; margin-right: 5px; border: 1px solid rgba(90,30,10,.4); vertical-align: middle; }
+.vs-imp { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 12.5px; line-height: 1.35; }
+.vs-imp-0 { background: #f2f2ee; } .vs-imp-1 { background: #fff3c4; } .vs-imp-2 { background: #ffe0a8; } .vs-imp-3 { background: #ffc58a; } .vs-imp-4 { background: #f7a07e; } .vs-imp-5 { background: #e46a5a; color: #fff; }
+.vs-profile { width: 100%; height: auto; }
+@media (max-width: 1000px) { .vs-type-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .vs-type-grid { grid-template-columns: minmax(0, 1fr); } .vs-seg { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.vs-ok { color: #2b8a3e; } .vs-off { color: #c8102e; }

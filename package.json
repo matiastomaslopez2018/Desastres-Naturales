@@ -18,6 +18,7 @@
     "gem": "tsx scripts/gem.ts",
     "quake-obs": "tsx scripts/quake-obs.ts",
     "verify-quake": "tsx scripts/verify-gmpe.ts && tsx scripts/verify-waves.ts && tsx scripts/verify-okada.ts",
+    "volcano-data": "tsx scripts/volcano-data.ts",
     "tsunami-data": "tsx scripts/tsunami-data.ts",
     "etopo": "tsx scripts/etopo.ts"
   },
@@ -36,6 +37,7 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "server-only": "^0.0.1",
+    "three": "^0.170.0",
     "topojson-client": "^3.1.0",
     "world-atlas": "^2.0.2"
   },
@@ -48,11 +50,13 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.170.0",
     "@types/topojson-client": "^3.1.5",
     "d3-contour": "^4.0.2",
     "eslint": "^9",
     "eslint-config-next": "15.5.28",
     "geotiff": "^2.1.3",
+    "numcodecs": "^0.3.2",
     "tsx": "^4.23.15",
     "typescript": "^5"
   }

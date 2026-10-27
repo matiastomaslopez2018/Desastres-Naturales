@@ -3,11 +3,13 @@ import 'server-only';
 /*
  * Decodificador mínimo de GRIB2 para los recortes chicos que devuelve el filtro de NOMADS
  * (NOAA): grilla lat/lon (plantilla 3.0) y empaquetado simple (plantilla 5.0). Alcanza para
- * leer el viento a 10 m (UGRD/VGRD) del modelo GFS. Si llega otro formato, se descarta.
+ * leer el viento (UGRD/VGRD) y la altura geopotencial (HGT) del modelo GFS. Si llega otro formato, se descarta.
  */
 
 export type GribField = {
   category: number; number: number;
+  /** Superficie del dato (plantilla 4.0): tipo (100 = nivel de presión, 103 = altura sobre el suelo) y valor (Pa o m). */
+  surface: number; level: number;
   ni: number; nj: number; la1: number; lo1: number; di: number; dj: number; scan: number;
   values: Float64Array;
 };
@@ -24,8 +26,8 @@ export function decodeGrib2(buf: Buffer): GribField[] {
     const total = Number(buf.readBigUInt64BE(p + 8));
     const end = p + total;
     let q = p + 16;
-    let grid: Omit<GribField, 'category' | 'number' | 'values'> | null = null;
-    let cat = -1, num = -1, R = 0, E = 0, D = 0, nbits = 0, tmpl5 = -1, npts = 0, bitmap = 255;
+    let grid: Omit<GribField, 'category' | 'number' | 'surface' | 'level' | 'values'> | null = null;
+    let cat = -1, num = -1, surface = -1, level = NaN, R = 0, E = 0, D = 0, nbits = 0, tmpl5 = -1, npts = 0, bitmap = 255;
     while (q + 5 <= end - 4) {
       const len = buf.readUInt32BE(q), sec = buf[q + 4];
       if (sec === 3 && buf.readUInt16BE(q + 12) === 0) {
@@ -36,6 +38,9 @@ export function decodeGrib2(buf: Buffer): GribField[] {
         };
       } else if (sec === 4) {
         cat = buf[q + 9]; num = buf[q + 10];
+        surface = buf[q + 22];
+        const sf = buf[q + 23] & 0x80 ? -(buf[q + 23] & 0x7f) : buf[q + 23];
+        level = buf.readUInt32BE(q + 24) / 10 ** sf;
       } else if (sec === 5) {
         npts = buf.readUInt32BE(q + 5); tmpl5 = buf.readUInt16BE(q + 9);
         R = buf.readFloatBE(q + 11); E = sm16(buf, q + 15); D = sm16(buf, q + 17); nbits = buf[q + 19];
@@ -50,7 +55,7 @@ export function decodeGrib2(buf: Buffer): GribField[] {
           for (let k = 0; k < nbits; k++, bit++) x = x * 2 + ((buf[bit >> 3] >> (7 - (bit & 7))) & 1);
           values[i] = (R + x * scaleE) / scaleD;
         }
-        out.push({ ...grid, category: cat, number: num, values });
+        out.push({ ...grid, category: cat, number: num, surface, level, values });
       }
       q += len;
     }

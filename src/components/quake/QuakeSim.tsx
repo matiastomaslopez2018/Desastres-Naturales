@@ -19,6 +19,7 @@ import { Buildings, FLOORS, Spectrum, periodOf } from './Buildings';
 import { City } from './City';
 import { Observed } from './Observed';
 import { Particles } from './Particles';
+import { VOLC_TEXT } from '@/lib/volcano/text';
 
 export type SimParams = { mag: number; depth: number; dist: number; setting: Setting; mech: Mechanism; vs30: number };
 export type SimInitial = Partial<SimParams> & { title?: string; preset?: string };
@@ -117,6 +118,7 @@ export function QuakeSim({ lang, initial }: { lang: Lang; initial?: SimInitial }
       <nav className="ts-switch" aria-label={t.kicker}>
         <span aria-current="page">{t.h1}</span>
         <Link href={routePath(lang, 'tsunamiSim')}>{t.otherSim}</Link>
+        <Link href={routePath(lang, 'volcanoSim')}>{VOLC_TEXT[lang].h1}</Link>
       </nav>
       {initial?.title && !preset && <p className="qs-based">{t.basedOn}: <strong>{initial.title}</strong></p>}
       <div className="qs-grid">

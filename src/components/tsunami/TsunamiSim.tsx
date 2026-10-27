@@ -9,6 +9,7 @@ import { dzAt, prepare } from '@/lib/tsunami/okada';
 import { toSubfault } from '@/lib/tsunami/source';
 import type { FaultRow } from '@/lib/tsunami/source';
 import { TSU_SOURCES, TSU_TEXT } from '@/lib/tsunami/text';
+import { VOLC_TEXT } from '@/lib/volcano/text';
 import { routePath } from '@/lib/seo';
 import { fmtNum } from '@/lib/format';
 import type { Lang } from '@/lib/types';
@@ -129,6 +130,7 @@ export function TsunamiSim({ lang, initial }: { lang: Lang; initial?: string }) 
       <nav className="ts-switch" aria-label={t.kicker}>
         <Link href={routePath(lang, 'simulator')}>{t.otherSim}</Link>
         <span aria-current="page">{t.h1}</span>
+        <Link href={routePath(lang, 'volcanoSim')}>{VOLC_TEXT[lang].h1}</Link>
       </nav>
       <div className="qs-grid">
         <aside className="qs-controls" aria-label={t.presets}>
