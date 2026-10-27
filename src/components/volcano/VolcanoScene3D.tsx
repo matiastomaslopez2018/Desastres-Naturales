@@ -49,6 +49,44 @@ export type HazardLayer = { kind: 'lava' | 'pdc' | 'lahar'; value: Float32Array;
  * Textura de humo: varios lóbulos redondeados superpuestos, sombreados de arriba hacia abajo, como las
  * "coliflores" de una columna eruptiva (se genera una vez, con semilla fija).
  */
+/**
+ * Sombreador del peligro (reemplaza map_fragment de MeshStandardMaterial). Del dato: R = llegada (0–1), G = cobertura,
+ * B = intensidad. Zona todavía no alcanzada: apenas marcada; frente (los últimos 6 % del avance): más claro;
+ * lava: se enfría de amarillo a rojo y negro; flujo: depósito gris parduzco; lahar: barro con contorno oscuro.
+ */
+const HZ_GLSL = `
+  vec4 hzD = texture2D( map, vMapUv );
+  float hzCov = hzD.g;
+  if ( hzCov < 0.2 ) discard;
+  float hzEdge = clamp( ( hzCov - 0.2 ) / 0.35, 0.0, 1.0 );
+  float hzE = hzEdge * hzEdge * ( 3.0 - 2.0 * hzEdge );
+  float hzAge = uStep - hzD.r, hzVal = hzD.b, hzA;
+  vec3 hzCol;
+  if ( hzAge < 0.0 ) {
+    hzCol = uKind == 0 ? vec3( 1.0, 0.588, 0.275 ) : uKind == 1 ? vec3( 0.922 ) : vec3( 0.784, 0.667, 0.49 );
+    hzA = 0.16 * hzE;
+  } else {
+    float f = max( 0.0, 1.0 - hzAge / 0.06 );
+    if ( uKind == 0 ) {
+      float cool = min( 1.0, hzAge * 2.5 );
+      hzCol = vec3( 255.0 - 150.0 * cool, 60.0 + 190.0 * f - 45.0 * cool * ( 1.0 - f ), 15.0 + 150.0 * f * f ) / 255.0;
+      hzA = min( 1.0, 0.45 + hzVal * 3.0 );
+    } else if ( uKind == 1 ) {
+      hzCol = vec3( 168.0 + 50.0 * f, 156.0 + 50.0 * f, 140.0 + 50.0 * f ) / 255.0;
+      hzA = min( 0.85, 0.35 + 0.35 * ( hzVal - 0.35 ) / 0.65 + 0.25 * f );
+    } else {
+      hzCol = vec3( 168.0 + 70.0 * f, 122.0 + 80.0 * f, 70.0 + 70.0 * f ) / 255.0;
+      hzA = 0.95;
+    }
+    float ol = uKind == 1 ? 0.0 : max( 0.0, 1.0 - ( hzCov - 0.2 ) / 0.25 ) * 0.75;
+    hzCol = mix( hzCol, vec3( 40.0, 26.0, 16.0 ) / 255.0, ol );
+    hzA = max( hzA * hzE, ol );
+  }
+  hzCol = pow( hzCol, vec3( 2.2 ) );
+  diffuseColor = vec4( hzCol, diffuseColor.a * hzA );
+  if ( diffuseColor.a < 0.004 ) discard;
+`;
+
 function puffTexture() {
   const S = 128, c = document.createElement('canvas'); c.width = c.height = S;
   const ctx = c.getContext('2d')!;
@@ -209,82 +247,52 @@ export default function VolcanoScene3D(p: SceneProps) {
     }
     paintAsh(P.local, P.localN);
 
-    // Peligro sobre el relieve: textura RGBA que se va revelando según el avance de la animación.
-    const hzCanvas = document.createElement('canvas'); hzCanvas.width = hzCanvas.height = Math.min(1024, P.n * 4);
-    const hzTex = new THREE.CanvasTexture(hzCanvas); hzTex.colorSpace = THREE.SRGBColorSpace;
-    const hzMat = new THREE.MeshStandardMaterial({ map: hzTex, transparent: true, depthWrite: false, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -4, emissive: 0x000000, emissiveMap: hzTex });
+    // Peligro sobre el relieve. La grilla del peligro (celdas de ~100 m) se pasa una vez por capa a una textura
+    // 4 veces más fina e interpolada (R = llegada, G = cobertura, B = intensidad) y el sombreador decide en cada
+    // cuadro qué se ve según el avance: así animar no cuesta nada en el procesador (antes se repintaba la imagen).
+    const HZ_S = Math.min(1024, P.n * 4);
+    const hzTex = new THREE.DataTexture(new Uint8Array(HZ_S * HZ_S * 4), HZ_S, HZ_S, THREE.RGBAFormat);
+    hzTex.magFilter = hzTex.minFilter = THREE.LinearFilter;
+    const hzU = { uStep: { value: 0 }, uKind: { value: 0 } };
+    const hzMat = new THREE.MeshStandardMaterial({ map: hzTex, transparent: true, depthWrite: false, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -4 });
+    hzMat.onBeforeCompile = (sh) => {
+      Object.assign(sh.uniforms, hzU);
+      sh.fragmentShader = 'uniform float uStep;\nuniform int uKind;\n' + sh.fragmentShader
+        .replace('#include <map_fragment>', HZ_GLSL)
+        .replace('#include <emissivemap_fragment>', 'if (uKind == 0) totalEmissiveRadiance = hzCol * 1.2;');
+    };
     const hz = new THREE.Mesh(geo, hzMat);
     hz.visible = false;
     scene.add(hz);
-    let hzLayer: HazardLayer | null = P.hazard, hzShown = -1;
-    const hzCtx = hzCanvas.getContext('2d')!;
-    let hzImg = hzCtx.createImageData(hzCanvas.width, hzCanvas.width);
-    // La grilla del peligro (celdas de ~100 m) se dibuja 4 veces más fina, interpolada, para que los bordes no
-    // se vean como escalones. Cobertura, intensidad y llegada se interpolan una vez por capa.
-    let hzHi: { L: HazardLayer; S: number; cov: Float32Array; val: Float32Array; arr: Float32Array } | null = null;
-    function upsample(L: HazardLayer) {
-      const n = L.n, S = Math.min(1024, n * 4), cov = new Float32Array(S * S), val = new Float32Array(S * S), arr = new Float32Array(S * S);
+    let hzLayer: HazardLayer | null = P.hazard, hzFor: HazardLayer | null = null;
+    /** Pasa la capa a la textura (una vez): llegada, cobertura e intensidad interpoladas, filas de norte a sur. */
+    function loadHazard(L: HazardLayer) {
+      const n = L.n, S = HZ_S, d = hzTex.image.data as Uint8Array;
       const thr = L.kind === 'lava' ? 0.02 : 0.01;
       for (let y = 0; y < S; y++) {
         const fy = Math.max(0, Math.min(n - 1.001, ((y + 0.5) * n) / S - 0.5)), j = Math.floor(fy), v = fy - j;
+        // La textura de datos no se da vuelta: la fila 0 es el sur.
+        const row = (S - 1 - y) * S;
         for (let x = 0; x < S; x++) {
           const fx = Math.max(0, Math.min(n - 1.001, ((x + 0.5) * n) / S - 0.5)), i = Math.floor(fx), u = fx - i;
-          let c = 0, a = 0, s = 0;
-          for (const [di, dj, w] of [[0, 0, (1 - u) * (1 - v)], [1, 0, u * (1 - v)], [0, 1, (1 - u) * v], [1, 1, u * v]] as const) {
-            const k = (j + dj) * n + i + di, in_ = L.value[k] > thr ? 1 : 0;
-            c += w * in_; s += w * L.value[k]; a += w * in_ * L.arrival[k];
-          }
-          const q = y * S + x;
-          cov[q] = c; val[q] = s; arr[q] = c > 0 ? a / c : 2;
+          // Bilineal entre las 4 celdas vecinas (sin crear arreglos: son un millón de píxeles).
+          const k0 = j * n + i, k1 = k0 + 1, k2 = k0 + n, k3 = k2 + 1;
+          const w0 = (1 - u) * (1 - v), w1 = u * (1 - v), w2 = (1 - u) * v, w3 = u * v, V = L.value, R = L.arrival;
+          const i0 = V[k0] > thr ? w0 : 0, i1 = V[k1] > thr ? w1 : 0, i2 = V[k2] > thr ? w2 : 0, i3 = V[k3] > thr ? w3 : 0;
+          const c = i0 + i1 + i2 + i3, s = w0 * V[k0] + w1 * V[k1] + w2 * V[k2] + w3 * V[k3], a = i0 * R[k0] + i1 * R[k1] + i2 * R[k2] + i3 * R[k3];
+          const q = 4 * (row + x);
+          d[q] = Math.round(255 * Math.min(1, c > 0 ? a / c : 1)); d[q + 1] = Math.round(255 * c); d[q + 2] = Math.round(255 * Math.min(1, s)); d[q + 3] = 255;
         }
       }
-      return { L, S, cov, val, arr };
+      hzTex.needsUpdate = true;
+      hzU.uKind.value = L.kind === 'lava' ? 0 : L.kind === 'pdc' ? 1 : 2;
+      hzFor = L;
     }
     function paintHazard(progress: number) {
       if (!hzLayer) { hz.visible = false; return; }
-      const L = hzLayer, step = Math.round(progress * 300) / 300;
-      if (step === hzShown) return;
-      hzShown = step;
-      if (hzHi?.L !== L) hzHi = upsample(L);
-      const { S, cov, val, arr } = hzHi;
-      if (hzImg.width !== S) { hzCanvas.width = hzCanvas.height = S; hzImg = hzCtx.createImageData(S, S); hzTex.dispose(); }
-      const d = hzImg.data, FRONT = 0.06;
-      for (let q = 0; q < S * S; q++) {
-        const c = cov[q];
-        if (c < 0.2) { d[4 * q + 3] = 0; continue; }
-        // Borde suave: la cobertura interpolada pasa de 0,2 a 0,55.
-        const edge = Math.min(1, (c - 0.2) / 0.35), e = edge * edge * (3 - 2 * edge), age = step - arr[q];
-        let r: number, g: number, b: number, a: number;
-        if (age < 0) {
-          // Zona a la que todavía no llegó: apenas marcada, para ver hacia dónde va.
-          [r, g, b] = L.kind === 'lava' ? [255, 150, 70] : L.kind === 'pdc' ? [235, 235, 235] : [200, 170, 125]; a = 0.16;
-        } else {
-          // f = 1 en el frente que avanza y 0 detrás.
-          const f = Math.max(0, 1 - age / FRONT);
-          if (L.kind === 'lava') {
-            // Lava: amarilla y casi blanca en el frente; detrás se enfría a rojo y a negro.
-            const cool = Math.min(1, age * 2.5);
-            r = 255 - 150 * cool; g = 60 + 190 * f - 45 * cool * (1 - f); b = 15 + 150 * f * f; a = Math.min(1, 0.45 + val[q] * 3);
-          } else if (L.kind === 'pdc') {
-            // Flujo piroclástico: nube gris, más clara y densa en el frente.
-            // Flujo piroclástico: detrás queda el depósito gris parduzco (más espeso cerca de la boca); la nube
-            // que avanza la dibujan las partículas (ver updatePdc).
-            r = 168 + 50 * f; g = 156 + 50 * f; b = 140 + 50 * f;
-            a = Math.min(0.85, 0.35 + 0.35 * (val[q] - 0.35) / 0.65 + 0.25 * f);
-          } else {
-            // Lahar: barro claro y húmedo en el frente, más oscuro detrás.
-            r = 168 + 70 * f; g = 122 + 80 * f; b = 70 + 70 * f; a = 0.95;
-          }
-        }
-        // Contorno oscuro en el borde (cobertura entre 0,2 y 0,45) para que se destaque sobre el terreno.
-        const ol = age < 0 || L.kind === 'pdc' ? 0 : Math.max(0, 1 - (c - 0.2) / 0.25) * 0.75, aa = age < 0 ? a * e : Math.max(a * e, ol);
-        d[4 * q] = r * (1 - ol) + 40 * ol; d[4 * q + 1] = g * (1 - ol) + 26 * ol; d[4 * q + 2] = b * (1 - ol) + 16 * ol; d[4 * q + 3] = Math.round(255 * aa);
-      }
-      hzCtx.putImageData(hzImg, 0, 0);
-      hzTex.needsUpdate = true;
+      if (hzFor !== hzLayer) loadHazard(hzLayer);
+      hzU.uStep.value = progress;
       hz.visible = true;
-      hzMat.emissive.setHex(L.kind === 'lava' ? 0xffffff : 0x000000);
-      hzMat.emissiveIntensity = L.kind === 'lava' ? 1.2 : 0;
     }
 
 
@@ -543,7 +551,7 @@ export default function VolcanoScene3D(p: SceneProps) {
           fly = { t0: performance.now(), fromT: controls.target.clone(), toT, fromP: camera.position.clone(), toP };
         }
       }
-      hzLayer = h; hzShown = -1; dirty = true;
+      hzLayer = h; dirty = true;
     };
     return () => {
       alive = false; cancelAnimationFrame(raf); ro.disconnect(); io.disconnect(); controls.dispose(); onAsh.current = null; onHazard.current = null;
