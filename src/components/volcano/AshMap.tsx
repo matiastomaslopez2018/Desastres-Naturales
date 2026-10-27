@@ -56,16 +56,19 @@ export function AshMap({ lang, ash, vent, name, computing, computingText, cloud 
     if (!c || !w || !ash) return;
     const ctx = prep(c, w, h, dpr);
     if (!ctx) return;
-    const halfKm = ((ash.n - 1) * ash.h) / 2000, cxKm = ash.cx / 1000, cyKm = ash.cy / 1000;
+    const cxKm = ash.cx / 1000, cyKm = ash.cy / 1000, cosV = Math.cos((vent[1] * Math.PI) / 180);
+    const toKm = (lon: number, lat: number): [number, number] => {
+      let dl = lon - vent[0];
+      if (dl > 180) dl -= 360; else if (dl < -180) dl += 360;
+      return [dl * 111.32 * cosV, (lat - vent[1]) * 111.32];
+    };
+    // Recuadro de la grilla y, si hay, la nube del aviso entera.
+    let halfKm = ((ash.n - 1) * ash.h) / 2000;
+    if (cloud) for (const [lo, la] of cloud.ring) { const [x, y] = toKm(lo, la); halfKm = Math.max(halfKm, Math.abs(x - cxKm) * 1.06, Math.abs(y - cyKm) * 1.06); }
     // Escala: que entre el recuadro con márgenes; píxeles por km.
     const s = Math.min(w, h) / (2 * halfKm * 1.04);
     const X = (km: number) => w / 2 + (km - cxKm) * s, Y = (km: number) => h / 2 - (km - cyKm) * s;
-    const cosV = Math.cos((vent[1] * Math.PI) / 180);
-    const lonLat = (lon: number, lat: number): [number, number] => {
-      let dl = lon - vent[0];
-      if (dl > 180) dl -= 360; else if (dl < -180) dl += 360;
-      return [X(dl * 111.32 * cosV), Y((lat - vent[1]) * 111.32)];
-    };
+    const lonLat = (lon: number, lat: number): [number, number] => { const [x, y] = toKm(lon, lat); return [X(x), Y(y)]; };
     ctx.fillStyle = '#cfe0ea'; ctx.fillRect(0, 0, w, h);
     const path = (coords: number[][]) => { coords.forEach(([lo, la], i) => { const [x, y] = lonLat(lo, la); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }); };
     if (geo) {

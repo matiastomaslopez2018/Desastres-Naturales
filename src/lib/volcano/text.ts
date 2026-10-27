@@ -18,7 +18,7 @@ const es = {
     top: (km: string) => `nube hasta ${km} km`, noSim: 'sin relieve en el simulador',
     detail: (top: string, move: string | null, from: string, to: string) => `La nube llega a ${top} km sobre el nivel del mar${move ? ` y se mueve ${move}` : ' y está casi quieta'}. El aviso vale de las ${from} a las ${to} UTC.`,
     move: (dir: string, kmh: string) => `hacia el ${dir} a ${kmh} km/h`,
-    assume: (h: string) => `Para simular se supone que la columna se mantiene ${h} con esa altura: es el caso más desfavorable, porque la ceniza suele salir en explosiones cortas.`,
+    assume: (h: string) => `Para simular se supone que la columna se mantiene con esa altura durante ${h}: es el caso más desfavorable, porque la ceniza suele salir en explosiones cortas.`,
     warn: 'No es un pronóstico oficial. Los avisos sobre la ceniza y las medidas a tomar los dan el SERNAGEOMIN en Chile, el SEGEMAR y el SMN (VAAC Buenos Aires) en la Argentina, y los observatorios de cada país.',
     cloud: 'Nube en el aire (aviso SIGMET)',
     src: 'Avisos: SIGMET internacionales de ceniza, Aviation Weather Center (NOAA), a partir de los centros de aviso de ceniza volcánica (VAAC). Se actualiza cada 10 minutos.',

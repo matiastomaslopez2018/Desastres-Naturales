@@ -1,7 +1,7 @@
 'use client';
 /*
  * Avisos en vivo: mientras la página está abierta se consulta /api/alerts cada minuto y, si aparece un
- * evento nuevo (sismo fuerte, aviso de tsunami o ciclón), sale una tarjeta abajo a la derecha. Quien lo
+ * evento nuevo (sismo fuerte, aviso de tsunami, ciclón o nube de ceniza volcánica), sale una tarjeta abajo a la derecha. Quien lo
  * active recibe además una notificación del navegador, que se ve aunque esté en otra pestaña.
  *
  * Lo ya avisado se recuerda en este navegador (localStorage) para no repetirlo al recargar o cambiar de
@@ -21,21 +21,23 @@ const SEEN_KEY = 'atlas-alerts-seen', NOTIFY_KEY = 'atlas-alerts-notify';
 const T = {
   es: {
     eq: (m: string) => `Sismo de magnitud ${m}`, tsunami: 'Mensaje de tsunami', storm: (w: string) => w,
+    ash: (v: string) => `Ceniza del volcán ${v}`, ashTop: (km: string) => `Nube hasta ${km} km de altura`,
     word: { hurricane: 'Huracán', typhoon: 'Tifón', cyclone: 'Ciclón', storm: 'Tormenta tropical' },
     levels: { warning: 'Alerta de tsunami', advisory: 'Aviso de tsunami', watch: 'Vigilancia de tsunami' } as Record<string, string>,
     oceanic: 'En zona oceánica: revisá los avisos oficiales de tsunami.',
     see: 'Ver detalles', close: 'Cerrar aviso', region: 'Avisos de eventos',
-    notifyAsk: 'Avisarme aunque esté en otra pestaña', bell: 'Avisarme de sismos fuertes, tsunamis y ciclones aunque esté en otra pestaña', notifyOn: 'Notificaciones activadas', notifyOff: 'Desactivar notificaciones', denied: 'El navegador bloqueó las notificaciones.',
-    src: { eq: 'USGS', tsunami: 'NOAA', storm: 'NHC / GDACS' },
+    notifyAsk: 'Avisarme aunque esté en otra pestaña', bell: 'Avisarme de sismos fuertes, tsunamis, ciclones y ceniza volcánica aunque esté en otra pestaña', notifyOn: 'Notificaciones activadas', notifyOff: 'Desactivar notificaciones', denied: 'El navegador bloqueó las notificaciones.',
+    src: { eq: 'USGS', tsunami: 'NOAA', storm: 'NHC / GDACS', ash: 'NOAA (SIGMET)' },
   },
   en: {
     eq: (m: string) => `Magnitude ${m} earthquake`, tsunami: 'Tsunami message', storm: (w: string) => w,
+    ash: (v: string) => `Ash from ${v} volcano`, ashTop: (km: string) => `Cloud up to ${km} km high`,
     word: { hurricane: 'Hurricane', typhoon: 'Typhoon', cyclone: 'Cyclone', storm: 'Tropical storm' },
     levels: { warning: 'Tsunami warning', advisory: 'Tsunami advisory', watch: 'Tsunami watch' } as Record<string, string>,
     oceanic: 'Offshore: check the official tsunami messages.',
     see: 'See details', close: 'Close alert', region: 'Event alerts',
-    notifyAsk: 'Alert me even in another tab', bell: 'Alert me of strong earthquakes, tsunamis and cyclones even in another tab', notifyOn: 'Notifications on', notifyOff: 'Turn notifications off', denied: 'The browser blocked notifications.',
-    src: { eq: 'USGS', tsunami: 'NOAA', storm: 'NHC / GDACS' },
+    notifyAsk: 'Alert me even in another tab', bell: 'Alert me of strong earthquakes, tsunamis, cyclones and volcanic ash even in another tab', notifyOn: 'Notifications on', notifyOff: 'Turn notifications off', denied: 'The browser blocked notifications.',
+    src: { eq: 'USGS', tsunami: 'NOAA', storm: 'NHC / GDACS', ash: 'NOAA (SIGMET)' },
   },
 };
 
@@ -70,6 +72,7 @@ function texts(lang: Lang, a: LiveAlert) {
   const t = T[lang];
   if (a.kind === 'eq') return { title: t.eq(fmtNum(lang, a.mag ?? 0, 1)), place: localPlace(a.title, lang), extra: a.tsunami ? t.oceanic : null, href: `/${lang}/evento/${encodeURIComponent(a.id)}` };
   if (a.kind === 'tsunami') return { title: (a.level && t.levels[a.level]) || t.tsunami, place: a.title, extra: a.mag ? `M ${fmtNum(lang, a.mag, 1)}` : null, href: routePath(lang, 'tsunami') };
+  if (a.kind === 'ash') return { title: t.ash(a.title), place: [a.country?.[lang], t.ashTop(fmtNum(lang, a.topKm ?? 0, 1))].filter(Boolean).join(' · '), extra: null, href: `${routePath(lang, 'volcanoSim')}${a.sim ? `?${lang === 'es' ? 'erupcion' : 'eruption'}=${a.sim}` : ''}` };
   const strong = /^(HU|TY|STY|MH)/i.test(a.classification ?? '') || (a.windKt ?? 0) >= 64;
   const word = strong ? t.word[a.basinWord ?? 'hurricane'] : t.word.storm;
   return { title: `${word} ${a.title}`, place: a.windKt ? `${fmtNum(lang, a.windKt * 1.852)} km/h` : '', extra: null, href: routePath(lang, 'hurricanes') };

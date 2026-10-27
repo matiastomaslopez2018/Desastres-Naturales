@@ -184,9 +184,11 @@ button, input, select { font: inherit; color: inherit; }
 .la-card { position: relative; display: flex; gap: 12px; padding: 14px 40px 14px 14px; border-radius: 12px; background: #fff; color: #141414; border: 1px solid #e7e7e2; border-left: 4px solid var(--type-eq); box-shadow: 0 8px 28px rgba(0,0,0,.18); animation: la-in .35s ease-out; }
 .la-tsunami { border-left-color: var(--type-tsunami); }
 .la-storm { border-left-color: var(--type-storm); }
+.la-ash { border-left-color: var(--type-volcano); }
 .la-dot { flex: none; width: 10px; height: 10px; margin-top: 6px; border-radius: 50%; background: var(--type-eq); box-shadow: 0 0 0 0 rgba(232,89,12,.6); animation: la-pulse 1.6s infinite; }
 .la-tsunami .la-dot { background: var(--type-tsunami); }
 .la-storm .la-dot { background: var(--type-storm); }
+.la-ash .la-dot { background: var(--type-volcano); }
 .la-body { min-width: 0; }
 .la-body p { margin: 0; }
 .la-title { font-size: 15px; font-weight: 600; line-height: 1.3; }

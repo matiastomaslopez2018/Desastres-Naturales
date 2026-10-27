@@ -2,6 +2,7 @@ import 'server-only';
 import { kvCached } from './kvCache';
 import { getGvp } from './ingest';
 import { VOLCANOES } from '../volcano/presets';
+import type { Lang } from '../types';
 
 /*
  * Ceniza volcánica en vivo: SIGMET internacionales de ceniza (VA) que publica el Aviation Weather Center de
@@ -12,7 +13,7 @@ import { VOLCANOES } from '../volcano/presets';
 
 export type LiveAsh = {
   /** Nombre como lo escribe el SIGMET y, si se identifica, el del catálogo del Smithsonian. */
-  name: string; gvp: string | null; country: string | null;
+  name: string; gvp: string | null; country: Record<Lang, string> | null;
   lon: number; lat: number;
   /** Tope y base de la nube (km s. n. m.), hora de observación y validez (ms). */
   topKm: number; baseKm: number; validFrom: number; validTo: number; issued: number;
@@ -76,7 +77,7 @@ async function load(): Promise<LiveAsh[]> {
     const name = simV?.name ?? (best ? gvpName(best.title) : volcanoName(s.rawSigmet, s.qualifier));
     const sim = simV?.id ?? null;
     const item: LiveAsh = {
-      name, gvp: best?.title ?? null, country: best?.country ?? null, lon: pos[0], lat: pos[1],
+      name, gvp: best?.title ?? null, country: simV?.country ?? (best?.country ? { es: best.country, en: best.country } : null), lon: pos[0], lat: pos[1],
       topKm: ((s.top ?? 0) * FT) / 1000, baseKm: ((s.base ?? 0) * FT) / 1000,
       validFrom: s.validTimeFrom * 1000, validTo: s.validTimeTo * 1000, issued: Date.parse(s.receiptTime),
       moveTo: s.dir && s.dir in COMPASS ? COMPASS[s.dir] : null, moveKmh: s.spd ? Math.round(+s.spd * KT) : null,
@@ -92,6 +93,6 @@ async function load(): Promise<LiveAsh[]> {
 
 /** Volcanes con un aviso de ceniza vigente (10 min de caché). */
 export async function getLiveAsh() {
-  const r = await kvCached('volcano:liveash', 10 * 6e4, load);
+  const r = await kvCached('volcano:liveash:v2', 10 * 6e4, load);
   return { active: r.value, fetchedAt: r.at, stale: r.stale };
 }

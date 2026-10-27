@@ -47,7 +47,9 @@ const tileY = (lat: number) => { const r = (lat * Math.PI) / 180; return ((1 - M
 
 async function dem(v: Volcano) {
   const b = box(v);
-  const x0 = Math.floor(tileX(b.w)), x1 = Math.floor(tileX(b.e)), y0 = Math.floor(tileY(b.n)), y1 = Math.floor(tileY(b.s));
+  // Un píxel de margen: la interpolación bilineal en el borde puede caer en el tile vecino.
+  const x0 = Math.floor((tileX(b.w) * 256 - 1) / 256), x1 = Math.floor((tileX(b.e) * 256 + 1) / 256);
+  const y0 = Math.floor((tileY(b.n) * 256 - 1) / 256), y1 = Math.floor((tileY(b.s) * 256 + 1) / 256);
   const tiles = new Map<string, Buffer>();
   for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) {
     const png = Buffer.from(await (await get(`https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${Z}/${x}/${y}.png`)).arrayBuffer());

@@ -41,7 +41,7 @@ export function LiveAshList({ lang, current, onPick, hours }: { lang: Lang; curr
                   {a.name} <small>· {t.top(nf(a.topKm, 1))}</small>
                 </button>
               ) : (
-                <span className="vs-live-off">{a.name}{a.country ? ` (${a.country})` : ''} <small>· {t.top(nf(a.topKm, 1))} · {t.noSim}</small></span>
+                <span className="vs-live-off">{a.name}{a.country ? ` (${a.country[lang]})` : ''} <small>· {t.top(nf(a.topKm, 1))} · {t.noSim}</small></span>
               )}
             </li>
           ))}
