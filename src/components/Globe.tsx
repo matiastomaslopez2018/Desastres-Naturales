@@ -1,8 +1,13 @@
 'use client';
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import maplibregl, { type GeoJSONSource, type LayerSpecification, type Map as MLMap, type MapGeoJSONFeature, type StyleSpecification } from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
+import { type GeoJSONSource, type LayerSpecification, type Map as MLMap, type MapGeoJSONFeature, type StyleSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+
+// MapLibre 6 carga su worker desde un archivo aparte: Next lo publica con hash a partir de esta URL
+// (receta oficial para webpack 5 / Next.js 15).
+if (typeof window !== 'undefined') maplibregl.setWorkerUrl(new URL('maplibre-gl/dist/maplibre-gl-worker.mjs', import.meta.url).toString());
 import { mesh } from 'topojson-client';
 import type { Topology, GeometryCollection } from 'topojson-specification';
 import world from 'world-atlas/countries-110m.json';
@@ -505,7 +510,8 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
     // Pestaña oculta: se cancela el vuelo y se detiene la cámara (el navegador ya no pide cuadros).
     const onVis = () => { if (document.hidden) { cancelFlight(); m.stop(); } };
     document.addEventListener('visibilitychange', onVis);
-    m.on('styleimagemissing', (e) => { const img = makeIcon(e.id); if (img && !m.hasImage(e.id)) m.addImage(e.id, img, { pixelRatio: 2 }); });
+    // Íconos que el estilo pide y todavía no existen: se dibujan en el momento (MapLibre 6).
+    m.setMissingStyleImageResolver((id) => { const img = makeIcon(id); if (img && !m.hasImage(id)) m.addImage(id, img, { pixelRatio: 2 }); });
     m.on('load', () => {
       setLost(false);
       // Atribución compacta: el botón (i) la despliega; de entrada queda cerrada.

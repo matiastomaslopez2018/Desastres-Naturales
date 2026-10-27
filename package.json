@@ -32,7 +32,7 @@
     "d3-ease": "^3.0.1",
     "d3-geo": "^3.1.1",
     "i18n-iso-countries": "^7.14.0",
-    "maplibre-gl": "^5.23.0",
+    "maplibre-gl": "^6.14.0",
     "next": "15.5.28",
     "react": "19.1.0",
     "react-dom": "19.1.0",
@@ -61,5 +61,8 @@
     "numcodecs": "^0.3.2",
     "tsx": "^4.23.15",
     "typescript": "^5"
+  },
+  "overrides": {
+    "postcss": "8.5.30"
   }
 }
