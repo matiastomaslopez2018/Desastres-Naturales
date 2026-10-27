@@ -210,7 +210,7 @@ export default function VolcanoScene3D(p: SceneProps) {
     paintAsh(P.local, P.localN);
 
     // Peligro sobre el relieve: textura RGBA que se va revelando según el avance de la animación.
-    const hzCanvas = document.createElement('canvas'); hzCanvas.width = hzCanvas.height = P.n;
+    const hzCanvas = document.createElement('canvas'); hzCanvas.width = hzCanvas.height = Math.min(1024, P.n * 4);
     const hzTex = new THREE.CanvasTexture(hzCanvas); hzTex.colorSpace = THREE.SRGBColorSpace;
     const hzMat = new THREE.MeshStandardMaterial({ map: hzTex, transparent: true, depthWrite: false, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -4, emissive: 0x000000, emissiveMap: hzTex });
     const hz = new THREE.Mesh(geo, hzMat);
@@ -218,28 +218,65 @@ export default function VolcanoScene3D(p: SceneProps) {
     scene.add(hz);
     let hzLayer: HazardLayer | null = P.hazard, hzShown = -1;
     const hzCtx = hzCanvas.getContext('2d')!;
-    let hzImg = hzCtx.createImageData(P.n, P.n);
+    let hzImg = hzCtx.createImageData(hzCanvas.width, hzCanvas.width);
+    // La grilla del peligro (celdas de ~100 m) se dibuja 4 veces más fina, interpolada, para que los bordes no
+    // se vean como escalones. Cobertura, intensidad y llegada se interpolan una vez por capa.
+    let hzHi: { L: HazardLayer; S: number; cov: Float32Array; val: Float32Array; arr: Float32Array } | null = null;
+    function upsample(L: HazardLayer) {
+      const n = L.n, S = Math.min(1024, n * 4), cov = new Float32Array(S * S), val = new Float32Array(S * S), arr = new Float32Array(S * S);
+      const thr = L.kind === 'lava' ? 0.02 : 0.01;
+      for (let y = 0; y < S; y++) {
+        const fy = Math.max(0, Math.min(n - 1.001, ((y + 0.5) * n) / S - 0.5)), j = Math.floor(fy), v = fy - j;
+        for (let x = 0; x < S; x++) {
+          const fx = Math.max(0, Math.min(n - 1.001, ((x + 0.5) * n) / S - 0.5)), i = Math.floor(fx), u = fx - i;
+          let c = 0, a = 0, s = 0;
+          for (const [di, dj, w] of [[0, 0, (1 - u) * (1 - v)], [1, 0, u * (1 - v)], [0, 1, (1 - u) * v], [1, 1, u * v]] as const) {
+            const k = (j + dj) * n + i + di, in_ = L.value[k] > thr ? 1 : 0;
+            c += w * in_; s += w * L.value[k]; a += w * in_ * L.arrival[k];
+          }
+          const q = y * S + x;
+          cov[q] = c; val[q] = s; arr[q] = c > 0 ? a / c : 2;
+        }
+      }
+      return { L, S, cov, val, arr };
+    }
     function paintHazard(progress: number) {
       if (!hzLayer) { hz.visible = false; return; }
-      const L = hzLayer, step = Math.round(progress * 200) / 200;
+      const L = hzLayer, step = Math.round(progress * 300) / 300;
       if (step === hzShown) return;
       hzShown = step;
-      if (hzImg.width !== L.n) { hzCanvas.width = hzCanvas.height = L.n; hzImg = hzCtx.createImageData(L.n, L.n); }
-      const d = hzImg.data;
-      for (let k = 0; k < L.n * L.n; k++) {
-        const v = L.value[k], on = v > 0.01 && L.arrival[k] <= step;
-        if (!on) { d[4 * k + 3] = 0; continue; }
-        // Lava: amarillo en el frente que avanza y rojo oscuro detrás (se enfría). Flujo piroclástico: gris claro.
-        // Lahar: barro marrón.
-        if (L.kind === 'lava') {
-          const age = Math.max(0, step - L.arrival[k]), hot = Math.max(0, 1 - age * 6);
-          d[4 * k] = 255; d[4 * k + 1] = Math.round(70 + 150 * hot); d[4 * k + 2] = Math.round(20 + 40 * hot); d[4 * k + 3] = Math.round(255 * Math.min(1, 0.35 + v * 3));
-        } else if (L.kind === 'pdc') {
-          // Más denso cerca de la boca (más energía) y casi transparente en el borde del alcance.
-          d[4 * k] = 184; d[4 * k + 1] = 178; d[4 * k + 2] = 168; d[4 * k + 3] = Math.round(255 * Math.min(0.85, 0.08 + 0.7 * (v - 0.35) / 0.65));
+      if (hzHi?.L !== L) hzHi = upsample(L);
+      const { S, cov, val, arr } = hzHi;
+      if (hzImg.width !== S) { hzCanvas.width = hzCanvas.height = S; hzImg = hzCtx.createImageData(S, S); hzTex.dispose(); }
+      const d = hzImg.data, FRONT = 0.06;
+      for (let q = 0; q < S * S; q++) {
+        const c = cov[q];
+        if (c < 0.2) { d[4 * q + 3] = 0; continue; }
+        // Borde suave: la cobertura interpolada pasa de 0,2 a 0,55.
+        const edge = Math.min(1, (c - 0.2) / 0.35), e = edge * edge * (3 - 2 * edge), age = step - arr[q];
+        let r: number, g: number, b: number, a: number;
+        if (age < 0) {
+          // Zona a la que todavía no llegó: apenas marcada, para ver hacia dónde va.
+          [r, g, b] = L.kind === 'lava' ? [255, 150, 70] : L.kind === 'pdc' ? [235, 235, 235] : [200, 170, 125]; a = 0.16;
         } else {
-          d[4 * k] = 122; d[4 * k + 1] = 92; d[4 * k + 2] = 60; d[4 * k + 3] = 235;
+          // f = 1 en el frente que avanza y 0 detrás.
+          const f = Math.max(0, 1 - age / FRONT);
+          if (L.kind === 'lava') {
+            // Lava: amarilla y casi blanca en el frente; detrás se enfría a rojo y a negro.
+            const cool = Math.min(1, age * 2.5);
+            r = 255 - 150 * cool; g = 60 + 190 * f - 45 * cool * (1 - f); b = 15 + 150 * f * f; a = Math.min(1, 0.45 + val[q] * 3);
+          } else if (L.kind === 'pdc') {
+            // Flujo piroclástico: nube gris, más clara y densa en el frente.
+            r = 184 + 60 * f; g = 178 + 60 * f; b = 168 + 60 * f;
+            a = Math.min(0.9, 0.1 + 0.7 * (val[q] - 0.35) / 0.65 + 0.35 * f);
+          } else {
+            // Lahar: barro claro y húmedo en el frente, más oscuro detrás.
+            r = 168 + 70 * f; g = 122 + 80 * f; b = 70 + 70 * f; a = 0.95;
+          }
         }
+        // Contorno oscuro en el borde (cobertura entre 0,2 y 0,45) para que se destaque sobre el terreno.
+        const ol = age < 0 || L.kind === 'pdc' ? 0 : Math.max(0, 1 - (c - 0.2) / 0.25) * 0.75, aa = age < 0 ? a * e : Math.max(a * e, ol);
+        d[4 * q] = r * (1 - ol) + 40 * ol; d[4 * q + 1] = g * (1 - ol) + 26 * ol; d[4 * q + 2] = b * (1 - ol) + 16 * ol; d[4 * q + 3] = Math.round(255 * aa);
       }
       hzCtx.putImageData(hzImg, 0, 0);
       hzTex.needsUpdate = true;
@@ -378,6 +415,7 @@ export default function VolcanoScene3D(p: SceneProps) {
     };
 
     let Wpx = 0, Hpx = 0, dirty = true, nVis = N_PART;
+    let fly: { t0: number; fromT: THREE.Vector3; toT: THREE.Vector3; fromP: THREE.Vector3; toP: THREE.Vector3 } | null = null;
     const resize = () => {
       Wpx = el.clientWidth; Hpx = el.clientHeight; renderer.setSize(Wpx, Hpx, false); renderer.domElement.style.width = '100%'; renderer.domElement.style.height = '100%';
       camera.aspect = Wpx / Math.max(1, Hpx); camera.updateProjectionMatrix();
@@ -400,7 +438,15 @@ export default function VolcanoScene3D(p: SceneProps) {
         camera.position.set(Math.sin(c.az) * Math.cos(c.el), Math.sin(c.el), Math.cos(c.az) * Math.cos(c.el)).multiplyScalar(c.distM / U).add(controls.target);
         camera.lookAt(controls.target);
         moved = true;
-      } else moved = controls.update();
+      } else {
+        if (fly) {
+          // Vuelo suave hacia el peligro elegido.
+          const u = Math.min(1, (now - fly.t0) / 900), w = u * u * (3 - 2 * u);
+          controls.target.lerpVectors(fly.fromT, fly.toT, w); camera.position.lerpVectors(fly.fromP, fly.toP, w);
+          if (u >= 1) fly = null;
+        }
+        moved = controls.update() || !!fly;
+      }
       if (t !== lastT) frameMs = frameMs * 0.9 + Math.min(100, dtF) * 0.1;
       if (frameMs > 22 && nVis > 1500) { if (++slow > 8) { nVis = Math.max(1500, Math.round(nVis * 0.7)); slow = 0; dirty = true; } } else slow = 0;
       if (frameMs < 14 && nVis < N_PART) { if (++fast > 120) { nVis = Math.min(N_PART, Math.round(nVis * 1.25)); fast = 0; dirty = true; } } else fast = 0;
@@ -429,7 +475,24 @@ export default function VolcanoScene3D(p: SceneProps) {
     loop();
     // Cuando cambian los datos de la ceniza.
     onAsh.current = (local, n) => { paintAsh(local, n); dirty = true; };
-    onHazard.current = (h) => { hzLayer = h; hzShown = -1; dirty = true; };
+    onHazard.current = (h) => {
+      // Al elegir un peligro (fuera de la película), la cámara va a mirarlo desde arriba y encuadra la zona que cubre.
+      if (h && !P.drive && h.kind !== hzLayer?.kind) {
+        const pos = geo.attributes.position.array as Float32Array, n = h.n;
+        let sx = 0, sy = 0, sz = 0, c = 0;
+        for (let k = 0; k < n * n; k++) if (h.value[k] > 0.02) { sx += pos[3 * k]; sy += pos[3 * k + 1]; sz += pos[3 * k + 2]; c++; }
+        if (c) {
+          const cx = sx / c, cy = sy / c, cz = sz / c;
+          let r = 0;
+          for (let k = 0; k < n * n; k++) if (h.value[k] > 0.02) r = Math.max(r, Math.hypot(pos[3 * k] - cx, pos[3 * k + 2] - cz));
+          const toT = new THREE.Vector3(cx, cy, cz), d = Math.min(controls.maxDistance, Math.max(W * 0.25, r * 2.3));
+          const az = Math.atan2(camera.position.x - controls.target.x, camera.position.z - controls.target.z), el = 0.95;
+          const toP = new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el)).multiplyScalar(d).add(toT);
+          fly = { t0: performance.now(), fromT: controls.target.clone(), toT, fromP: camera.position.clone(), toP };
+        }
+      }
+      hzLayer = h; hzShown = -1; dirty = true;
+    };
     return () => {
       alive = false; cancelAnimationFrame(raf); ro.disconnect(); io.disconnect(); controls.dispose(); onAsh.current = null; onHazard.current = null;
       labelBox?.replaceChildren();

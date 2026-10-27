@@ -362,7 +362,7 @@ export function VolcanoSim({ lang, initial }: { lang: Lang; initial?: string }) 
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={`/data/volcano/${volcano.id}/image.jpg`} alt="" className="vs-flat" />
               ) : <div className="vs-3d vs-busy">…</div>}
-              <Live clock={clock} hz={4}>{(time) => { const l = phaseLabel(time); return l ? <span className="vs-clock">{l}</span> : null; }}</Live>
+              <Live clock={clock} hz={4}>{(time) => { const l = hazardLayer && hzOut ? t.front(hazardLayer.kind, nf((Math.min(1, time / (sl[sl.length - 1]?.end || ANIM_S)) * hzOut.reachM) / 1000, 1)) : phaseLabel(time); return l ? <span className="vs-clock">{l}</span> : null; }}</Live>
             </div>
             <Live clock={clock} hz={8}>{(time) => <input className="qs-scrub" type="range" min={0} max={ANIM_S} step={0.05} value={time} aria-label={t.duration} onChange={(e) => { clock.pause(); clock.seek(+e.target.value); }} />}</Live>
             <p className="qs-help">{no3D ? t.noWebGL : t.sceneHelp} {t.credits(year)}</p>
