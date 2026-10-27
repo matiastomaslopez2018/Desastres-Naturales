@@ -69,6 +69,12 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS push_subs (
     endpoint TEXT PRIMARY KEY, keys TEXT NOT NULL, lang TEXT NOT NULL, prefs TEXT NOT NULL, created_at INTEGER NOT NULL, last_ok INTEGER
   )`,
+  // Sismos de INPRES y del CSN: tabla aparte de `events` para que las versiones del sitio que no los conocen
+  // (la base es la misma para producción y los deploys de prueba) no los muestren duplicados.
+  `CREATE TABLE IF NOT EXISTS local_quakes (
+    id TEXT PRIMARY KEY, t0 INTEGER NOT NULL, mag REAL, data TEXT NOT NULL, updated_at INTEGER NOT NULL
+  )`,
+  'CREATE INDEX IF NOT EXISTS local_quakes_t0 ON local_quakes (t0)',
 ];
 
 let client: Client | null = null;
@@ -131,6 +137,27 @@ export async function queryEvents(s: number, e: number, floor: number): Promise<
   return r.rows.map((row) => JSON.parse(String(row.data)) as DisasterEvent);
 }
 
+/* ───────────── Sismos de INPRES y del CSN ───────────── */
+
+export async function upsertLocalQuakes(events: DisasterEvent[]): Promise<void> {
+  if (!events.length) return;
+  const c = await db();
+  const now = Date.now();
+  const stmts: InStatement[] = events.map((e) => ({
+    sql: `INSERT INTO local_quakes (id, t0, mag, data, updated_at) VALUES (?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET t0=excluded.t0, mag=excluded.mag, data=excluded.data, updated_at=excluded.updated_at`,
+    args: [e.id, e.time, e.mag ?? null, JSON.stringify(e), now],
+  }));
+  for (let i = 0; i < stmts.length; i += 500) await c.batch(stmts.slice(i, i + 500), 'write');
+}
+
+/** Sismos locales en [s, e] desde `floor`. */
+export async function queryLocalQuakes(s: number, e: number, floor: number): Promise<DisasterEvent[]> {
+  const c = await db();
+  const r = await c.execute({ sql: 'SELECT data FROM local_quakes WHERE t0 >= ? AND t0 <= ? AND (mag IS NULL OR mag >= ?)', args: [s, e, floor] });
+  return r.rows.map((row) => JSON.parse(String(row.data)) as DisasterEvent);
+}
+
 /** Recorre todos los eventos en páginas por id (para migraciones). */
 export async function* allEvents(pageSize = 2000): AsyncGenerator<DisasterEvent[]> {
   const c = await db();
@@ -145,7 +172,8 @@ export async function* allEvents(pageSize = 2000): AsyncGenerator<DisasterEvent[
 
 export async function getStoredEvent(id: string): Promise<DisasterEvent | null> {
   const c = await db();
-  const r = await c.execute({ sql: 'SELECT data FROM events WHERE id = ?', args: [id] });
+  const table = /^(inpres|csn)-/.test(id) ? 'local_quakes' : 'events';
+  const r = await c.execute({ sql: `SELECT data FROM ${table} WHERE id = ?`, args: [id] });
   return r.rows[0] ? (JSON.parse(String(r.rows[0].data)) as DisasterEvent) : null;
 }
 

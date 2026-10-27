@@ -2,7 +2,7 @@ import 'server-only';
 import { geoDistance } from 'd3-geo';
 import { HttpError, cached } from './cache';
 import { withCountry } from './countries';
-import { compactCoverage, getStoredEvent, kvGet, lastRuns, queryEvents } from './db';
+import { compactCoverage, getStoredEvent, kvGet, lastRuns, queryEvents, queryLocalQuakes } from './db';
 import { EVENT_SOURCES, ensureCovered, migrateData, refreshReference } from './jobs';
 import { fetchEonetEvent, fetchGdacsEvent, fetchUsgsDetail, mapUsgs, parseEqDetail } from './sources';
 import { rangeInfo } from '../range';
@@ -84,7 +84,8 @@ export async function getEvents(range: RangeKey, year: number): Promise<EventsRe
   // Sismos de INPRES y del CSN: solo para los últimos 30 días (es lo que publican en línea).
   if (+e > Date.now() - 31 * DAY) await refreshLocal().catch((err) => console.error('[events] local', err instanceof Error ? err.message : err));
 
-  const [rows, runs] = await Promise.all([queryEvents(+s, +e, floor), lastRuns()]);
+  const [base, local, runs] = await Promise.all([queryEvents(+s, +e, floor), +e > Date.now() - 31 * DAY ? queryLocalQuakes(+s, +e, floor).catch(() => []) : [], lastRuns()]);
+  const rows = [...base, ...local];
   const sources: Partial<Record<SourceKey, SourceStatus>> = {};
   let fetchedAt = 0;
   for (const src of EVENT_SOURCES) {
@@ -184,7 +185,7 @@ export async function getEventById(id: string): Promise<EventWithDetail | null> 
     if (!event.iso3) event = withCountry(event);
     // Sismos del USGS: lo que informaron INPRES o el CSN del mismo evento.
     if (event.type === 'eq' && event.src === 'USGS') {
-      const id0 = event.id, near = (await queryEvents(event.time - 3 * 6e4, event.time + 3 * 6e4, 0).catch(() => [])).filter((r) => r.src === 'INPRES' || r.src === 'CSN');
+      const id0 = event.id, near = await queryLocalQuakes(event.time - 3 * 6e4, event.time + 3 * 6e4, 0).catch(() => []);
       if (near.length) event = mergeLocal([event, ...near]).find((r) => r.id === id0) ?? event;
     }
     return { event: await withGdacs(event), detail };

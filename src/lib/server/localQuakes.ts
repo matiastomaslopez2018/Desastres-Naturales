@@ -1,6 +1,6 @@
 import 'server-only';
 import { geoDistance } from 'd3-geo';
-import { kvGet, kvSet, tryLock, unlock, upsertEvents } from './db';
+import { kvGet, kvSet, tryLock, unlock, upsertLocalQuakes } from './db';
 import { withCountry } from './countries';
 import type { DisasterEvent, LocalReport } from '../types';
 
@@ -12,7 +12,7 @@ import type { DisasterEvent, LocalReport } from '../types';
  *   - CSN (Centro Sismológico Nacional, Universidad de Chile): el catálogo de cada día en
  *     https://www.sismologia.cl/sismicidad/catalogo/AAAA/MM/AAAAMMDD.html. Su política permite usar los datos
  *     con fines de divulgación citando "Centro Sismológico Nacional de la Universidad de Chile".
- * Se guardan en la base como eventos propios (src INPRES / CSN). Al leer, si el USGS tiene el mismo sismo,
+ * Se guardan en la tabla local_quakes (src INPRES / CSN). Al leer, si el USGS tiene el mismo sismo,
  * el dato local se suma a ese evento (campo `local`) en vez de mostrar dos puntos.
  */
 
@@ -92,7 +92,7 @@ export async function refreshLocal(): Promise<void> {
     const results = await Promise.allSettled([fetchInpres(), ...[...recent, ...older].map((d) => fetchCsnDay(d))]);
     const events = results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
     results.forEach((r) => { if (r.status === 'rejected') console.warn('[local]', String(r.reason).slice(0, 160)); });
-    if (events.length) await upsertEvents(events);
+    if (events.length) await upsertLocalQuakes(events);
     // Días completos del CSN (todos menos hoy y ayer) que ya se guardaron bien.
     older.forEach((d, i) => { if (results[1 + recent.length + i].status === 'fulfilled') done.add(ymd(d)); });
     const keep = new Set(days.map(ymd));
