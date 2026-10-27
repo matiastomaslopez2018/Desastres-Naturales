@@ -71,7 +71,7 @@ const es = {
   // 2a mapa
   live: 'En vivo', filters: 'Filtros', srcShort: 'Fuentes', play: 'Reproducir', pause: 'Pausar', allPeriod: 'Todo el período',
   weekBelow: 'Resumen de la semana', zoomIn: 'Acercar', zoomOut: 'Alejar', resetView: 'Volver a la vista inicial',
-  nav2: { map: 'Mapa', ranking: 'Ranking', countries: 'Países', learn: 'Aprender', sim: 'Simulador', method: 'Metodología' },
+  nav2: { map: 'Mapa', place: 'Mi lugar', ranking: 'Ranking', countries: 'Países', learn: 'Aprender', sim: 'Simulador', method: 'Metodología' },
   learn: { title: 'Aprender', h1: 'Aprender sobre desastres', seoTitle: 'Aprender sobre desastres: sismos, tsunamis, volcanes, huracanes, incendios, inundaciones y sequías', desc: 'Guías breves, con fuentes oficiales, sobre sismos, tsunamis, volcanes, ciclones, incendios, inundaciones y sequías: qué son, cómo se miden y qué hacer.', reviewed: 'Revisado el', sources: 'Fuentes', more: 'Seguir leyendo', related: 'Más páginas', onMap: 'Ver en el mapa' },
   // 2b resumen semanal
   weekKicker: 'Esta semana en el planeta',
@@ -238,7 +238,7 @@ const en: Dict = {
   Tshort: { eq: 'Quakes', tsunami: 'Tsunami', volcano: 'Volcanoes', fire: 'Wildfires', storm: 'Cyclones', flood: 'Floods', drought: 'Droughts' },
   live: 'Live', filters: 'Filters', srcShort: 'Sources', play: 'Play', pause: 'Pause', allPeriod: 'Whole period',
   weekBelow: 'This week', zoomIn: 'Zoom in', zoomOut: 'Zoom out', resetView: 'Reset view',
-  nav2: { map: 'Map', ranking: 'Ranking', countries: 'Countries', learn: 'Learn', sim: 'Simulator', method: 'Methodology' },
+  nav2: { map: 'Map', place: 'My place', ranking: 'Ranking', countries: 'Countries', learn: 'Learn', sim: 'Simulator', method: 'Methodology' },
   learn: { title: 'Learn', h1: 'Learn about disasters', seoTitle: 'Learn about disasters: earthquakes, tsunamis, volcanoes, hurricanes, wildfires, floods and droughts', desc: 'Short guides with official sources on earthquakes, tsunamis, volcanoes, cyclones, wildfires, floods and droughts: what they are, how they are measured and what to do.', reviewed: 'Reviewed on', sources: 'Sources', more: 'Keep reading', related: 'More pages', onMap: 'See on the map' },
   weekKicker: 'This week on the planet',
   weekHeadline: (n: string, one: boolean) => (one ? 'The Earth shook once in seven days' : `The Earth shook ${n} times in seven days`),

@@ -11,7 +11,7 @@ import { kvCached } from './kvCache';
 import { countryAt } from './countries';
 import { getGvp } from './ingest';
 import { getNearbyHistory } from './ncei';
-import { plateContext, slabDepthAt, type PlateContext } from './geology';
+import { plateContext, slabDepthAt, slabRelation, type PlateContext } from './geology';
 import { recentEvents, volcanoIndex } from './landing';
 import { VOLCANOES } from '../volcano/presets';
 import { MERC_MAX } from '../png';
@@ -123,7 +123,8 @@ export type PlaceProfile = {
   quake: {
     gem: number | null; plate: PlateContext; slab: { depth: number; region: string } | null;
     radiusKm: number; m5: number | null; m6: number | null; m7: number | null;
-    big: { id: string; mag: number; time: number; depth: number; km: number; place: string; lon: number; lat: number }[];
+    /** setting: ambiente para el simulador de sismos (interpretación con Slab2, como en la ficha de cada sismo). */
+    big: { id: string; mag: number; time: number; depth: number; km: number; place: string; lon: number; lat: number; setting: 'crustal' | 'interface' | 'slab' }[];
     harmful: { year: number; mag: number | null; deaths: number | null; km: number; place: string; url: string }[];
   };
   volcano: { list: { num: number; name: string; country: string | null; km: number; lastErup: number | null; slug: string | null; sim: string | null; lon: number; lat: number }[] };
@@ -133,6 +134,12 @@ export type PlaceProfile = {
 };
 
 const QUAKE_R = 250, TSU_R = 50, SLIDE_R = 50, VOLC_R = 300;
+
+function settingOf(lon: number, lat: number, z: number): 'crustal' | 'interface' | 'slab' {
+  const s = slabDepthAt(lon, lat);
+  const r = s ? slabRelation(z, s.depth) : z > 70 ? 'intraslab' : 'crustal';
+  return r === 'interface' ? 'interface' : r === 'intraslab' ? 'slab' : 'crustal';
+}
 
 async function quakes(lon: number, lat: number) {
   const base = `https://earthquake.usgs.gov/fdsnws/event/1/`, q = `latitude=${lat}&longitude=${lon}&maxradiuskm=${QUAKE_R}&starttime=1900-01-01&eventtype=earthquake`;
@@ -147,6 +154,7 @@ async function quakes(lon: number, lat: number) {
     big: top.map((f) => ({
       id: f.id, mag: f.properties.mag, time: f.properties.time, depth: f.geometry.coordinates[2], place: f.properties.place ?? '',
       lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1], km: Math.round(km([lon, lat], [f.geometry.coordinates[0], f.geometry.coordinates[1]])),
+      setting: settingOf(f.geometry.coordinates[0], f.geometry.coordinates[1], f.geometry.coordinates[2]),
     })),
     harmful: hist.map((e) => ({ year: e.year, mag: e.mag, deaths: e.deaths, km: Math.round(km([lon, lat], [e.lon, e.lat])), place: e.location, url: e.url }))
       .filter((e) => e.km <= QUAKE_R && (e.deaths ?? 0) > 0).sort((a, b) => (b.deaths ?? 0) - (a.deaths ?? 0)).slice(0, 8),
@@ -165,7 +173,9 @@ async function runups(lon: number, lat: number) {
   return items
     .filter((r) => r.latitude != null && r.longitude != null && r.year != null && r.runupHt != null && r.doubtful !== 'y')
     .map((r) => ({ year: r.year!, place: [r.locationName, r.country].filter(Boolean).join(', ').toLowerCase().replace(/(^|[\s,(-])\p{L}/gu, (c) => c.toUpperCase()), height: r.runupHt!, km: Math.round(km([lon, lat], [r.longitude!, r.latitude!])), deaths: r.deaths ?? null, eventId: r.tsunamiEventId ?? null, lon: r.longitude!, lat: r.latitude! }))
-    .filter((r) => r.km <= TSU_R);
+    .filter((r) => r.km <= TSU_R)
+    // La base repite algunas mediciones (mismo año, lugar y altura).
+    .filter((r, i, a) => a.findIndex((x) => x.year === r.year && x.place === r.place && x.height === r.height) === i);
 }
 
 type Glc = [number, number, number | null, number, string | null, string, string | null, string | null, string | null];
@@ -194,7 +204,7 @@ async function profile(lat: number, lon: number): Promise<PlaceProfile> {
     quake: { gem: gemClass(lon, lat), plate: plateContext(lon, lat), slab: slab && slab.nearKm < 30 ? { depth: slab.depth, region: slab.region } : null, radiusKm: QUAKE_R, ...eq },
     volcano: {
       list: gvp.map((v) => ({ v, d: km([lon, lat], [v.lon, v.lat]) })).filter((x) => x.d <= VOLC_R).sort((a, b) => a.d - b.d).slice(0, 8).map(({ v, d }) => ({
-        num: v.num, name: v.title, country: v.country ?? null, km: Math.round(d), lastErup: v.lastErup ?? null, slug: idx?.slugOf.get(v.num) ?? null,
+        num: v.num, name: v.title.replace(/^(.+?),s*(.+)$/, '$2 $1'), country: v.country ?? null, km: Math.round(d), lastErup: v.lastErup ?? null, slug: idx?.slugOf.get(v.num) ?? null,
         sim: VOLCANOES.find((s) => s.gvp === v.num)?.id ?? null, lon: v.lon, lat: v.lat,
       })),
     },
@@ -211,7 +221,7 @@ async function profile(lat: number, lon: number): Promise<PlaceProfile> {
 /** Perfil de un punto (redondeado a ~1 km; una semana de caché: son datos históricos). */
 export async function placeProfile(lat: number, lon: number) {
   const la = Math.round(lat * 100) / 100, lo = Math.round(lon * 100) / 100;
-  return (await kvCached(`place:v1:${la}:${lo}`, 7 * 24 * 36e5, () => profile(la, lo))).value;
+  return (await kvCached(`place:v3:${la}:${lo}`, 7 * 24 * 36e5, () => profile(la, lo))).value;
 }
 
 /** Eventos de los últimos 30 días a menos de `radiusKm` (los del mapa). */

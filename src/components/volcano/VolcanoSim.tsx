@@ -50,7 +50,10 @@ const fmtVol = (lang: Lang, v: number) => (v >= 1e6 ? `${fmtNum(lang, v / 1e6, v
 const toLevels = (l: { h: number; u: number; v: number }[]): WindProfile => l.map(({ h, u, v }) => ({ h, u, v })).sort((a, b) => a.h - b.h);
 const hm = (lang: Lang, s: number) => { const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60); return h ? `${h} h ${m} min` : `${m} min`; };
 
-export function VolcanoSim({ lang, initial }: { lang: Lang; initial?: string }) {
+/** Lugar extra de la URL (?lugar=Nombre|lat|lon, desde "Mi lugar"): se suma a la tabla y al mapa de la ceniza. */
+export type ExtraPlace = { name: string; lat: number; lon: number };
+
+export function VolcanoSim({ lang, initial, extra }: { lang: Lang; initial?: string; extra?: ExtraPlace | null }) {
   const t = VOLC_TEXT[lang], nf = (x: number, d = 0) => fmtNum(lang, x, d);
   const [eruptionId, setEruptionId] = useState<string | null>(() => ERUPTIONS.find((e) => e.id === initial)?.id ?? (initial ? null : 'calbuco-2015'));
   const [custom, setCustom] = useState(() => {
@@ -132,10 +135,11 @@ export function VolcanoSim({ lang, initial }: { lang: Lang; initial?: string }) 
     const places: AshIn['places'] = [
       ...volcano.places.map(([n, lo, la]) => [n, lo, la, obs.some((o) => o.place === n)] as [string, number, number, boolean]),
       ...obs.filter((o) => !volcano.places.some((p) => p[0] === o.place)).map((o) => [o.place, o.lon, o.lat, true] as [string, number, number, boolean]),
+      ...(extra && !volcano.places.some((p) => p[0] === extra.name) ? [[extra.name, extra.lon, extra.lat, true] as [string, number, number, boolean]] : []),
     ];
     const msg: AshIn = { id, phases, places, vent: [volcano.lon, volcano.lat], n: 170, local: { half: volcano.boxKm * 1000, n: 128 } };
     worker.current.postMessage(msg);
-  }, [run, volcano, ground, eruption]);
+  }, [run, volcano, ground, eruption, extra]);
 
   // Animación.
   const clock = useClock(ANIM_S, { textHz: 0 });
@@ -248,8 +252,9 @@ export function VolcanoSim({ lang, initial }: { lang: Lang; initial?: string }) 
     const u = new URL(window.location.href);
     u.search = '';
     u.searchParams.set(lang === 'es' ? 'erupcion' : 'eruption', eruption ? eruption.id : volcano.id);
+    if (extra) u.searchParams.set(lang === 'es' ? 'lugar' : 'place', `${extra.name}|${extra.lat}|${extra.lon}`);
     window.history.replaceState(window.history.state, '', u);
-  }, [eruption, volcano, lang]);
+  }, [eruption, volcano, lang, extra]);
 
   const year = meta?.scene?.date?.slice(0, 4) ?? '2023';
   const phaseLabel = (time: number) => {
@@ -426,8 +431,8 @@ export function VolcanoSim({ lang, initial }: { lang: Lang; initial?: string }) 
                     {sorted.map((p) => {
                       const mm = mmFromLoad(p.load), k = impactOf(mm);
                       return (
-                        <tr key={p.name}>
-                          <th scope="row">{p.name}</th>
+                        <tr key={p.name} className={extra?.name === p.name ? 'vs-mine' : undefined}>
+                          <th scope="row">{extra?.name === p.name ? `★ ${p.name}` : p.name}</th>
                           <td>{nf(p.km)} km</td>
                           <td><b>{fmtThick(lang, mm)}</b></td>
                           <td><span className={`vs-imp vs-imp-${k}`}>{t.impacts[k]}</span></td>

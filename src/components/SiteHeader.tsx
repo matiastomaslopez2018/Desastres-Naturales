@@ -9,7 +9,7 @@ import { routePath, type RouteKey } from '@/lib/seo';
 import { SEO } from '@/lib/seoText';
 import type { Lang } from '@/lib/types';
 
-export type Section = 'map' | 'ranking' | 'countries' | 'learn' | 'sim' | 'method';
+export type Section = 'map' | 'place' | 'ranking' | 'countries' | 'learn' | 'sim' | 'method';
 
 type Props = {
   lang: Lang;
@@ -31,6 +31,7 @@ export async function SiteHeader({ lang, langHrefs, current, updatedAt }: Props)
   const when = updatedAt || (await lastIngest()) || null;
   const items: { k: Section; href: string; label: string }[] = [
     { k: 'map', href: `/${lang}`, label: t.nav2.map },
+    { k: 'place', href: routePath(lang, 'myPlace'), label: t.nav2.place },
     { k: 'ranking', href: `/${lang}/ranking`, label: t.nav2.ranking },
     { k: 'countries', href: `/${lang}/paises`, label: t.nav2.countries },
     { k: 'learn', href: routePath(lang, 'learn'), label: t.nav2.learn },
