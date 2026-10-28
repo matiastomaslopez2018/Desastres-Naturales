@@ -79,7 +79,7 @@ const es = {
   airPm10: (v: string) => `Partículas PM10 ahora: ${v} µg/m³ (guía de la OMS: 45 en 24 horas).`,
   airAod: (v: string) => `Hay bastante polvo o humo en el aire (espesor óptico de ${v}).`,
   airNote: (when: string) => `Pronóstico del modelo global Copernicus CAMS (ECMWF), con celdas de unos 40 km, para ${when} (hora de tu dispositivo), vía Open-Meteo. No reemplaza a las estaciones de medición de tu ciudad.`,
-  airMap: 'Ver el humo de incendios en el mapa',
+  airMap: 'Ver la calidad del aire en el mapa',
   // Alertas del SMN
   wxHead: 'Alertas meteorológicas vigentes',
   wxTitle: (l: 'yellow' | 'orange' | 'red', ev: string) => `Alerta ${{ yellow: 'amarilla', orange: 'naranja', red: 'roja' }[l]} por ${ev.toLowerCase()}`,
@@ -155,7 +155,7 @@ const en: typeof es = {
   airPm10: (v: string) => `PM10 particles now: ${v} µg/m³ (WHO guideline: 45 over 24 hours).`,
   airAod: (v: string) => `There is a fair amount of dust or smoke in the air (optical depth ${v}).`,
   airNote: (when: string) => `Forecast from the Copernicus CAMS global model (ECMWF), with cells of about 40 km, for ${when} (your device’s time), via Open-Meteo. It does not replace your city’s monitoring stations.`,
-  airMap: 'See wildfire smoke on the map',
+  airMap: 'See air quality on the map',
   wxHead: 'Weather alerts in effect',
   wxTitle: (l: 'yellow' | 'orange' | 'red', ev: string) => `${{ yellow: 'Yellow', orange: 'Orange', red: 'Red' }[l]} alert: ${ev}`,
   wxFrom: (a: string, b: string) => `From ${a} to ${b}`, wxUntil: (b: string) => `In effect until ${b}`,

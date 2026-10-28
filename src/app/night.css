@@ -225,6 +225,7 @@
 .anim-btn { align-self: flex-start; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--panel-border, var(--rule)); background: none; color: var(--text); cursor: pointer; font-size: 12px; }
 .anim-btn[aria-pressed='true'] { border-color: var(--accent); color: var(--accent); }
 /* Fase 3 · D: rampa de LHASA (colores del visor de NASA) y leyenda de reportes de SPC. */
+.pm25-scale { height: 10px; border-radius: 4px; background: linear-gradient(90deg, #31ff00 0 16%, #31cc00 16% 28%, #ffff00 28% 40%, #ffcc00 40% 50%, #ff9900 50% 60%, #ff6464 60% 70%, #ff0000 70% 80%, #990000 80% 90%, #ce30ff 90% 100%); }
 .smoke-scale { height: 10px; border-radius: 4px; background: linear-gradient(90deg, #fff5eb, #fdbe85, #fd8d3c, #d94801, #7f2704); }
 .lhasa-scale { height: 10px; border-radius: 4px; background: linear-gradient(90deg, #0000ff, #00ffff, #ffff00, #ff0000); }
 .spc-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11px; }

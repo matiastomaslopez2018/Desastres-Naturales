@@ -318,7 +318,7 @@ function Result({ lang, place, p, now, wx = [], zone, air }: { lang: Lang; place
             {air.pm10 != null && ` ${t.airPm10(nf(air.pm10, 1))}`}
             {air.aod != null && air.aod >= 0.5 && ` ${t.airAod(nf(air.aod, 1))}`}
           </p>
-          <p className="ed-note">{t.airNote(fmtTime(lang, air.time))} <Link href={`/${lang}?capa=smoke&v=${p.lon},${p.lat},4`}>{t.airMap} →</Link></p>
+          <p className="ed-note">{t.airNote(fmtTime(lang, air.time))} <Link href={`/${lang}?capa=pm25&v=${p.lon},${p.lat},4`}>{t.airMap} →</Link></p>
         </section>
       )}
 
