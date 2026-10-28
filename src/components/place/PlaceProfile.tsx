@@ -322,6 +322,8 @@ function Result({ lang, place, p, now, wx = [], zone, air }: { lang: Lang; place
         </section>
       )}
 
+      <Seasons lang={lang} lat={p.lat} lon={p.lon} />
+
       <section id="ml-now" className="ml-sec">
         <h2 className="ed-h3">{t.now}</h2>
         <p className="ml-head">{t.nowHead(now.length)}</p>
@@ -344,4 +346,72 @@ function Result({ lang, place, p, now, wx = [], zone, air }: { lang: Lang; place
 /** Enlace a la guía "Qué hacer" de un peligro. */
 function Todo({ lang, h }: { lang: Lang; h: HazardKey }) {
   return <Link className="ed-more" href={`${routePath(lang, 'whatToDo')}#${GUIDE_T[lang].anchors[h]}`}>{GUIDE_T[lang].title} →</Link>;
+}
+
+type SeasonData = { years: [number, number]; rain: number[]; tmax: number[]; hot: number[]; frost: number[]; heavy: number[]; cyclones: number[]; slides: number[] };
+
+/** Qué esperar cada mes: tabla de 12 meses con el clima de 30 años y los registros, y un resumen del mes actual. */
+function Seasons({ lang, lat, lon }: { lang: Lang; lat: number; lon: number }) {
+  const t = PLACE_TEXT[lang], nf = (x: number, d = 0) => fmtNum(lang, x, d);
+  const [d, setD] = useState<SeasonData | 'loading' | null>('loading');
+  const [month, setMonth] = useState<number | null>(null);
+  useEffect(() => { setMonth(new Date().getMonth()); }, []);
+  useEffect(() => {
+    let ok = true;
+    setD('loading');
+    fetch(`/api/seasons?lat=${lat}&lon=${lon}`).then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then((j: SeasonData) => { if (ok) setD(j); }).catch(() => { if (ok) setD(null); });
+    return () => { ok = false; };
+  }, [lat, lon]);
+  if (d === null) return null;
+  if (d === 'loading') return <section id="ml-seasons" className="ml-sec"><h2 className="ed-h3">{t.seasons}</h2><p className="ed-note">{t.seasonsLoading}</p></section>;
+
+  const heavy10 = d.heavy.map((v) => Math.round(v * 10));
+  type Row = { k: keyof typeof t.rows; v: number[]; dec: number; color: string };
+  const rows: Row[] = ([
+    { k: 'rain', v: d.rain, dec: 0, color: '28,126,214' }, { k: 'tmax', v: d.tmax, dec: 0, color: '240,140,0' },
+    { k: 'hot', v: d.hot, dec: 1, color: '224,49,49' }, { k: 'frost', v: d.frost, dec: 1, color: '25,113,194' },
+    { k: 'heavy', v: heavy10, dec: 0, color: '18,184,134' }, { k: 'cyclones', v: d.cyclones, dec: 0, color: '34,139,230' },
+    { k: 'slides', v: d.slides, dec: 0, color: '143,91,46' },
+  ] as Row[]).filter((r) => r.k === 'rain' || r.k === 'tmax' || r.v.some((x) => x > 0));
+  // Intensidad del color: de 0 al máximo de la fila (la temperatura, del mínimo al máximo).
+  const alpha = (r: Row, x: number) => {
+    const lo = r.k === 'tmax' ? Math.min(...r.v) : 0, hi = Math.max(...r.v);
+    return hi > lo ? 0.08 + 0.55 * ((x - lo) / (hi - lo)) : 0;
+  };
+
+  // Resumen del mes actual.
+  const parts: string[] = [];
+  if (month != null) {
+    const rank = [...d.rain].sort((a, b) => b - a).indexOf(d.rain[month]);
+    if (rank <= 2 && d.rain[month] >= 60) parts.push(t.wet(nf(d.rain[month])));
+    else if (rank >= 9) parts.push(t.dry(nf(d.rain[month])));
+    if (d.hot[month] >= 0.5) parts.push(t.hotS(nf(d.hot[month], 1)));
+    if (d.frost[month] >= 0.5) parts.push(t.frostS(nf(d.frost[month], 1)));
+    const all = d.cyclones.reduce((a, b) => a + b, 0);
+    if (all >= 3 && d.cyclones[month] / all >= 0.1) parts.push(t.cycS(d.cyclones[month], all));
+  }
+  return (
+    <section id="ml-seasons" className="ml-sec">
+      <h2 className="ed-h3">{t.seasons}</h2>
+      {month != null && <p className="ml-head">{t.nowHeadM(t.monthNames[month])}, {parts.length ? parts.join('; ') : t.calm}.</p>}
+      <p className="ed-body">{t.always}</p>
+      <div className="ml-season-wrap">
+        <table className="ml-season">
+          <thead><tr><th />{t.months.map((m, i) => <th key={m} className={i === month ? 'now' : undefined}>{m}</th>)}</tr></thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.k}>
+                <th scope="row">{t.rows[r.k]}</th>
+                {r.v.map((x, i) => (
+                  <td key={i} className={i === month ? 'now' : undefined} style={{ background: `rgba(${r.color},${alpha(r, x)})` }}>{x ? nf(x, r.dec) : '·'}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="ed-note">{t.seasonsNote(d.years[0], d.years[1])}</p>
+    </section>
+  );
 }

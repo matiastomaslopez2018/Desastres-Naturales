@@ -233,3 +233,53 @@ export async function placeNow(lat: number, lon: number, radiusKm = 300) {
     .sort((a, b) => b.e.time - a.e.time).slice(0, 12)
     .map(({ e, d }) => ({ id: e.id, type: e.type as EventType, title: e.title, time: e.time, mag: e.mag ?? null, km: Math.round(d) }));
 }
+
+/* ───────────── Qué esperar cada mes ───────────── */
+
+export type Seasons = {
+  /** Período del clima (ERA5). */
+  years: [number, number];
+  /** Por mes (enero = 0): lluvia media (mm), máxima media (°C), días por mes con máxima ≥ 35 °C, con mínima ≤ 0 °C y con lluvia ≥ 50 mm. */
+  rain: number[]; tmax: number[]; hot: number[]; frost: number[]; heavy: number[];
+  /** Ciclones tropicales (IBTrACS, desde 1980, a unos 300 km) por mes de formación y deslizamientos con víctimas (NASA GLC, 300 km) por mes. */
+  cyclones: number[]; slides: number[];
+};
+
+const SEASON_YEARS: [number, number] = [1995, 2024];
+
+/**
+ * Clima de 30 años del reanálisis ERA5 (Copernicus/ECMWF, celdas de 0,25°) leído con la API histórica de
+ * Open-Meteo, más los registros de ciclones y deslizamientos por mes. Se guarda por celda de 0,25°.
+ */
+export async function placeSeasons(lat: number, lon: number) {
+  const la = Math.round(lat * 4) / 4, lo = Math.round(lon * 4) / 4;
+  return (await kvCached(`seasons:v1:${la}:${lo}`, 365 * 24 * 36e5, async (): Promise<Seasons> => {
+    const [y0, y1] = SEASON_YEARS;
+    const j = await fetchJson<{ daily: { time: string[]; temperature_2m_max: (number | null)[]; temperature_2m_min: (number | null)[]; precipitation_sum: (number | null)[] } }>(
+      `https://archive-api.open-meteo.com/v1/archive?latitude=${la}&longitude=${lo}&start_date=${y0}-01-01&end_date=${y1}-12-31&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&models=era5&timezone=GMT`, 60000);
+    const n = y1 - y0 + 1, z = () => new Array(12).fill(0) as number[];
+    const rain = z(), tmaxSum = z(), tmaxN = z(), hot = z(), frost = z(), heavy = z();
+    j.daily.time.forEach((d, i) => {
+      const m = +d.slice(5, 7) - 1, tx = j.daily.temperature_2m_max[i], tn = j.daily.temperature_2m_min[i], p = j.daily.precipitation_sum[i];
+      if (p != null) { rain[m] += p; if (p >= 50) heavy[m]++; }
+      if (tx != null) { tmaxSum[m] += tx; tmaxN[m]++; if (tx >= 35) hot[m]++; }
+      if (tn != null && tn <= 0) frost[m]++;
+    });
+    // Ciclones: mes de formación (del identificador de IBTrACS: año y día del año).
+    const cyclones = z(), cx = Math.floor(lon / 2), cy = Math.floor(lat / 2), ids = new Set<number>();
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (const i of G.cells[`${cx + dx},${cy + dy}`] ?? []) ids.add(i);
+    for (const i of ids) {
+      const sid = G.storms[i][0], yr = +sid.slice(0, 4), doy = +sid.slice(4, 7);
+      if (yr >= 1980 && doy >= 1) cyclones[new Date(Date.UTC(yr, 0, doy)).getUTCMonth()]++;
+    }
+    const slides = z();
+    for (const g of glcData()) if (g[2] != null && km([lon, lat], [g[0], g[1]]) <= 300) slides[new Date(g[2]).getUTCMonth()]++;
+    const r1 = (x: number) => Math.round(x * 10) / 10;
+    return {
+      years: SEASON_YEARS,
+      rain: rain.map((v) => Math.round(v / n)), tmax: tmaxSum.map((v, m) => r1(v / Math.max(1, tmaxN[m]))),
+      hot: hot.map((v) => r1(v / n)), frost: frost.map((v) => r1(v / n)), heavy: heavy.map((v) => r1(v / n)),
+      cyclones, slides,
+    };
+  })).value;
+}
