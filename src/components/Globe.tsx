@@ -775,7 +775,7 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
     // Las vigentes encima de las próximas (al tocar, gana la que ya rige); a igual estado, la de mayor nivel.
     const rank = (a: { onset: number; level: string }) => (a.onset <= Date.now() ? 10 : 0) + ['yellow', 'orange', 'red'].indexOf(a.level);
     setData('smn', fc((ov.smn ?? []).map((a, i) => ({ a, i })).sort((x, y) => rank(x.a) - rank(y.a))
-      .map(({ a, i }) => ({ type: 'Feature', properties: { pid: reg('s', i, a), c: SMN_COLORS[a.level], next: a.onset > Date.now() }, geometry: a.geometry }))));
+      .map(({ a, i }) => ({ type: 'Feature', properties: { pid: reg('wx', i, a), c: SMN_COLORS[a.level], next: a.onset > Date.now() }, geometry: a.geometry }))));
     setData('spc-pts', fc((ov.spcReports ?? []).map((p, i) => pt(p.lon, p.lat, { pid: reg('p', i, p), c: SPC_COLORS[p.kind], r: p.kind === 'tornado' ? 5 : 3.5 }))));
     setData('wind', fc((ov.wind?.points ?? []).map(([lon, lat, kmh, to]) => pt(lon, lat, { kmh, to }))));
 
