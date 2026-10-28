@@ -10,6 +10,8 @@ import { LandslideContext, wantsLandslides } from '@/components/geology/Landslid
 import { DroughtContext, FloodContext } from '@/components/geology/HydroContext';
 import { notFound } from 'next/navigation';
 import { EventCard } from '@/components/EventCard';
+import { RealSeismogram } from '@/components/quake/RealSeismogram';
+import { BeforeAfter } from '@/components/BeforeAfter';
 import { getTsunamiMessages } from '@/lib/server/tsunami';
 import { SiteFooter, SiteHeader } from '@/components/SiteHeader';
 import { ShareButtons } from '@/components/ShareButtons';
@@ -119,6 +121,8 @@ export default async function EventPage({ params }: Props) {
         {/* Qué hacer: "si estás en la zona" si el evento es reciente o sigue activo; si no, "si vuelve a pasar". */}
         <GuideCard lang={lang} hazards={hazardsOf(e)} links={guideLinks(lang)} iso3={e.iso3} recent={!e.closed && Date.now() - Math.max(e.time, e.end ?? 0) < 3 * 864e5} />
         {e.type === 'eq' && <LocalAgencies lang={lang} local={e.local ?? []} usgs={e.src === 'USGS'} />}
+        {(e.type === 'fire' || e.type === 'flood' || e.type === 'volcano') && <BeforeAfter lang={lang} lon={e.lon} lat={e.lat} start={e.start ?? e.time} end={Math.max(e.time, e.end ?? 0)} />}
+        {e.type === 'eq' && (e.mag ?? 0) >= 3.5 && <RealSeismogram lang={lang} id={e.id} time={e.time} />}
         {e.type === 'eq' && <FeltButton lang={lang} id={e.id} time={e.time} usgs={e.src === 'USGS'} local={e.local ?? []} />}
         <LearnLinks lang={lang} e={e} />
         {volc && (

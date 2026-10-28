@@ -568,3 +568,16 @@ a.qs-chip { text-decoration: none; color: inherit; display: inline-block; }
 .fs-legend { display: flex; align-items: center; gap: 8px; }
 .fs-scale { width: 120px; height: 10px; border-radius: 4px; background: linear-gradient(90deg, rgb(116,192,252), rgb(24,100,171)); }
 .fs-stats { margin-top: 10px; }
+
+/* Sismograma real */
+.rs-plot { position: relative; height: 180px; margin: 6px 0 0; border: 1px solid var(--rule); border-radius: 8px; background: #fff; }
+.rs-head { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); pointer-events: none; }
+.rs-axis { text-align: center; margin: 2px 0 10px; }
+
+/* Antes y después por satélite, de cerca (HLS 30 m) */
+.hls-wrap { position: relative; height: clamp(300px, 55vw, 520px); border-radius: 10px; overflow: hidden; background: #2b2b2b; margin-top: 6px; }
+.hls-wrap > .hls-map { position: absolute; inset: 0; }
+.hls-line { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1.5px; background: #fff; box-shadow: 0 0 6px rgba(0,0,0,.5); pointer-events: none; z-index: 2; }
+.hls-tag { position: absolute; top: 10px; z-index: 2; padding: 4px 8px; border-radius: 6px; background: rgba(0,0,0,.65); color: #fff; font-size: 12px; pointer-events: none; }
+.hls-tag-l { left: 10px; } .hls-tag-r { right: 52px; }
+.hls-range { width: 100%; margin: 8px 0 4px; }

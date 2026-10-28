@@ -37,7 +37,7 @@ const toTrack = (s: IbtracsStorm): HistTrack => {
     windKt: s.wind, pressureMb: s.pres, start: s.start, end: s.end, lon: best[0], lat: best[1], points: s.pts,
   };
 };
-const NOW_LAYERS = new Set(['nhc', 'wvolc', 'firms', 'fwi', 'wind', 'dart', 'lhasa', 'spc', 'smn', 'smoke', 'pm25']);
+const NOW_LAYERS = new Set(['nhc', 'wvolc', 'firms', 'fwi', 'wind', 'dart', 'lhasa', 'spc', 'smn', 'smoke', 'pm25', 'goes', 'floodsat']);
 type FirmsState = 'idle' | 'wait' | 'ok' | 'needsKey' | 'err';
 
 /** initialType: ?tipo=eq|volcano|… desde Aprender, para abrir el mapa filtrado por un tipo. */
@@ -45,7 +45,7 @@ type Props = { lang: Lang; initialRange: RangeKey; initialYear: number; initialS
 
 /** Leyenda oficial del mapa FWI de GWIS: color y límite inferior de cada clase. */
 const FWI_LEGEND: [string, string][] = [['#9cffc0', '<11'], ['#cde24e', '11'], ['#e6ac00', '21'], ['#d97010', '38'], ['#ad060e', '50'], ['#3a0015', '70']];
-const LAYER_KEYS = ['nhc', 'smn', 'wvolc', 'firms', 'fwi', 'smoke', 'pm25', 'wind', 'ibtracs', 'borders', 'plates', 'platevec', 'slab', 'ring', 'gvp', 'dart', 'hazard', 'lhasa', 'glc', 'spc'] as const;
+const LAYER_KEYS = ['nhc', 'smn', 'goes', 'wvolc', 'firms', 'fwi', 'smoke', 'pm25', 'floodsat', 'wind', 'ibtracs', 'borders', 'plates', 'platevec', 'slab', 'ring', 'gvp', 'dart', 'hazard', 'lhasa', 'glc', 'spc'] as const;
 /** Etiqueta de las capas históricas y de referencia (vienen apagadas, salvo fronteras y placas). */
 const LAYER_TAG: Partial<Record<(typeof LAYER_KEYS)[number], 'hist' | 'ref'>> = {
   ibtracs: 'hist', glc: 'hist', borders: 'ref', plates: 'ref', platevec: 'ref', slab: 'ref', ring: 'ref', gvp: 'ref', hazard: 'ref',
@@ -73,7 +73,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
   );
   const [layers, setLayers] = useState<Layers>({
     nhc: true, wvolc: true, firms: false, ibtracs: false, borders: true, plates: true, ring: false, gvp: false, hazard: false,
-    slab: false, platevec: false, dart: false, fwi: false, wind: false, lhasa: false, glc: false, spc: false, smn: true, smoke: false, pm25: false,
+    slab: false, platevec: false, dart: false, fwi: false, wind: false, lhasa: false, glc: false, spc: false, smn: true, smoke: false, pm25: false, goes: false, floodsat: false,
   });
   const [storms, setStorms] = useState<NhcStorm[]>([]);
   const [volcanoes, setVolcanoes] = useState<VolcanoActivity[]>([]);
@@ -243,7 +243,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
 
   // NHC, volcanes y FIRMS son "ahora": en un año pasado no se mezclan con ese año.
   const isNow = range !== 'year' || year === new Date().getUTCFullYear();
-  const drawLayers = useMemo<Layers>(() => (isNow ? layers : { ...layers, nhc: false, wvolc: false, firms: false, fwi: false, wind: false, dart: false, lhasa: false, spc: false, smn: false, smoke: false, pm25: false }), [layers, isNow]);
+  const drawLayers = useMemo<Layers>(() => (isNow ? layers : { ...layers, nhc: false, wvolc: false, firms: false, fwi: false, wind: false, dart: false, lhasa: false, spc: false, smn: false, smoke: false, pm25: false, goes: false, floodsat: false }), [layers, isNow]);
   // FIRMS pesa: solo se pide al encender la capa.
   useEffect(() => {
     if (!drawLayers.firms || firmsState !== 'idle') return;
@@ -339,6 +339,17 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
     return () => clearInterval(id);
   }, [layers.smn]);
 
+  // Satélite GOES-East: hora de la imagen más reciente que publica GIBS (se lee del encabezado de un mosaico), cada 5 minutos.
+  const [goesTime, setGoesTime] = useState<string | null>(null);
+  useEffect(() => {
+    if (!layers.goes) return;
+    const load = () => fetch('https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GOES-East_ABI_GeoColor/default/default/GoogleMapsCompatible_Level7/0/0/0.png', { cache: 'no-store' })
+      .then((r) => { const v = r.headers.get('layer-time-actual'); if (v) setGoesTime(v); }).catch(() => {});
+    load();
+    const id = setInterval(load, 5 * 6e4);
+    return () => clearInterval(id);
+  }, [layers.goes]);
+
   // Viento: con zoom 3 o más, se pide la grilla de la zona visible al quedar quieto el globo.
   const [view, setView] = useState<{ lon: number; lat: number; k: number } | null>(null);
   useEffect(() => {
@@ -352,8 +363,8 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
   }, [layers.wind, view]);
 
   const overlays = useMemo<Overlays>(() => ({ storms, heat, volcanoes, tracks, stormAnim, slab, vectors, darts, wind, glc,
-    spcOutlook: severe?.outlook, spcReports: severe?.reports, nwsWarnings: severe?.warnings, smn: smn ?? undefined }),
-  [storms, heat, volcanoes, tracks, stormAnim, slab, vectors, darts, wind, glc, severe, smn]);
+    spcOutlook: severe?.outlook, spcReports: severe?.reports, nwsWarnings: severe?.warnings, smn: smn ?? undefined, goesTime }),
+  [storms, heat, volcanoes, tracks, stormAnim, slab, vectors, darts, wind, glc, severe, smn, goesTime]);
 
   // Relieve 3D: apagado de entrada en equipos de gama baja (≤ 4 núcleos o ≤ 4 GB), y también si
   // un movimiento del mapa baja de 24 cuadros por segundo. Se puede cambiar a mano en el panel.
@@ -648,6 +659,7 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
     if (k === 'glc') return glc.length ? ` · ${nf(glc.length)}` : '';
     if (k === 'spc') return severe ? ` · ${t.spcCount(severe.reports.filter((r) => r.kind === 'tornado').length, severe.reports.length, severe.warnings.length)}` : layers.spc ? ` · ${t.loadingLayer}` : '';
     if (k === 'smn') return smn ? ` · ${t.smnCount(smn.filter((a) => a.onset <= Date.now()).length, smn.filter((a) => a.onset > Date.now()).length)}` : layers.smn ? ` · ${t.loadingLayer}` : '';
+    if (k === 'goes') return layers.goes ? (goesTime ? ` · ${t.goesAt(fmtHour(lang, Date.parse(goesTime)))}` : ` · ${t.loadingLayer}`) : '';
     if (k === 'dart') return darts.length ? ` · ${nf(darts.filter((d) => d.reporting).length)}/${nf(darts.length)}` : '';
     if (k === 'ibtracs') return range === 'year' && tracks.length ? ` · ${nf(tracks.length)}` : '';
     return '';
@@ -838,6 +850,15 @@ export function Atlas({ lang, initialRange, initialYear, initialSel, initialType
                 <div className="pm25-scale" role="img" aria-label={t.L.pm25} />
                 <span className="faint small">{t.pm25Legend}</span>
                 <p className="note">{raster.pm25 === 'wait' ? t.loadingLayer : t.pm25Help}</p>
+              </div>
+            )}
+            {layers.goes && <p className="note">{t.goesHelp}</p>}
+            {layers.floodsat && (
+              <div className="hazard-legend">
+                <div className="spc-legend">
+                  {([['#e01e24', t.floodsatKinds.flood], ['#ffff00', t.floodsatKinds.recurring], ['#32d2f5', t.floodsatKinds.water], ['#afafaf', t.floodsatKinds.nodata]] as const).map(([c, l]) => <span key={l}><i style={{ background: c, borderRadius: 2 }} />{l}</span>)}
+                </div>
+                <p className="note">{t.floodsatHelp}</p>
               </div>
             )}
             {layers.wind && <p className="note">{t.windHelp}</p>}

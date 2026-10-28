@@ -176,6 +176,16 @@ const RASTERS = {
 } as const;
 type RasterId = keyof typeof RASTERS;
 
+/** Capas de mosaicos de NASA GIBS (con fecha u hora; "default" es la más reciente publicada). */
+const GIBS = 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best';
+const TILE_LAYERS = {
+  goes: { url: (time: string) => `${GIBS}/GOES-East_ABI_GeoColor/default/${time}/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png`, maxzoom: 7, opacity: 0.9,
+    attribution: '<a href="https://www.earthdata.nasa.gov/gibs" target="_blank" rel="noopener">NASA GIBS</a> · NOAA GOES-19 (GeoColor, CIRA)' },
+  floodsat: { url: (time: string) => `${GIBS}/VIIRS_Combined_Flood_3-Day/default/${time}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.png`, maxzoom: 9, opacity: 0.75,
+    attribution: '<a href="https://www.earthdata.nasa.gov/gibs" target="_blank" rel="noopener">NASA GIBS</a> · VIIRS Flood (NOAA-20/21)' },
+} as const;
+type TileId = keyof typeof TILE_LAYERS;
+
 /* ───────────── Geometrías fijas ───────────── */
 
 const topo = world as unknown as Topology<{ countries: GeometryCollection }>;
@@ -652,6 +662,27 @@ export const Globe = forwardRef<GlobeHandle, Props>(function Globe(props, ref) {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gen, props.layers]);
+
+  /* ── Mosaicos de GIBS: se agregan al encenderlos; el GOES se renueva cuando cambia la hora de la imagen ── */
+  const goesTime = props.overlays?.goesTime ?? null;
+  useEffect(() => {
+    whenReady(() => {
+      const m = mapRef.current!;
+      for (const id of Object.keys(TILE_LAYERS) as TileId[]) {
+        const on = props.layers[id], L = TILE_LAYERS[id], time = id === 'goes' ? goesTime ?? 'default' : 'default';
+        const src = m.getSource(id) as maplibregl.RasterTileSource | undefined;
+        if (!src) {
+          if (!on) continue;
+          m.addSource(id, { type: 'raster', tiles: [L.url(time)], tileSize: 256, maxzoom: L.maxzoom, attribution: L.attribution });
+          m.addLayer({ id, type: 'raster', source: id, paint: { 'raster-opacity': L.opacity, 'raster-fade-duration': 0 } }, 'spc-fill');
+        } else {
+          m.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none');
+          if (on && src.tiles?.[0] !== L.url(time)) src.setTiles([L.url(time)]);
+        }
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gen, props.layers, goesTime]);
 
   /* ── Eventos (agrupados solo con más de 2.000 puntos, p. ej. un año) ── */
   useEffect(() => {

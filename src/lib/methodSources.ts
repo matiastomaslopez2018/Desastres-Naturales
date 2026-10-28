@@ -18,6 +18,13 @@ export const METHOD_GROUPS: MethodGroup[] = [
     title: { es: 'Terremotos y contexto tectónico', en: 'Earthquakes and tectonic setting' },
     sources: [
       {
+        name: 'EarthScope Consortium · servicios FDSN (estaciones y sismogramas)', url: 'https://service.earthscope.org/',
+        covers: { es: 'El sismograma real de cada sismo en su ficha: la componente vertical de la estación de banda ancha más cercana (hasta ~2.800 km) de las redes abiertas GSN (IU, II), GEOSCOPE (G), GTSN (GT), Caribe (CU), China (IC), EE. UU. (US) y la Red Sismológica Nacional de Chile (C1). Las llegadas P y S se calculan con el modelo ak135.', en: 'The real seismogram of each earthquake on its page: the vertical component of the nearest broadband station (up to ~2,800 km) from the open GSN (IU, II), GEOSCOPE (G), GTSN (GT), Caribbean (CU), China (IC), US (US) and Chilean National Seismological Network (C1) networks. P and S arrivals are computed with the ak135 model.' },
+        freq: { es: 'Las estaciones publican sus datos con minutos de demora; cada sismograma se guarda una vez encontrado.', en: 'Stations publish their data with minutes of delay; each seismogram is stored once found.' },
+        license: { es: 'Datos abiertos de las redes, distribuidos por EarthScope; se cita la red y la estación.', en: 'Open network data distributed by EarthScope; the network and station are credited.' },
+        limits: { es: 'La velocidad se calcula con la sensibilidad nominal del instrumento, sin la respuesta completa: es aproximada. No todas las zonas tienen una estación abierta cerca. El sonido es la misma señal acelerada.', en: 'Velocity uses the instrument’s nominal sensitivity, not its full response: it is approximate. Not every region has an open station nearby. The sound is the same signal sped up.' },
+      },
+      {
         name: 'USGS ComCat · productos del evento', url: 'https://earthquake.usgs.gov/data/comcat/',
         covers: { es: 'Sismos del mundo (desde M2,5 o M4,5 según el período), mecanismo focal (tensor de momento), resumen tectónico, pronóstico de réplicas (OAF), PAGER y ShakeMap.', en: 'Earthquakes worldwide (from M2.5 or M4.5 depending on the period), focal mechanism (moment tensor), tectonic summary, aftershock forecast (OAF), PAGER and ShakeMap.' },
         freq: { es: 'Casi en tiempo real. Los productos de cada sismo se piden al abrir la ficha y se guardan 1 hora si el sismo es reciente y 30 días si es viejo.', en: 'Near real time. Each quake\'s products are requested when its page opens and kept 1 hour if recent, 30 days if old.' },
@@ -280,6 +287,32 @@ export const METHOD_GROUPS: MethodGroup[] = [
         freq: { es: 'El SMN las emite y actualiza varias veces por día; acá se leen cada 10 minutos.', en: 'The SMN issues and updates them several times a day; read here every 10 minutes.' },
         license: { es: 'Formato CAP (Common Alerting Protocol), pensado para que las alertas se difundan tal como las emite el organismo. Se reproduce el texto sin cambios, se cita al SMN y se enlaza su sitio.', en: 'CAP (Common Alerting Protocol) format, designed for alerts to be redistributed as issued. The text is reproduced unchanged, the SMN is credited and its site is linked.' },
         limits: { es: 'Puede haber hasta 15 minutos de demora respecto del SMN. Dentro de la zona, el fenómeno puede darse solo en algunos lugares. Ante una emergencia, seguí las indicaciones del SMN y de Defensa Civil.', en: 'May lag the SMN by up to 15 minutes. Within the area, the hazard may occur only in some places. In an emergency, follow the SMN and civil protection authorities.' },
+      },
+    ],
+  },
+  {
+    title: { es: 'Imágenes satelitales', en: 'Satellite imagery' },
+    sources: [
+      {
+        name: 'NOAA GOES-19 (GOES-East) · GeoColor, vía NASA GIBS', url: 'https://www.earthdata.nasa.gov/gibs',
+        covers: { es: 'Capa «Satélite en vivo»: imagen de las Américas cada 10 minutos, en color real de día y en infrarrojo con luces de ciudades de noche (combinación GeoColor de CIRA).', en: '“Live satellite” layer: an image of the Americas every 10 minutes, in true colour by day and infrared with city lights at night (CIRA GeoColor).' },
+        freq: { es: 'Cada 10 minutos, con unos 20 a 40 minutos de demora.', en: 'Every 10 minutes, with a 20 to 40 minute delay.' },
+        license: { es: 'Datos de la NOAA y la NASA, de dominio público en EE. UU.', en: 'NOAA and NASA data, public domain in the US.' },
+        limits: { es: 'Resolución de unos 1 a 2 km. Solo cubre las Américas y el Atlántico.', en: 'About 1 to 2 km resolution. Covers only the Americas and the Atlantic.' },
+      },
+      {
+        name: 'VIIRS Flood (NOAA-20 y NOAA-21), vía NASA GIBS', url: 'https://www.earthdata.nasa.gov/gibs',
+        covers: { es: 'Capa «Inundaciones vistas por satélite»: agua detectada en los últimos 3 días, separando el agua permanente, las inundaciones habituales y las inundaciones.', en: '“Floods seen from space” layer: water detected over the last 3 days, telling apart permanent water, recurring floods and floods.' },
+        freq: { es: 'Diaria.', en: 'Daily.' },
+        license: { es: 'Datos de la NASA y la NOAA, de dominio público en EE. UU.', en: 'NASA and NOAA data, public domain in the US.' },
+        limits: { es: 'Celdas de unos 375 m. Las nubes impiden ver el suelo y las sombras de nubes o de montañas pueden confundirse con agua.', en: 'Cells of about 375 m. Clouds block the view and cloud or terrain shadows may be mistaken for water.' },
+      },
+      {
+        name: 'NASA HLS (Harmonized Landsat Sentinel-2), vía NASA GIBS y CMR STAC', url: 'https://www.earthdata.nasa.gov/data/projects/hls',
+        covers: { es: '«De cerca: antes y después a 30 m» en las fichas de incendios, inundaciones y erupciones. Las fechas se eligen en el catálogo CMR STAC de la NASA: la pasada con pocas nubes más cercana antes del evento y la primera después.', en: '“Up close: before and after at 30 m” on wildfire, flood and eruption pages. Dates are chosen from NASA’s CMR STAC catalog: the closest low-cloud pass before the event and the first one after.' },
+        freq: { es: 'Una imagen cada 2 a 3 días en cada lugar, publicada con algunos días de demora.', en: 'One image every 2 to 3 days at each place, published a few days later.' },
+        license: { es: 'Datos abiertos de la NASA; Landsat (NASA/USGS) y Sentinel-2 (Copernicus, ESA).', en: 'NASA open data; Landsat (NASA/USGS) and Sentinel-2 (Copernicus, ESA).' },
+        limits: { es: 'El porcentaje de nubes es el de la escena completa (unos 110 km), no el del punto exacto: puede haber nubes justo en la zona. Puede haber franjas sin datos.', en: 'The cloud percentage refers to the whole scene (about 110 km), not the exact spot: there may be clouds right over the area. There may be stripes with no data.' },
       },
     ],
   },
