@@ -12,6 +12,7 @@ import { countryName } from '@/lib/countries';
 import { fmtNum } from '@/lib/format';
 import { routePath } from '@/lib/seo';
 import { T as I18N } from '@/lib/i18n';
+import { STORIES } from '@/lib/stories';
 import type { Lang } from '@/lib/types';
 
 export type DayItem = {
@@ -38,7 +39,7 @@ const T = {
     ago: (n: number) => (n === 0 ? 'este año' : n === 1 ? 'hace 1 año' : `hace ${n} años`), bce: (y: string) => `${y} a. C.`,
     deaths: (n: string) => `${n} muertes`, vei: (v: number) => `índice de explosividad (VEI) ${v}`, wave: (h: string) => `ola de hasta ${h} m`,
     withTsu: 'con tsunami', depth: (d: string) => `${d} km de profundidad`, wind: (kt: string, kmh: string) => `viento de ${kmh} km/h (${kt} kt)`,
-    source: 'Ficha de la fuente', simulate: 'Simular cómo se sintió', whatIf: '¿Y si pasara acá?', more: (n: number) => `Ver ${n} más`,
+    source: 'Ficha de la fuente', simulate: 'Simular cómo se sintió', whatIf: '¿Y si pasara acá?', story: 'Leer la historia', more: (n: number) => `Ver ${n} más`,
     note: 'Fuentes: bases de sismos, tsunamis y erupciones significativos de NOAA NCEI (sismos con muertes, daños de US$ 1 millón o más, magnitud 7,5 o más, intensidad X o más, o que causaron tsunami) y ciclones tropicales de IBTrACS v04r01 en el día de su viento máximo. Las fechas son las del catálogo: en los eventos antiguos pueden ser aproximadas o seguir otro calendario.',
   },
   en: {
@@ -55,7 +56,7 @@ const T = {
     ago: (n: number) => (n === 0 ? 'this year' : n === 1 ? '1 year ago' : `${n} years ago`), bce: (y: string) => `${y} BCE`,
     deaths: (n: string) => `${n} deaths`, vei: (v: number) => `explosivity index (VEI) ${v}`, wave: (h: string) => `waves up to ${h} m`,
     withTsu: 'with tsunami', depth: (d: string) => `${d} km deep`, wind: (kt: string, kmh: string) => `${kmh} km/h winds (${kt} kt)`,
-    source: 'Source record', simulate: 'Simulate how it felt', whatIf: 'What if it happened here?', more: (n: number) => `Show ${n} more`,
+    source: 'Source record', simulate: 'Simulate how it felt', whatIf: 'What if it happened here?', story: 'Read the story', more: (n: number) => `Show ${n} more`,
     note: 'Sources: NOAA NCEI significant earthquake, tsunami and volcanic eruption databases (earthquakes with deaths, damage of US$1 million or more, magnitude 7.5 or more, intensity X or more, or a tsunami) and IBTrACS v04r01 tropical cyclones on the day of their peak wind. Dates are as in the catalog: for old events they may be approximate or follow another calendar.',
   },
 };
@@ -135,6 +136,8 @@ export function ThisDay({ lang, initial }: { lang: Lang; initial: { m: number; d
     const s = new URLSearchParams({ m: String(Math.min(9.5, i.mag!)), h: String(Math.max(1, Math.round(i.depth ?? 15))), amb: setting(i), t: `${label(i)} · ${i.place} (${i.y})` });
     return `${routePath(lang, 'simulator')}?${s}`;
   };
+  // Historia del sitio para este evento: misma fecha y año (los sismos de las historias).
+  const storyFor = (i: DayItem) => (date && i.k === 'eq' ? STORIES[lang].find((s) => s.date === `${i.y}-${pad(date.m)}-${pad(date.d)}`)?.slug ?? null : null);
   const whatIfHref = (i: DayItem) => {
     const s = new URLSearchParams({ m: String(Math.min(9.5, i.mag!)), h: String(Math.max(1, Math.round(i.depth ?? 15))), amb: setting(i), t: `${[i.place, i.iso3 ? countryName(i.iso3, lang) : null].filter(Boolean).join(', ')} (${i.y < 0 ? t.bce(String(-i.y)) : i.y})` });
     return `${routePath(lang, 'whatIf')}?${s}`;
@@ -179,6 +182,7 @@ export function ThisDay({ lang, initial }: { lang: Lang; initial: { m: number; d
                   <span className="td-facts">{[year != null && i.y > 0 ? t.ago(year - i.y) : null, facts(i)].filter(Boolean).join(' · ')}</span>
                   <span className="td-links">
                     <a href={i.url} target="_blank" rel="noopener noreferrer">{t.source} ↗</a>
+                    {storyFor(i) && <Link href={routePath(lang, 'stories', storyFor(i)!)}><b>{t.story} →</b></Link>}
                     {i.k === 'eq' && i.mag != null && i.mag >= 4 && <Link href={simHref(i)}>{t.simulate} →</Link>}
                     {i.k === 'eq' && i.mag != null && i.mag >= 5 && <Link href={whatIfHref(i)}>{t.whatIf} →</Link>}
                   </span>

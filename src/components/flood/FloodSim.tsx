@@ -52,6 +52,8 @@ export function FloodSim({ lang }: { lang: Lang }) {
   const box = useRef<HTMLDivElement>(null), map = useRef<MLMap | null>(null), marker = useRef<Marker | null>(null);
   const canvas = useRef<HTMLCanvasElement | null>(null);
   const [place, setPlace] = useState<Place | null>(null);
+  const placeRef = useRef<Place | null>(null);
+  placeRef.current = place;
   const [calc, setCalc] = useState<Calc | null>(null);
   const [state, setState] = useState<'idle' | 'loading' | 'failed'>('idle');
   const [rise, setRise] = useState(2);
@@ -104,9 +106,18 @@ export function FloodSim({ lang }: { lang: Lang }) {
         onPick(e.lngLat.lng, e.lngLat.lat);
       });
       map.current = m;
+      // Si el lugar llegó antes que el mapa (por la URL), se arranca ahí.
+      const p0 = placeRef.current;
+      if (p0) m.jumpTo({ center: [p0.lon, p0.lat], zoom: 12 });
     });
     return () => { dead = true; map.current?.remove(); map.current = null; };
   }, [onPick]);
+
+  // ?lugar=&lat=&lon= (o ?place=): abrir directo en ese lugar (por ejemplo, desde una historia).
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search), lat = Number(sp.get('lat')), lon = Number(sp.get('lon'));
+    if (Number.isFinite(lat) && Number.isFinite(lon) && sp.get('lat') && sp.get('lon')) setPlace({ name: sp.get('lugar') ?? sp.get('place') ?? '', lat, lon });
+  }, []);
 
   useEffect(() => { if (place) map.current?.flyTo({ center: [place.lon, place.lat], zoom: 12, duration: 2000 }); }, [place]);
 

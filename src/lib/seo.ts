@@ -25,6 +25,7 @@ export const ROUTES = {
   whatIf: { es: 'y-si-pasara-aca', en: 'what-if-it-happened-here' },
   floodSim: { es: 'simulador-inundaciones', en: 'flood-simulator' },
   quiz: { es: 'que-harias', en: 'what-would-you-do' },
+  stories: { es: 'historias', en: 'stories' },
 } as const satisfies Record<string, Record<Lang, string>>;
 
 export type RouteKey = keyof typeof ROUTES;
