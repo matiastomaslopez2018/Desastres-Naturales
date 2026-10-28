@@ -6,7 +6,7 @@
  */
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { loadGeo } from './place/PlaceMap';
+import { drawBase, loadGeo, placeProjection } from './place/PlaceMap';
 import { Search, type Place } from './place/PlaceProfile';
 import { prep, useCanvasSize } from './quake/clock';
 import { PRESETS } from '@/lib/quake/presets';
@@ -145,30 +145,10 @@ function ShakeCanvas({ lang, place, grid, strike, label }: { lang: Lang; place: 
   useEffect(() => {
     const ctx = prep(cv.current, w, h, dpr);
     if (!ctx) return;
-    const half = grid.half, s = Math.min(w, h) / (2 * half), cos = Math.cos((place.lat * Math.PI) / 180);
-    const xy = (lo: number, la: number): [number, number] => {
-      let dl = lo - place.lon;
-      if (dl > 180) dl -= 360; else if (dl < -180) dl += 360;
-      return [w / 2 + dl * 111.32 * cos * s, h / 2 - (la - place.lat) * 111.32 * s];
-    };
+    const half = grid.half, s = Math.min(w, h) / (2 * half);
     ctx.fillStyle = '#cfe0ea'; ctx.fillRect(0, 0, w, h);
-    const path = (coords: number[][]) => coords.forEach(([lo, la], i) => { const [x, y] = xy(lo, la); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
-    if (geo) {
-      const feats = 'features' in geo.land ? geo.land.features : [geo.land];
-      ctx.fillStyle = '#f4f1ea'; ctx.beginPath();
-      for (const f of feats) { const g = f.geometry; const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : []; for (const p of polys) for (const r of p) { path(r); ctx.closePath(); } }
-      ctx.fill('evenodd');
-    }
-    if (shade) { ctx.imageSmoothingEnabled = true; ctx.drawImage(shade, w / 2 - half * s, h / 2 - half * s, 2 * half * s, 2 * half * s); }
-    if (geo) {
-      ctx.strokeStyle = 'rgba(70,90,110,.7)'; ctx.lineWidth = 0.8; ctx.beginPath();
-      const feats = 'features' in geo.land ? geo.land.features : [geo.land];
-      for (const f of feats) { const g = f.geometry; const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : []; for (const p of polys) for (const r of p) { path(r); ctx.closePath(); } }
-      ctx.stroke();
-      ctx.strokeStyle = 'rgba(60,60,60,.55)'; ctx.lineWidth = 1; ctx.setLineDash([4, 3]); ctx.beginPath();
-      for (const line of geo.borders.coordinates) path(line);
-      ctx.stroke(); ctx.setLineDash([]);
-    }
+    const paint = () => { if (shade) { ctx.imageSmoothingEnabled = true; ctx.drawImage(shade, w / 2 - half * s, h / 2 - half * s, 2 * half * s, 2 * half * s); } };
+    if (geo) drawBase(ctx, geo, placeProjection(place.lon, place.lat, s, w, h), paint); else paint();
     // Falla: rectángulo en superficie (a lo largo del rumbo, desde el borde superior al inferior del plano).
     const a = (strike * Math.PI) / 180, sa = Math.sin(a), ca = Math.cos(a), L = grid.rup.length / 2;
     const x0 = grid.rup.top[0], x1 = Math.abs(grid.rup.bottom[0] - x0) < 1 ? x0 + 1 : grid.rup.bottom[0];

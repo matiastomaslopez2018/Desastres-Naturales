@@ -5,6 +5,7 @@
  * tsunamis medidos y los deslizamientos con víctimas. Coordenadas: km al este y al norte del punto.
  */
 import { useEffect, useRef, useState } from 'react';
+import { geoAzimuthalEquidistant, geoPath } from 'd3-geo';
 import { feature, mesh } from 'topojson-client';
 import type { Topology, GeometryCollection } from 'topojson-specification';
 import { fmtNum } from '@/lib/format';
@@ -26,6 +27,24 @@ export type MapItems = {
 };
 
 const HALF = 330;
+
+/**
+ * Proyección azimutal equidistante centrada en el lugar (las distancias desde el centro son reales), con
+ * `s` píxeles por km. El recorte alrededor del centro evita los polígonos que cruzan el meridiano opuesto.
+ */
+export function placeProjection(lon: number, lat: number, s: number, w: number, h: number) {
+  const reachDeg = Math.hypot(w, h) / 2 / s / 111.2;
+  return geoAzimuthalEquidistant().rotate([-lon, -lat]).scale(s * 6371).translate([w / 2, h / 2]).clipAngle(Math.min(170, reachDeg + 3)).precision(0.3);
+}
+
+/** Tierra (relleno) y fronteras; si `shade`, se dibuja entre la tierra y las costas. */
+export function drawBase(ctx: CanvasRenderingContext2D, geo: Geo, proj: ReturnType<typeof placeProjection>, shade?: () => void) {
+  const path = geoPath(proj, ctx);
+  ctx.fillStyle = '#f4f1ea'; ctx.beginPath(); path(geo.land); ctx.fill();
+  shade?.();
+  ctx.strokeStyle = 'rgba(70,90,110,.6)'; ctx.lineWidth = 0.8; ctx.beginPath(); path(geo.land); ctx.stroke();
+  ctx.strokeStyle = 'rgba(60,60,60,.5)'; ctx.lineWidth = 1; ctx.setLineDash([4, 3]); ctx.beginPath(); path(geo.borders); ctx.stroke(); ctx.setLineDash([]);
+}
 const C = { quake: '#e8590c', volc: '#d6336c', tsu: '#1c6fb8', slide: '#7a5230' };
 
 export function PlaceMap({ lang, lon, lat, name, items, legend }: { lang: Lang; lon: number; lat: number; name: string; items: MapItems; legend: Record<'place' | 'quake' | 'volc' | 'tsu' | 'slide' | 'ring', string> }) {
@@ -39,24 +58,10 @@ export function PlaceMap({ lang, lon, lat, name, items, legend }: { lang: Lang; 
     if (!c || !w) return;
     const ctx = prep(c, w, h, dpr);
     if (!ctx) return;
-    const s = Math.min(w, h) / (2 * HALF), cos = Math.cos((lat * Math.PI) / 180);
-    const xy = (lo: number, la: number): [number, number] => {
-      let dl = lo - lon;
-      if (dl > 180) dl -= 360; else if (dl < -180) dl += 360;
-      return [w / 2 + dl * 111.32 * cos * s, h / 2 - (la - lat) * 111.32 * s];
-    };
+    const s = Math.min(w, h) / (2 * HALF), proj = placeProjection(lon, lat, s, w, h);
+    const xy = (lo: number, la: number): [number, number] => proj([lo, la]) ?? [-99, -99];
     ctx.fillStyle = '#cfe0ea'; ctx.fillRect(0, 0, w, h);
-    const path = (coords: number[][]) => coords.forEach(([lo, la], i) => { const [x, y] = xy(lo, la); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
-    if (geo) {
-      const feats = 'features' in geo.land ? geo.land.features : [geo.land];
-      ctx.fillStyle = '#f4f1ea'; ctx.beginPath();
-      for (const f of feats) { const g = f.geometry; const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : []; for (const p of polys) for (const r of p) { path(r); ctx.closePath(); } }
-      ctx.fill('evenodd');
-      ctx.strokeStyle = 'rgba(70,90,110,.6)'; ctx.lineWidth = 0.8; ctx.stroke();
-      ctx.strokeStyle = 'rgba(60,60,60,.5)'; ctx.lineWidth = 1; ctx.setLineDash([4, 3]); ctx.beginPath();
-      for (const line of geo.borders.coordinates) path(line);
-      ctx.stroke(); ctx.setLineDash([]);
-    }
+    if (geo) drawBase(ctx, geo, proj);
     // Anillos cada 100 km.
     ctx.strokeStyle = 'rgba(20,20,20,.25)'; ctx.lineWidth = 1;
     ctx.font = '11px var(--font-isans), system-ui, sans-serif'; ctx.fillStyle = 'rgba(20,20,20,.6)'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
