@@ -6,6 +6,7 @@ import { WeeklySummary } from '@/components/WeeklySummary';
 import { isLang } from '@/lib/i18n';
 import { parseRange, parseYear } from '@/lib/range';
 import { getEvents } from '@/lib/server/ingest';
+import { getVolcanoActivity } from '@/lib/server/volcanoes';
 import type { Lang } from '@/lib/types';
 
 // El período llega por la URL (?range=…&year=…), así que la página se renderiza por pedido.
@@ -19,8 +20,11 @@ type Props = {
 
 /** El resumen de la semana se transmite aparte para no demorar el globo. */
 async function Week({ lang }: { lang: Lang }) {
-  const data = await getEvents('7d', new Date().getUTCFullYear()).catch(() => null);
-  return data ? <WeeklySummary lang={lang} data={data} /> : null;
+  const [data, volc] = await Promise.all([
+    getEvents('7d', new Date().getUTCFullYear()).catch(() => null),
+    getVolcanoActivity().catch(() => null),
+  ]);
+  return data ? <WeeklySummary lang={lang} data={data} gvpVolcanoes={volc?.volcanoes.map((v) => v.title) ?? []} /> : null;
 }
 
 /** Home: globo 2a a pantalla completa; al hacer scroll, el resumen 2b de la semana. */

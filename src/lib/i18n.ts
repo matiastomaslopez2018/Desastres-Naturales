@@ -11,7 +11,8 @@ const es = {
   close: 'Cerrar', sources: 'Fuente oficial', nearby: 'Eventos cercanos (300 km)', loadingDetail: 'Consultando incertidumbres en USGS…',
 
   // Globo 3D ("Observatorio claro")
-  headline: (n: string, when: string, m: string, place: string) => `${n} sismos sacudieron el planeta ${when}. El mayor, de magnitud ${m}, ocurrió ${/^\d/.test(place) ? 'a' : 'cerca de'} ${place}.`,
+  // "a 191 km al ENE de…", "al sureste de…" (ya es una dirección) o "cerca de <región>".
+  headline: (n: string, when: string, m: string, place: string) => `${n} sismos sacudieron el planeta ${when}. El mayor, de magnitud ${m}, ocurrió ${/^\d/.test(place) ? 'a ' : /^(al?|cerca|frente|en|sobre|bajo)\s/i.test(place) ? '' : /^regi[oó]n\s/i.test(place) ? 'en la ' : /^islas\s/i.test(place) ? 'cerca de las ' : /^isla\s/i.test(place) ? 'cerca de la ' : 'cerca de '}${place.replace(/^(regi[oó]n|islas?)\s/i, (w) => w.toLowerCase())}.`,
   hlRange: { '24h': 'en las últimas 24 horas', '7d': 'esta semana', '30d': 'en los últimos 30 días', '1y': 'en el último año', year: '' } as Record<string, string>,
   hlYear: (y: number) => `en ${y}`,
   help: 'Arrastrá para girar · rueda para acercar · tocá un evento', helpTouch: 'Pellizcá para acercar · dos dedos para inclinar · tocá un evento', loadingRelief: 'Cargando relieve…', untilHead: 'hasta el', firmsOnly24h: 'Focos de calor: solo últimas 24 h', hidePanel: 'Ocultar panel', glLost: 'El navegador liberó la memoria gráfica del mapa. Volviendo a cargarlo…', showPanel: 'Mostrar "Más relevantes"', topShort: 'Más relevantes', seeAll: (n: number) => `Ver todos (${n})`, fullMap: 'Pantalla completa: solo el globo', exitFull: 'Salir de pantalla completa', playing: 'Reproduciendo', paused: 'En pausa', playhead: 'Cabezal de la línea de tiempo',
@@ -193,7 +194,7 @@ const en: Dict = {
   close: 'Close', sources: 'Official source', nearby: 'Nearby events (300 km)', loadingDetail: 'Fetching uncertainties from USGS…',
 
   // 3D globe ("Light observatory")
-  headline: (n: string, when: string, m: string, place: string) => `${n} earthquakes shook the planet ${when}. The largest, magnitude ${m}, struck ${/^\d/.test(place) ? '' : 'near '}${place}.`,
+  headline: (n: string, when: string, m: string, place: string) => `${n} earthquakes shook the planet ${when}. The largest, magnitude ${m}, struck ${/^\d/.test(place) || /^(north|south|east|west|off|near|central)/i.test(place) ? '' : 'near '}${place}.`,
   hlRange: { '24h': 'in the last 24 hours', '7d': 'this week', '30d': 'in the last 30 days', '1y': 'in the last year', year: '' } as Record<string, string>,
   hlYear: (y: number) => `in ${y}`,
   help: 'Drag to rotate · scroll to zoom · tap an event', helpTouch: 'Pinch to zoom · two fingers to tilt · tap an event', loadingRelief: 'Loading relief…', untilHead: 'up to', firmsOnly24h: 'Fire hotspots: last 24 h only', hidePanel: 'Hide panel', glLost: 'The browser freed the map’s graphics memory. Reloading it…', showPanel: 'Show "Most relevant"', topShort: 'Most relevant', seeAll: (n: number) => `See all (${n})`, fullMap: 'Full screen: globe only', exitFull: 'Exit full screen', playing: 'Playing', paused: 'Paused', playhead: 'Timeline playhead',

@@ -14,18 +14,22 @@ const TYPES: FilterType[] = ['volcano', 'fire', 'storm', 'flood', 'drought', 'ts
  * 2b "Periodístico": el resumen de la semana debajo del globo, con titular
  * automático, mapa plano, los sismos más fuertes y conteos por tipo.
  */
-export function WeeklySummary({ lang, data }: { lang: Lang; data: EventsResponse }) {
+export function WeeklySummary({ lang, data, gvpVolcanoes = [] }: { lang: Lang; data: EventsResponse; gvpVolcanoes?: string[] }) {
   const t = T[lang];
   const nf = (x: number, d = 0) => fmtNum(lang, x, d);
-  const quakes = data.events.filter((e) => e.type === 'eq' && e.mag != null).sort((a, b) => (b.mag ?? 0) - (a.mag ?? 0));
+  // Solo el catálogo mundial (USGS), como el titular del mapa: los sismos chicos de INPRES y del CSN inflarían la cuenta "del planeta".
+  const quakes = data.events.filter((e) => e.type === 'eq' && e.mag != null && e.src !== 'INPRES' && e.src !== 'CSN').sort((a, b) => (b.mag ?? 0) - (a.mag ?? 0));
   const strongest = quakes[0];
   const activeOther = data.events.filter((e) => e.type !== 'eq' && e.src === 'NASA EONET' && !e.closed).length;
 
   const counts: Record<FilterType, number> = { eq: quakes.length, tsunami: 0, volcano: 0, fire: 0, storm: 0, flood: 0, drought: 0 };
   for (const e of data.events) {
-    if (e.type === 'eq') { if (e.tsunami) counts.tsunami++; }
+    if (e.type === 'eq') { if (e.tsunami && e.src !== 'INPRES' && e.src !== 'CSN') counts.tsunami++; }
     else counts[e.type]++;
   }
+  // Volcanes con actividad según el Smithsonian (GVP) que no estén ya entre los eventos: igual que el contador del mapa.
+  const volcNames = data.events.filter((e) => e.type === 'volcano').map((e) => e.title.toLowerCase());
+  counts.volcano += new Set(gvpVolcanoes.filter((v) => !volcNames.some((n) => n.includes(v.toLowerCase())))).size;
   const maxType = Math.max(1, ...TYPES.map((k) => counts[k]));
 
   const where = (e: DisasterEvent) => {
