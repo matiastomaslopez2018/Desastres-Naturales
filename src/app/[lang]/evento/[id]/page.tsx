@@ -32,7 +32,9 @@ import { GuideCard } from '@/components/guides/GuideCard';
 import { hazardsOf } from '@/lib/guides';
 import { guideLinks } from '@/lib/guideLinks';
 
-export const dynamic = 'force-dynamic';
+// Se genera una vez y queda guardada; se regenera en segundo plano cada hora (ISR), sin ejecutar el servidor en cada visita.
+export const dynamic = 'force-static';
+export const revalidate = 3600;
 // Si el evento no está en la base, se consulta a la fuente en el momento.
 export const maxDuration = 60;
 

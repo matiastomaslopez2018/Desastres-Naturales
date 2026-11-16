@@ -3,7 +3,9 @@ import { pageLang } from '@/components/landing/Landing';
 import { LearnArticle, learnMeta, learnSlugs } from '@/components/landing/Learn';
 import { notFound } from 'next/navigation';
 
-export const dynamic = 'force-dynamic';
+// Se genera una vez y queda guardada; se regenera en segundo plano una vez por día (ISR), sin ejecutar el servidor en cada visita.
+export const dynamic = 'force-static';
+export const revalidate = 86400;
 export const maxDuration = 60;
 
 type Props = { params: Promise<{ lang: string; slug: string }> };

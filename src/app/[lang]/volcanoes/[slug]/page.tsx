@@ -2,7 +2,9 @@
 import { pageLang, VolcanoPage, volcanoMeta } from '@/components/landing/Landing';
 import { notFound } from 'next/navigation';
 
-export const dynamic = 'force-dynamic';
+// Se genera una vez y queda guardada; se regenera en segundo plano cada hora (ISR), sin ejecutar el servidor en cada visita.
+export const dynamic = 'force-static';
+export const revalidate = 3600;
 export const maxDuration = 60;
 
 type Props = { params: Promise<{ lang: string; slug: string }> };

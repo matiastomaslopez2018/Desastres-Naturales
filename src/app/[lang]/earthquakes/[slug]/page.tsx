@@ -2,7 +2,9 @@
 import { pageLang, QuakesIn, quakesInMeta, quakeSlugs } from '@/components/landing/Landing';
 import { notFound } from 'next/navigation';
 
-export const dynamic = 'force-dynamic';
+// Se genera una vez y queda guardada; se regenera en segundo plano cada 5 minutos (ISR), sin ejecutar el servidor en cada visita.
+export const dynamic = 'force-static';
+export const revalidate = 300;
 export const maxDuration = 60;
 
 type Props = { params: Promise<{ lang: string; slug: string }> };

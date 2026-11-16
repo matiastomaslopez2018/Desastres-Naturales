@@ -11,6 +11,12 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       { source: "/data/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" }] },
+      // Páginas que leen la URL (período, filtros): la red de Vercel guarda cada combinación 2 minutos y la sirve vieja hasta
+      // una hora mientras la renueva, así el servidor no se ejecuta en cada visita ni con cada robot. Imágenes para redes: un día.
+      ...["/:lang(es|en)", "/:lang(es|en)/pais/:iso", "/:lang(es|en)/ranking", "/embed"].map((source) => ({
+        source, headers: [{ key: "Vercel-CDN-Cache-Control", value: "max-age=120, stale-while-revalidate=3600" }],
+      })),
+      { source: "/:path*/opengraph-image-:hash", headers: [{ key: "Vercel-CDN-Cache-Control", value: "max-age=86400, stale-while-revalidate=604800" }] },
       // El service worker se revisa siempre, para que las versiones nuevas lleguen enseguida.
       { source: "/sw.js", headers: [{ key: "Cache-Control", value: "no-cache" }, { key: "Content-Type", value: "application/javascript; charset=utf-8" }] },
     ];

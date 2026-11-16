@@ -7,7 +7,9 @@ import { INTERPRETATIONS, METHOD_GROUPS } from '@/lib/methodSources';
 import { lastRuns } from '@/lib/server/db';
 import type { SourceKey } from '@/lib/types';
 
-export const dynamic = 'force-dynamic';
+// Se genera una vez y queda guardada; se regenera en segundo plano una vez por día (ISR), sin ejecutar el servidor en cada visita.
+export const dynamic = 'force-static';
+export const revalidate = 86400;
 
 type Props = { params: Promise<{ lang: string }> };
 

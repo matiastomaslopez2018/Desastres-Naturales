@@ -75,6 +75,8 @@ export async function sendWelcome(sub: PushRow) {
 export async function dispatchPush(given?: LiveAlert[]) {
   const last = await kvGet<number>('push:lastRun').catch(() => null);
   if (last && Date.now() - last.value < 50_000) return { skipped: 'recent' as const };
+  // Sin suscriptores no hay a quién avisar: se evita pedir los avisos a todas las fuentes (la tarea corre cada 5 minutos).
+  if (!given && !(await allPushSubs()).length) return { skipped: 'no-subs' as const };
   if (!(await tryLock('push:lock', 55_000))) return { skipped: 'locked' as const };
   try {
     await kvSet('push:lastRun', Date.now());
